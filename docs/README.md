@@ -13,6 +13,7 @@ changing status, dates, or priorities.
 | MCP tools, scope, transport, and deployment contract | [MCP_CONTRACT.md](MCP_CONTRACT.md) |
 | Devpost readiness and participant-owned blockers | [DEVPOST_CHECKLIST.md](DEVPOST_CHECKLIST.md) |
 | Cost assumptions and spending controls | [COST_SAFETY.md](COST_SAFETY.md) |
+| CockroachDB Cloud/AWS provisioning, proof, and teardown procedure | [CLOUD_DEPLOYMENT_RUNBOOK.md](CLOUD_DEPLOYMENT_RUNBOOK.md) |
 | Prior-work and hackathon-work provenance | [PRIOR_WORK.md](PRIOR_WORK.md) |
 
 ## Maintenance rules
@@ -26,3 +27,6 @@ changing status, dates, or priorities.
 5. Every completed checklist item must point to repository or deployment
    evidence. Participant attestations stay unchecked until the participant
    completes them.
+6. Keep commands and operator-owned cloud steps in
+   `CLOUD_DEPLOYMENT_RUNBOOK.md`; status and price documents should link to it
+   instead of copying the procedure.

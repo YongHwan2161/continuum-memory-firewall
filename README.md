@@ -5,14 +5,14 @@ memory promotion in long-running AI agents. It separates untrusted candidate
 memories from canonical memory and makes every promotion decision explicit,
 deterministic, and transactionally durable.
 
-The current milestone is **P2A: local retrieval and MCP contract**. In addition
-to the transactional promotion boundary, accepted memory can be embedded,
-retrieved through a tenant-and-incident-scoped CockroachDB vector query, audited,
-and exposed through read-only MCP `search` and `fetch` tools. CI exercises the
-database path against a disposable CockroachDB instance and validates the MCP
-protocol in memory. A live CockroachDB Cloud deployment, CockroachDB Managed MCP
-integration, AWS deployment, and external side-effect execution remain planned
-work.
+The current milestone is **P2B: managed-cloud deployment readiness**. In
+addition to the transactional promotion and retrieval boundary, the repository
+now packages a private, cost-bounded AWS Lambda client for CockroachDB Cloud
+Managed MCP and defines minimum-IAM, budget, concurrency, and log-retention
+infrastructure. CI exercises the local database/MCP contracts and builds the
+Python 3.12 Lambda artifact. Live CockroachDB Cloud and AWS resources still
+require participant-owned accounts, credentials, approval, and smoke-test
+evidence; deployment-ready code is not described as a live deployment.
 
 For the authoritative project state and evidence, see
 [Project Status](docs/PROJECT_STATUS.md). For implementation order and exit
@@ -50,7 +50,10 @@ of truth for whether the promotion and action claim committed.
 - `src/continuum/store.py` — CockroachDB transaction and retry boundary
 - `src/continuum/retrieval.py` — embedding persistence, scoped vector search, and retrieval audit
 - `src/continuum/mcp_server.py` — read-only standard MCP `search`/`fetch` surface
+- `src/continuum/aws_mcp_worker.py` — private read-only Managed MCP Lambda client
 - `db/schema.sql` — durable authority, audit, action, and retrieval schema
+- `infra/aws/` — cost-bounded CloudFormation and Lambda dependency manifest
+- `scripts/` — dry-by-default CockroachDB/AWS preflight, packaging, and deployment
 - `tests/` — policy, retry, promotion, replay, retrieval, MCP, and concurrency tests
 - `docs/` — SSOT documents for status, roadmap, architecture, submission, and cost
 
@@ -79,6 +82,12 @@ Validate the MCP protocol contract:
 ```bash
 python -m pip install -e ".[mcp]"
 make mcp-test
+```
+
+Build and verify the Linux/Python 3.12 Lambda package without deploying:
+
+```bash
+make cloud-package
 ```
 
 Run the tool-only MCP server at `/mcp` after applying `db/schema.sql` and
@@ -124,6 +133,7 @@ production remediation systems.
 - [MCP Contract](docs/MCP_CONTRACT.md) — tool schema, scope, transport, and deployment boundary
 - [Devpost Checklist](docs/DEVPOST_CHECKLIST.md) — submission readiness SSOT
 - [Cost Safety](docs/COST_SAFETY.md) — spending assumptions and guardrails
+- [Cloud Deployment Runbook](docs/CLOUD_DEPLOYMENT_RUNBOOK.md) — participant-owned setup, guarded deployment, proof, and teardown
 - [Prior Work](docs/PRIOR_WORK.md) — project provenance and new-work boundary
 
 ## License

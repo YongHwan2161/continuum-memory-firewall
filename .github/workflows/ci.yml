@@ -34,6 +34,25 @@ jobs:
       - name: Validate MCP tool contract in memory
         run: make mcp-test
 
+  cloud-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate AWS template and deployment scripts
+        run: |
+          for template in infra/aws/*.json; do
+            python -m json.tool "$template" >/dev/null
+          done
+          bash -n scripts/*.sh
+      - name: Build the Lambda manylinux package
+        run: |
+          ./scripts/build_lambda_package.sh
+          unzip -t build/aws/continuum-managed-mcp-worker.zip
+
   cockroach-integration:
     runs-on: ubuntu-latest
     timeout-minutes: 10

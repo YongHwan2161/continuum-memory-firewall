@@ -1,4 +1,4 @@
-.PHONY: test integration mcp-test
+.PHONY: test integration mcp-test cloud-package
 
 test:
 	PYTHONPATH=src python -m unittest discover -s tests -v
@@ -10,3 +10,7 @@ integration:
 
 mcp-test:
 	PYTHONPATH=src python -m unittest tests.test_mcp_server -v
+
+cloud-package:
+	./scripts/build_lambda_package.sh
+	unzip -t build/aws/continuum-managed-mcp-worker.zip
