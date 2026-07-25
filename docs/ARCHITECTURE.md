@@ -35,9 +35,9 @@ idempotent action claim
 - **Action claim** selects one database winner for an idempotency key. It is not
   proof that an external provider performed the effect.
 
-## Implemented P1 boundary
+## Implemented P2A boundary
 
-The P1 repository implements:
+The repository implements:
 
 ```text
 Python policy kernel
@@ -49,11 +49,17 @@ Python policy kernel
        - canonical insertion or rejection audit
        - serialization retry
     -> action_attempts unique-key claim
+    -> accepted payload embedding
+    -> tenant + incident prefix vector query
+    -> retrieval_audit
+    -> read-only MCP search/fetch
 ```
 
 The test environment launches an ephemeral CockroachDB node, applies
 `db/schema.sql`, and exercises promotion, replay, rejection, and concurrent
-claims. This is executable database evidence, but not a managed-cloud deployment.
+claims plus vector persistence, retrieval audit, and cross-tenant exclusion. The
+MCP protocol is tested with an in-memory client/server transport. This is
+executable evidence, but not a managed-cloud or public MCP deployment.
 
 ## Target cloud boundary
 
@@ -61,7 +67,7 @@ The planned competition vertical slice is:
 
 ```text
 Reviewer UI / agent
-    -> Managed MCP tool
+    -> authenticated repository MCP service
        -> promotion and retrieval service
           -> CockroachDB Cloud
              - candidate and canonical authority
@@ -70,10 +76,13 @@ Reviewer UI / agent
           -> transactional outbox
              -> optional AWS worker / model service
              -> provider acknowledgement and reconciliation
+    -> CockroachDB Cloud Managed MCP
+       -> operational database evidence for the agent/reviewer
 ```
 
-This diagram is a target design. Managed MCP, CockroachDB Cloud, vector query
-execution, and AWS are not implemented merely because they appear here.
+This diagram is a target design. CockroachDB Cloud, Cloud Managed MCP, and AWS
+are not implemented merely because they appear here. Vector query execution is
+implemented only against the disposable integration environment.
 
 ## Component ownership
 
@@ -82,7 +91,8 @@ execution, and AWS are not implemented merely because they appear here.
 | Policy kernel | eligibility rules and deterministic decision reason | transaction outcome or external side effects |
 | Store transaction | row locking, persistence, replay, conflict retry | changing policy meaning |
 | CockroachDB | durable accepted state, uniqueness, audit, concurrent winner | interpreting untrusted prose |
-| MCP boundary | authenticated, least-privilege tool contract | database credentials in client code |
+| Repository MCP boundary | authenticated, least-privilege `search`/`fetch` contract | database credentials or caller-selected tenant scope |
+| CockroachDB Managed MCP | managed operational database tools for the competition agent | replacing application retrieval authorization |
 | Retrieval service | tenant filter, embedding query, retrieval audit | promotion of untrusted candidates |
 | Outbox worker | delivery attempts, leases, acknowledgement, reconciliation | rewriting canonical memory |
 | Reviewer console | understandable evidence and scenario control | secret material or unverified production claims |

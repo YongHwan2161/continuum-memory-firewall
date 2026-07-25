@@ -10,6 +10,7 @@ changing status, dates, or priorities.
 | Milestones, priorities, and exit criteria | [ROADMAP.md](ROADMAP.md) |
 | Trust boundaries and component responsibilities | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | Promotion, replay, and retry semantics | [TRANSACTION_MODEL.md](TRANSACTION_MODEL.md) |
+| MCP tools, scope, transport, and deployment contract | [MCP_CONTRACT.md](MCP_CONTRACT.md) |
 | Devpost readiness and participant-owned blockers | [DEVPOST_CHECKLIST.md](DEVPOST_CHECKLIST.md) |
 | Cost assumptions and spending controls | [COST_SAFETY.md](COST_SAFETY.md) |
 | Prior-work and hackathon-work provenance | [PRIOR_WORK.md](PRIOR_WORK.md) |

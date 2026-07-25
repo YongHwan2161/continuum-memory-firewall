@@ -28,3 +28,15 @@ where = ["src"]
 cockroach = [
   "psycopg[binary]>=3.2,<4"
 ]
+mcp = [
+  "mcp>=1.27,<2",
+  "pydantic>=2.11,<3"
+]
+dev = [
+  "mcp>=1.27,<2",
+  "pydantic>=2.11,<3",
+  "psycopg[binary]>=3.2,<4"
+]
+
+[project.scripts]
+continuum-mcp = "continuum.mcp_server:main"

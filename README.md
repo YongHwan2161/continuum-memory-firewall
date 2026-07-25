@@ -5,11 +5,13 @@ memory promotion in long-running AI agents. It separates untrusted candidate
 memories from canonical memory and makes every promotion decision explicit,
 deterministic, and transactionally durable.
 
-The current milestone is **P1: transactional authority**. The policy kernel,
-CockroachDB-backed promotion transaction, idempotent replay, and concurrent
-action-claim behavior are implemented and exercised in CI against a disposable
-CockroachDB instance. A live CockroachDB Cloud deployment, Managed MCP
-integration, vector retrieval, and external side-effect execution remain planned
+The current milestone is **P2A: local retrieval and MCP contract**. In addition
+to the transactional promotion boundary, accepted memory can be embedded,
+retrieved through a tenant-and-incident-scoped CockroachDB vector query, audited,
+and exposed through read-only MCP `search` and `fetch` tools. CI exercises the
+database path against a disposable CockroachDB instance and validates the MCP
+protocol in memory. A live CockroachDB Cloud deployment, CockroachDB Managed MCP
+integration, AWS deployment, and external side-effect execution remain planned
 work.
 
 For the authoritative project state and evidence, see
@@ -34,6 +36,8 @@ untrusted input
     -> deterministic policy decision
     -> CockroachDB promotion transaction
     -> canonical memory + audit event
+    -> scoped vector retrieval + retrieval audit
+    -> read-only MCP search/fetch
     -> idempotent action claim
 ```
 
@@ -44,8 +48,10 @@ of truth for whether the promotion and action claim committed.
 
 - `src/continuum/memory.py` — deterministic candidate policy kernel
 - `src/continuum/store.py` — CockroachDB transaction and retry boundary
+- `src/continuum/retrieval.py` — embedding persistence, scoped vector search, and retrieval audit
+- `src/continuum/mcp_server.py` — read-only standard MCP `search`/`fetch` surface
 - `db/schema.sql` — durable authority, audit, action, and retrieval schema
-- `tests/` — policy, retry, promotion, replay, and concurrency tests
+- `tests/` — policy, retry, promotion, replay, retrieval, MCP, and concurrency tests
 - `docs/` — SSOT documents for status, roadmap, architecture, submission, and cost
 
 The complete documentation ownership map is in
@@ -68,8 +74,29 @@ export CONTINUUM_DATABASE_URL='postgresql://...'
 make integration
 ```
 
-The GitHub Actions workflow starts an ephemeral CockroachDB node and runs both
-test suites. The integration path does not require a paid cloud account.
+Validate the MCP protocol contract:
+
+```bash
+python -m pip install -e ".[mcp]"
+make mcp-test
+```
+
+Run the tool-only MCP server at `/mcp` after applying `db/schema.sql` and
+seeding accepted memory:
+
+```bash
+export CONTINUUM_DATABASE_URL='postgresql://...?...&sslmode=verify-full'
+export CONTINUUM_TENANT_ID='00000000-0000-0000-0000-000000000000'
+export CONTINUUM_INCIDENT_ID='00000000-0000-0000-0000-000000000000'
+export CONTINUUM_PUBLIC_BASE_URL='https://your-public-memory-view.example/'
+continuum-mcp
+```
+
+The GitHub Actions workflow starts an ephemeral CockroachDB node and runs the
+unit, MCP-contract, and database-integration suites. This verification path does
+not require a paid cloud account. The deterministic hashing embedder proves
+storage, filtering, ranking, and audit semantics; it is not presented as a
+production semantic embedding model.
 
 ## Public proof console
 
@@ -94,6 +121,7 @@ production remediation systems.
 - [Roadmap](docs/ROADMAP.md) — implementation priority and acceptance gates SSOT
 - [Architecture](docs/ARCHITECTURE.md) — trust boundaries and component ownership
 - [Transaction Model](docs/TRANSACTION_MODEL.md) — transaction and retry semantics
+- [MCP Contract](docs/MCP_CONTRACT.md) — tool schema, scope, transport, and deployment boundary
 - [Devpost Checklist](docs/DEVPOST_CHECKLIST.md) — submission readiness SSOT
 - [Cost Safety](docs/COST_SAFETY.md) — spending assumptions and guardrails
 - [Prior Work](docs/PRIOR_WORK.md) — project provenance and new-work boundary
