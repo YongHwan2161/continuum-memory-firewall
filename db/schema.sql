@@ -45,12 +45,13 @@ CREATE TABLE IF NOT EXISTS canonical_memories (
     embedding VECTOR(512),
     accepted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (incident_id, sequence_no),
-    UNIQUE (event_hash)
+    UNIQUE (event_hash),
+    UNIQUE (source_candidate_id)
 );
 
 -- Create once after vector indexes are enabled for the cluster. Defining the
 -- index before loading data avoids a write-blocking backfill on a live table.
-CREATE VECTOR INDEX canonical_memories_embedding_idx
+CREATE VECTOR INDEX IF NOT EXISTS canonical_memories_embedding_idx
     ON canonical_memories
     (tenant_id, incident_id, embedding vector_cosine_ops);
 

@@ -52,7 +52,7 @@ The model proposes; it does not grant trust.
 The cost-safe reference path avoids EKS, NAT Gateway, provisioned model
 throughput, and paid CockroachDB tiers.
 
-## Current milestone: P0 foundation
+## Current milestone: P1 transactional authority
 
 Implemented:
 
@@ -60,7 +60,11 @@ Implemented:
 - explicit rejection codes
 - canonical event hashing
 - stale-parent, cross-tenant, expiry, provenance, and approval policies
-- CockroachDB schema draft with relational and vector memory
+- CockroachDB schema with relational and vector memory
+- SERIALIZABLE candidate promotion with SQLSTATE `40001` retries
+- idempotent candidate replay and one-canonical-row enforcement
+- transactional duplicate action-claim prevention
+- optional live CockroachDB integration tests
 - CI and local unit tests
 - prior-work and cost-safety disclosures
 
@@ -80,7 +84,18 @@ Requires Python 3.11 or newer.
 make test
 ```
 
-No cloud account, API key, or paid service is required for the P0 tests.
+No cloud account, API key, or paid service is required for the policy and retry
+tests.
+
+To verify the transaction path against a disposable CockroachDB cluster:
+
+```bash
+python -m pip install -e '.[cockroach]'
+export CONTINUUM_DATABASE_URL='postgresql://...'
+make integration
+```
+
+Do not commit the database URL. It commonly contains credentials.
 
 ## Repository map
 
@@ -89,6 +104,7 @@ src/continuum/          deterministic policy kernel
 tests/                  executable invariants
 db/schema.sql           CockroachDB schema draft
 docs/ARCHITECTURE.md    trust and authority boundaries
+docs/TRANSACTION_MODEL.md durable promotion and action-claim semantics
 docs/COST_SAFETY.md     zero-to-low-cost deployment constraints
 docs/PRIOR_WORK.md      pre-existing work disclosure
 docs/DEVPOST_CHECKLIST.md submission requirements and evidence

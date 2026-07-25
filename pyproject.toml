@@ -23,3 +23,8 @@ classifiers = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[project.optional-dependencies]
+cockroach = [
+  "psycopg[binary]>=3.2,<4"
+]

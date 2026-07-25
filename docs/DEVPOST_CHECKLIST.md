@@ -36,10 +36,11 @@ Internal deadline: 2026-08-18 21:00 Korea Standard Time.
 ## Technical evidence
 
 - [x] Deterministic P0 policy tests
-- [ ] Live CockroachDB schema migration test
+- [x] CockroachDB v26.2.3 disposable-node schema migration test
+- [x] SERIALIZABLE candidate promotion and idempotent replay test
 - [ ] Vector query plan evidence
 - [ ] Worker-kill and resume test
-- [ ] Conflicting-worker test
+- [x] Conflicting-worker action-claim test
 - [ ] Memory-poisoning evaluation
 - [ ] Cost report
 - [ ] Dependency and secret scan
