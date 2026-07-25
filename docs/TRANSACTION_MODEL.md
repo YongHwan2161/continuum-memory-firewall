@@ -1,5 +1,9 @@
 # Transaction model
 
+This document is authoritative for promotion, replay, and retry semantics.
+Current implementation state and future priorities live in
+[PROJECT_STATUS.md](PROJECT_STATUS.md) and [ROADMAP.md](ROADMAP.md).
+
 Continuum separates deterministic policy from durable authority.
 
 ## Candidate promotion
@@ -34,6 +38,11 @@ This is **duplicate claim prevention**, not a claim of exactly-once external
 effects. An external remediation API needs its own idempotency key or an outbox
 and acknowledgement protocol to close the crash window between the external
 effect and the database status update.
+
+A production delivery path also needs a renewable worker lease, attempt count,
+retry schedule with jitter, acknowledgement evidence, and reconciliation for an
+ambiguous provider response. Those requirements are tracked in
+[ROADMAP.md](ROADMAP.md).
 
 ## Failure semantics
 

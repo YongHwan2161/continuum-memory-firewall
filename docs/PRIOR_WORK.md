@@ -1,25 +1,38 @@
-# Pre-existing work disclosure
+# Prior work and hackathon work boundary
 
-Continuum is a new project for the CockroachDB × AWS Hackathon.
+This document records provenance so reviewers can distinguish pre-existing
+concepts from implementation produced for this project.
 
-The project concept is informed by MortalOS, an earlier project that explores
-deterministic state lineage, authorized custody handoff, replay rejection, and
-evidence-first validation. No MortalOS source file has been copied into this
-repository at the P0 foundation milestone.
+## Pre-existing material
 
-If code is imported later, this document will list:
+Before the current repository work, the project existed as:
 
-- the source repository and license
-- exact source commit
-- exact copied or adapted files
-- date of incorporation
-- changes made for Continuum
+- a problem framing for durable memory safety in long-running agents;
+- an architecture concept separating candidate and canonical memory;
+- planning notes about CockroachDB, optional AWS integration, cost, and
+  submission strategy.
 
-The following are newly authored for Continuum:
+Those concepts informed the repository but were not themselves a working
+transactional implementation.
 
-- agent-memory candidate and canonical state model
-- incident-response use case
-- CockroachDB relational and vector schema
-- AWS cost-safe architecture
-- memory acceptance policy and tests
-- Devpost submission and evaluation plan
+## New repository work
+
+The repository now contains the P1 transactional-authority implementation:
+
+- deterministic promotion policy in `src/continuum/memory.py`;
+- CockroachDB transaction, replay, and retry logic in
+  `src/continuum/store.py`;
+- durable schema and vector-index DDL in `db/schema.sql`;
+- unit and real CockroachDB integration tests in `tests/`;
+- GitHub Actions verification for the unit and integration paths;
+- public proof-console deployment for reviewer-oriented policy scenarios;
+- SSOT documentation for status, roadmap, architecture, transaction semantics,
+  cost safety, and submission readiness.
+
+## Honest attribution rule
+
+Final submission language should describe the earlier work as problem discovery
+and architecture exploration, and the repository implementation as the new
+engineering artifact. Any future cloud deployment, MCP endpoint, retrieval
+evaluation, or AWS integration must be added to this list only after its code and
+verification evidence exist.

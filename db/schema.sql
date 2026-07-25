@@ -1,5 +1,5 @@
--- Continuum P0 CockroachDB schema draft.
--- Apply to a disposable CockroachDB Cloud Basic development cluster.
+-- Continuum P1 transactional-authority schema.
+-- CI applies this schema to a disposable CockroachDB node. Cloud deployment is planned.
 
 CREATE TABLE IF NOT EXISTS incidents (
     incident_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

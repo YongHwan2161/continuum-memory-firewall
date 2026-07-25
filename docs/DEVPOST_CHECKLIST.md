@@ -1,46 +1,51 @@
 # Devpost submission checklist
 
-Official deadline: 2026-08-18 17:00 Eastern Time
-(2026-08-19 06:00 Korea Standard Time).
+This document is the single source of truth for submission readiness. Check an
+item only when its evidence exists and is linked. The participant must personally
+complete attestations and organizer agreements.
 
-Internal deadline: 2026-08-18 21:00 Korea Standard Time.
+## Participation
 
-## Eligibility and registration
+- [ ] Hackathon registration completed by the participant
+- [ ] Required participant eligibility and organizer agreements confirmed
+- [ ] Submission deadline and judging requirements rechecked on the live event page
 
-- [ ] Register for the hackathon
-- [ ] Confirm team composition
-- [ ] Confirm entrant type and country
-- [ ] Accept official rules, eligibility, and Devpost terms
+## Repository and provenance
 
-## Required build
+- [x] Public open-source repository:
+      <https://github.com/YongHwan2161/continuum-memory-firewall>
+- [x] Apache-2.0 license included
+- [x] Prior-work/new-work boundary documented in
+      [PRIOR_WORK.md](PRIOR_WORK.md)
+- [x] Local unit and disposable CockroachDB integration instructions included in
+      the root README
+- [ ] Live cloud setup and teardown instructions completed
 
-- [ ] Agentic application uses CockroachDB as persistent memory
-- [ ] Deployed on AWS
-- [ ] Uses at least two qualifying CockroachDB tools
-- [ ] Managed MCP Server is used meaningfully
-- [ ] Distributed Vector Indexing is used meaningfully
-- [ ] Uses at least one AWS service meaningfully
+## Working product evidence
 
-## Required submission evidence
+- [x] Public interactive proof console:
+      <https://continuum-memory-firewall.ant713800.chatgpt.site>
+- [x] Proof console explicitly labelled as a simulation rather than a live cloud claim
+- [x] CockroachDB transaction integration tests run in GitHub Actions
+- [ ] Functional cloud-backed application demo URL
+- [ ] Live CockroachDB Cloud promotion and vector retrieval evidence
+- [ ] Managed MCP tool endpoint and reproducible smoke test
+- [ ] External action delivery/reconciliation evidence, if included in the final claim
 
-- [ ] Public open-source GitHub repository
-- [x] Open-source license file
-- [ ] Complete setup and run instructions
-- [ ] Functional demo URL
-- [ ] Public video under three minutes
-- [ ] CockroachDB tool use explained
-- [ ] AWS service use explained
-- [x] Pre-existing work disclosure started
-- [ ] Architecture diagram
+## Submission materials
 
-## Technical evidence
+- [ ] Architecture diagram distinguishing implemented and planned components
+- [ ] Two-to-three minute demo video
+- [ ] Screenshots or GIFs for promotion, rejection, replay, and retrieval
+- [ ] Problem, approach, architecture, and technical challenge narrative
+- [ ] Measured results for policy, idempotency, retrieval, and recovery claims
+- [ ] Final list of technologies limited to technologies actually used
+- [ ] Repository, demo, video, and documentation links tested in a logged-out browser
 
-- [x] Deterministic P0 policy tests
-- [x] CockroachDB v26.2.3 disposable-node schema migration test
-- [x] SERIALIZABLE candidate promotion and idempotent replay test
-- [ ] Vector query plan evidence
-- [ ] Worker-kill and resume test
-- [x] Conflicting-worker action-claim test
-- [ ] Memory-poisoning evaluation
-- [ ] Cost report
-- [ ] Dependency and secret scan
+## Final integrity review
+
+- [ ] `PROJECT_STATUS.md` matches the final deployed state
+- [ ] No secret, token, connection string, or personal credential is committed
+- [ ] No planned component is described as implemented
+- [ ] Pricing, credit, and organizer-support claims are rechecked against current official sources
+- [ ] Participant performs final submission and retains confirmation evidence

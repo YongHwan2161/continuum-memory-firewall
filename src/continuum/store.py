@@ -418,7 +418,7 @@ class CockroachMemoryStore:
 
 
 def psycopg_connection_factory(database_url: str) -> ConnectionFactory:
-    """Create a lazy psycopg connection factory without importing it at P0."""
+    """Create the optional psycopg connection factory for P1 integration."""
 
     if not database_url:
         raise ValueError("database_url must not be empty")
