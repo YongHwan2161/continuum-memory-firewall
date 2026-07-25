@@ -1,6 +1,6 @@
 """Deterministic acceptance boundary for persistent agent memory.
 
-This P0 module intentionally performs no model calls and no database writes.
+This policy module intentionally performs no model calls and no database writes.
 It turns a candidate and an explicit policy into a stable decision and, on
 acceptance, an immutable event hash.
 """
@@ -94,9 +94,9 @@ def _utc(value: datetime) -> datetime:
 
 
 def _canonical_bytes(value: Mapping[str, Any]) -> bytes:
-    """Return stable UTF-8 JSON bytes for the bounded P0 data model.
+    """Return stable UTF-8 JSON bytes for the bounded policy data model.
 
-    This is deterministic JSON for the testable P0 kernel. It is not yet
+    This is deterministic JSON for the testable policy kernel. It is not yet
     presented as a complete RFC 8785 implementation.
     """
 

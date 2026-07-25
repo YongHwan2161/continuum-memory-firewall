@@ -1,8 +1,12 @@
 # Cost safety
 
-The hackathon provides links to standard free tiers. It does not currently
-promise participant-specific AWS or CockroachDB credits. The entrant is
-responsible for usage beyond free-tier limits.
+**Planning assumptions last reviewed:** 2026-07-25
+
+This document is the authoritative source for spending assumptions and controls.
+Provider prices, free tiers, hackathon credits, and eligibility can change. The
+repository currently contains no written evidence of organizer-provided credits,
+so the safe operating assumption is **no sponsored credit until the organizer or
+provider confirms it in writing**.
 
 ## Hard constraints
 
@@ -26,8 +30,16 @@ responsible for usage beyond free-tier limits.
 - remove or suspend resources after the judging period
 - export schema and evidence before any free trial expires
 
-## Target
+## Planning target
 
-The target out-of-pocket cost for new eligible accounts is USD 0. For an
-existing AWS account without promotional credit, the working ceiling is USD 30.
-This is a planning target, not a promise of provider pricing.
+The desired out-of-pocket cost is USD 0. If optional AWS work is approved without
+promotional credit, use USD 30 as a project budget ceiling and stop before
+crossing it. These are internal planning limits, not statements of current
+provider pricing or guaranteed free-tier eligibility.
+
+Before provisioning any managed service:
+
+1. verify current terms on the official provider page;
+2. record the account's actual credit and free-tier status;
+3. set alerts and service-level limits before the first workload;
+4. document teardown ownership and date.

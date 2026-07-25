@@ -1,57 +1,113 @@
-# Architecture and authority boundaries
+# Architecture and trust boundaries
 
-## Problem statement
-
-Persistent agent memory can preserve useful experience, but it can also preserve
-stale, poisoned, cross-tenant, or conflicting information. Retrieval relevance
-alone is insufficient for high-impact actions.
-
-Continuum separates memory into four states:
-
-1. **Observation** — untrusted input from a user, tool, model, or environment.
-2. **Candidate** — a structured memory proposal stored for evaluation.
-3. **Canonical** — a candidate accepted under an explicit policy and parent.
-4. **Quarantined** — a rejected candidate retained as evidence.
+This document is authoritative for component responsibility and trust
+boundaries. Current implementation state belongs in
+[PROJECT_STATUS.md](PROJECT_STATUS.md); implementation order belongs in
+[ROADMAP.md](ROADMAP.md).
 
 ## Authority model
 
-| Component | May propose | May persist candidates | May accept canonical memory | May execute destructive actions |
-|---|---:|---:|---:|---:|
-| Bedrock model | Yes | Through bounded tools | No | No |
-| MCP-connected agent | Yes | Yes | No | No |
-| Continuum kernel | No | No | Yes | No |
-| Human approver | Yes | Yes | Through policy | Yes |
-| CockroachDB | No | Yes | Stores result | No |
+Continuum distinguishes observations from durable authority:
 
-The database provides persistence, transactions, constraints, and search. It
-does not decide semantic validity. The model generates candidates. It does not
-grant authority.
+```text
+untrusted source
+    |
+    v
+candidate_memories
+    |
+    | deterministic policy evaluation
+    v
+promotion transaction
+    +--> canonical_memories
+    +--> candidate decision metadata
+    |
+    v
+idempotent action claim
+```
 
-## Intended P1 flow
+- **Candidate memory** is untrusted input. Its existence does not authorize
+  retrieval or an external action.
+- **Policy decision** is deterministic application logic. It explains whether a
+  candidate is eligible for promotion.
+- **CockroachDB transaction** is the durable authority boundary. It decides
+  which concurrent attempt commits.
+- **Canonical memory** is accepted state scoped to a tenant and incident.
+- **Action claim** selects one database winner for an idempotency key. It is not
+  proof that an external provider performed the effect.
 
-1. CloudWatch or a synthetic source emits an incident observation.
-2. A Lambda worker retrieves bounded canonical context through CockroachDB MCP.
-3. Distributed vector search returns similar incidents and runbooks within the
-   same tenant and incident scope.
-4. Bedrock proposes an observation or action as candidate memory.
-5. The deterministic kernel validates scope, parent, provenance, expiry,
-   approval, and resource ceilings.
-6. Accepted candidates become immutable canonical events.
-7. A unique `(incident_id, sequence_no)` constraint prevents two workers from
-   committing the same transition position.
-8. Rejected candidates remain queryable as evidence but cannot drive actions.
+## Implemented P1 boundary
 
-## Failure demonstrations
+The P1 repository implements:
 
-- terminate a worker after candidate creation but before acceptance
-- resume with a new worker from the current canonical head
-- submit two conflicting actions against the same expected head
-- insert a semantically relevant but untrusted memory
-- replay an accepted candidate
-- attempt cross-tenant retrieval or promotion
+```text
+Python policy kernel
+    -> CockroachMemoryStore
+    -> PostgreSQL wire protocol
+    -> CockroachDB transaction
+       - candidate row lock
+       - policy decision
+       - canonical insertion or rejection audit
+       - serialization retry
+    -> action_attempts unique-key claim
+```
 
-## Honest non-claims
+The test environment launches an ephemeral CockroachDB node, applies
+`db/schema.sql`, and exercises promotion, replay, rejection, and concurrent
+claims. This is executable database evidence, but not a managed-cloud deployment.
 
-P0 is a local policy kernel and schema proposal. It is not yet a deployed
-distributed system, a certified memory-poisoning defense, or proof of
-multi-region survival.
+## Target cloud boundary
+
+The planned competition vertical slice is:
+
+```text
+Reviewer UI / agent
+    -> Managed MCP tool
+       -> promotion and retrieval service
+          -> CockroachDB Cloud
+             - candidate and canonical authority
+             - vector storage and tenant-scoped retrieval
+             - decision and retrieval audit
+          -> transactional outbox
+             -> optional AWS worker / model service
+             -> provider acknowledgement and reconciliation
+```
+
+This diagram is a target design. Managed MCP, CockroachDB Cloud, vector query
+execution, and AWS are not implemented merely because they appear here.
+
+## Component ownership
+
+| Component | Owns | Must not own |
+|---|---|---|
+| Policy kernel | eligibility rules and deterministic decision reason | transaction outcome or external side effects |
+| Store transaction | row locking, persistence, replay, conflict retry | changing policy meaning |
+| CockroachDB | durable accepted state, uniqueness, audit, concurrent winner | interpreting untrusted prose |
+| MCP boundary | authenticated, least-privilege tool contract | database credentials in client code |
+| Retrieval service | tenant filter, embedding query, retrieval audit | promotion of untrusted candidates |
+| Outbox worker | delivery attempts, leases, acknowledgement, reconciliation | rewriting canonical memory |
+| Reviewer console | understandable evidence and scenario control | secret material or unverified production claims |
+
+## Required trust controls
+
+1. Tenant and incident scope must be checked in both application queries and
+   database constraints/authorization.
+2. Candidate payloads must be treated as data, never as executable instruction.
+3. Promotion and audit persistence must commit atomically.
+4. Source identity and action idempotency must be unique at the durable layer.
+5. Serialization failures must retry the entire transaction.
+6. External calls must happen outside the promotion transaction through an
+   outbox-style delivery boundary.
+7. Secrets must remain server-side and be injected through an approved secret
+   channel.
+
+## Failure semantics
+
+- A policy rejection is a durable, auditable outcome.
+- A serialization conflict is retriable and must not leak a partial result.
+- A repeated source event returns the prior canonical result.
+- A repeated action key returns a duplicate claim, not a second database winner.
+- A network timeout after an external send is ambiguous until acknowledged or
+  reconciled; it must not be described as exactly-once delivery.
+
+Detailed transaction mechanics are in
+[TRANSACTION_MODEL.md](TRANSACTION_MODEL.md).
