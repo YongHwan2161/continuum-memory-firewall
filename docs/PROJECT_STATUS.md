@@ -37,6 +37,8 @@ evidence, and explicit non-claims.
 - Repository: <https://github.com/YongHwan2161/continuum-memory-firewall>
 - Merged P1 implementation PR:
   <https://github.com/YongHwan2161/continuum-memory-firewall/pull/1>
+- P2A retrieval and MCP implementation PR:
+  <https://github.com/YongHwan2161/continuum-memory-firewall/pull/2>
 - GitHub Actions workflow:
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/workflows/ci.yml>
 - Public proof console:
