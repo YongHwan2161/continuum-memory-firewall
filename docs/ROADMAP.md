@@ -4,36 +4,44 @@ This document is the single source of truth for implementation order and
 milestone acceptance criteria. Current completion state belongs in
 [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
-## Priority 1 — P2 cloud-backed retrieval vertical slice
+## Priority 1 — P2B managed-cloud competition slice
 
-**Goal:** replace the largest current non-claim with a small, end-to-end,
-reviewable CockroachDB Cloud demonstration.
+**Goal:** convert the implemented local P2A retrieval/MCP contract into a
+competition-eligible, managed-cloud demonstration.
 
 Implement:
 
 1. provision a cost-capped CockroachDB Cloud database and least-privilege
    application identity;
-2. add secure configuration validation, connection pooling, timeouts, and
-   application identity metadata;
-3. ingest canonical-memory embeddings into `VECTOR(512)`;
-4. implement tenant-scoped vector retrieval through a minimal Managed MCP tool;
-5. record retrieval audit rows and expose evidence in the reviewer console;
-6. capture a repeatable deployment check and query-plan evidence in CI or a
+2. replace bootstrap-only DDL with versioned migrations, connection pooling,
+   deadlines, application identity metadata, and a real semantic embedder;
+3. deploy the repository MCP server behind authenticated stable HTTPS and add a
+   reproducible remote smoke test;
+4. integrate CockroachDB Cloud Managed MCP as the second qualifying CockroachDB
+   tool, while retaining Distributed Vector Indexing as the first;
+5. deploy the smallest useful AWS component, preferably a Lambda ingestion or
+   evaluation worker with explicit budget and log-retention controls;
+6. expose promotion, retrieval, audit, and negative-scope evidence in the
+   reviewer console;
+7. capture a repeatable deployment check and query-plan evidence in CI or a
    separately documented smoke test.
 
 Exit criteria:
 
-- one submitted candidate can be promoted, embedded, retrieved, and audited
+- one submitted candidate can be promoted, semantically embedded, retrieved,
+  and audited
   against the live database;
-- the MCP tool cannot read another tenant's memory;
+- remote MCP authentication binds a caller to allowed scope and cannot read
+  another tenant's memory;
 - secrets do not enter source control, logs, or browser code;
 - a fresh reviewer can reproduce the flow from documented commands;
+- the implementation demonstrably uses two qualifying CockroachDB tools and at
+  least one AWS service;
 - the cloud resource has an explicit budget/usage guardrail and teardown plan.
 
-**Why this is first:** it directly demonstrates CockroachDB as the system of
-record and vector retrieval engine, removes the most material gap in the current
-demo, and creates better competition evidence than adding a second cloud
-provider before the primary database path is real.
+**Why this is first:** P2A already proves the application contract locally.
+P2B closes the competition's decisive evidence gap: managed CockroachDB,
+qualifying tool count, AWS use, authentication, and a judge-runnable demo.
 
 ## Priority 2 — P3 reliable external-action delivery
 
@@ -91,12 +99,11 @@ The following items should be pulled into the milestone they block:
 
 - persist policy/evaluator version, candidate digest, and structured decision
   evidence with each audit event;
-- enforce tenant integrity in the database with composite keys and/or row-level
-  controls rather than relying only on application predicates;
+- add database-native authorization or separate per-tenant identities for
+  defense beyond the implemented composite keys and application predicates;
 - separate content identity from commit time in audit hashing, then add
   tamper-evident chain anchoring if the threat model requires it;
 - distinguish invalid/unserializable payloads from oversized payloads;
-- constrain decision and lifecycle states in DDL;
 - add retry jitter, deadlines, metrics, connection pooling, TLS validation, and
   `application_name`;
 - verify downloaded CI binaries by checksum or use a pinned trusted image;

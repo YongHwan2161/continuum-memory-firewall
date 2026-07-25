@@ -6,9 +6,11 @@ complete attestations and organizer agreements.
 
 ## Participation
 
-- [ ] Hackathon registration completed by the participant
+- [x] Hackathon registration confirmed through Devpost on 2026-07-25
 - [ ] Required participant eligibility and organizer agreements confirmed
-- [ ] Submission deadline and judging requirements rechecked on the live event page
+- [x] Live challenge requirements rechecked on 2026-07-25: public repository,
+      functional demo, public video under three minutes, at least two qualifying
+      CockroachDB tools, and at least one AWS service
 
 ## Repository and provenance
 
@@ -27,9 +29,14 @@ complete attestations and organizer agreements.
       <https://continuum-memory-firewall.ant713800.chatgpt.site>
 - [x] Proof console explicitly labelled as a simulation rather than a live cloud claim
 - [x] CockroachDB transaction integration tests run in GitHub Actions
+- [x] Tenant-scoped vector write, search, and retrieval-audit integration tests included
+- [x] Read-only standard MCP `search`/`fetch` contract and protocol tests included
 - [ ] Functional cloud-backed application demo URL
 - [ ] Live CockroachDB Cloud promotion and vector retrieval evidence
-- [ ] Managed MCP tool endpoint and reproducible smoke test
+- [ ] Authenticated public repository MCP endpoint and reproducible remote smoke test
+- [ ] CockroachDB Cloud Managed MCP evidence
+- [ ] Second qualifying CockroachDB tool evidenced
+- [ ] At least one AWS service deployed and evidenced
 - [ ] External action delivery/reconciliation evidence, if included in the final claim
 
 ## Submission materials

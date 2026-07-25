@@ -105,7 +105,9 @@ class CockroachMemoryStore:
         self._max_attempts = max_attempts
         self._sleep = sleep
 
-    def _run_transaction(self, operation: Callable[[Connection], T]) -> T:
+    def run_transaction(self, operation: Callable[[Connection], T]) -> T:
+        """Execute one database-only operation with full serialization retries."""
+
         last_error: Exception | None = None
         for attempt in range(self._max_attempts):
             try:
@@ -122,6 +124,9 @@ class CockroachMemoryStore:
         raise TransactionRetryExhaustedError(
             f"transaction failed after {self._max_attempts} attempts"
         ) from last_error
+
+    # Kept for compatibility with the P1 tests and any early adopters.
+    _run_transaction = run_transaction
 
     def promote_candidate(
         self,
@@ -290,7 +295,7 @@ class CockroachMemoryStore:
                     memory_id=memory_id,
                 )
 
-        return self._run_transaction(operation)
+        return self.run_transaction(operation)
 
     @staticmethod
     def _load_prior_result(
@@ -414,7 +419,7 @@ class CockroachMemoryStore:
                     owner_worker_id=existing[1],
                 )
 
-        return self._run_transaction(operation)
+        return self.run_transaction(operation)
 
 
 def psycopg_connection_factory(database_url: str) -> ConnectionFactory:
