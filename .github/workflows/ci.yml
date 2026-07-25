@@ -57,6 +57,7 @@ jobs:
             --insecure \
             --listen-addr=127.0.0.1:26257 \
             --http-addr=127.0.0.1:8080 \
+            --pid-file=cockroach.pid \
             --background
       - name: Run CockroachDB transaction tests
         env:
@@ -65,4 +66,7 @@ jobs:
         run: make integration
       - name: Stop CockroachDB
         if: always()
-        run: ./cockroach quit --insecure --host=127.0.0.1:26257 || true
+        run: |
+          if [[ -f cockroach.pid ]]; then
+            kill "$(cat cockroach.pid)"
+          fi
