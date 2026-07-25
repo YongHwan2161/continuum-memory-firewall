@@ -21,7 +21,8 @@ complete attestations and organizer agreements.
       [PRIOR_WORK.md](PRIOR_WORK.md)
 - [x] Local unit and disposable CockroachDB integration instructions included in
       the root README
-- [ ] Live cloud setup and teardown instructions completed
+- [x] Live cloud setup and teardown instructions completed in
+      [CLOUD_DEPLOYMENT_RUNBOOK.md](CLOUD_DEPLOYMENT_RUNBOOK.md)
 
 ## Working product evidence
 
@@ -37,6 +38,8 @@ complete attestations and organizer agreements.
 - [ ] CockroachDB Cloud Managed MCP evidence
 - [ ] Second qualifying CockroachDB tool evidenced
 - [ ] At least one AWS service deployed and evidenced
+- [x] Cost-bounded AWS Lambda/Secrets Manager/Budgets/Logs deployment package
+      and negative-boundary tests implemented locally
 - [ ] External action delivery/reconciliation evidence, if included in the final claim
 
 ## Submission materials

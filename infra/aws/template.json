@@ -1,0 +1,174 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Cost-bounded Continuum worker for CockroachDB Cloud Managed MCP",
+  "Parameters": {
+    "DeploymentBucket": {
+      "Type": "String",
+      "Description": "Existing private S3 bucket that contains the Lambda package"
+    },
+    "DeploymentKey": {
+      "Type": "String",
+      "Description": "S3 key for the Lambda zip package"
+    },
+    "CockroachMcpSecretArn": {
+      "Type": "String",
+      "Description": "Existing Secrets Manager ARN; the secret value is never passed to CloudFormation"
+    },
+    "CockroachClusterId": {
+      "Type": "String",
+      "MinLength": 1,
+      "MaxLength": 256,
+      "Description": "CockroachDB Cloud cluster ID sent in the mcp-cluster-id header"
+    }
+  },
+  "Resources": {
+    "WorkerLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": {
+          "Fn::Sub": "/aws/lambda/${AWS::StackName}-managed-mcp-worker"
+        },
+        "RetentionInDays": 7,
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "continuum-memory-firewall"
+          },
+          {
+            "Key": "Environment",
+            "Value": "hackathon"
+          }
+        ]
+      }
+    },
+    "WorkerRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "ContinuumWorkerMinimumAccess",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Sid": "ReadOnlyOneCockroachSecret",
+                  "Effect": "Allow",
+                  "Action": "secretsmanager:GetSecretValue",
+                  "Resource": {
+                    "Ref": "CockroachMcpSecretArn"
+                  }
+                },
+                {
+                  "Sid": "WriteOnlyOwnLogGroup",
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": {
+                    "Fn::GetAtt": [
+                      "WorkerLogGroup",
+                      "Arn"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "continuum-memory-firewall"
+          },
+          {
+            "Key": "Environment",
+            "Value": "hackathon"
+          }
+        ]
+      }
+    },
+    "ManagedMcpWorker": {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": [
+        "WorkerLogGroup"
+      ],
+      "Properties": {
+        "FunctionName": {
+          "Fn::Sub": "${AWS::StackName}-managed-mcp-worker"
+        },
+        "Description": "Read-only CockroachDB Cloud Managed MCP evidence worker",
+        "Architectures": [
+          "x86_64"
+        ],
+        "Runtime": "python3.12",
+        "Handler": "continuum.aws_mcp_worker.handler",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "ReservedConcurrentExecutions": 1,
+        "Role": {
+          "Fn::GetAtt": [
+            "WorkerRole",
+            "Arn"
+          ]
+        },
+        "Code": {
+          "S3Bucket": {
+            "Ref": "DeploymentBucket"
+          },
+          "S3Key": {
+            "Ref": "DeploymentKey"
+          }
+        },
+        "Environment": {
+          "Variables": {
+            "CONTINUUM_COCKROACH_CLUSTER_ID": {
+              "Ref": "CockroachClusterId"
+            },
+            "CONTINUUM_COCKROACH_MCP_SECRET_ARN": {
+              "Ref": "CockroachMcpSecretArn"
+            },
+            "CONTINUUM_COCKROACH_MCP_URL": "https://cockroachlabs.cloud/mcp"
+          }
+        },
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "continuum-memory-firewall"
+          },
+          {
+            "Key": "Environment",
+            "Value": "hackathon"
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "FunctionName": {
+      "Value": {
+        "Ref": "ManagedMcpWorker"
+      }
+    },
+    "FunctionArn": {
+      "Value": {
+        "Fn::GetAtt": [
+          "ManagedMcpWorker",
+          "Arn"
+        ]
+      }
+    }
+  }
+}

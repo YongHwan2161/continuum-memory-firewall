@@ -11,19 +11,19 @@ competition-eligible, managed-cloud demonstration.
 
 Implement:
 
-1. provision a cost-capped CockroachDB Cloud database and least-privilege
-   application identity;
-2. replace bootstrap-only DDL with versioned migrations, connection pooling,
-   deadlines, application identity metadata, and a real semantic embedder;
+1. run the guarded CockroachDB Basic and AWS account procedure in
+   [CLOUD_DEPLOYMENT_RUNBOOK.md](CLOUD_DEPLOYMENT_RUNBOOK.md), then capture one
+   successful and one denied Managed MCP Lambda invocation;
+2. provision the live database with a least-privilege application identity,
+   replace bootstrap-only DDL with versioned migrations, and capture vector
+   query-plan evidence;
 3. deploy the repository MCP server behind authenticated stable HTTPS and add a
    reproducible remote smoke test;
-4. integrate CockroachDB Cloud Managed MCP as the second qualifying CockroachDB
-   tool, while retaining Distributed Vector Indexing as the first;
-5. deploy the smallest useful AWS component, preferably a Lambda ingestion or
-   evaluation worker with explicit budget and log-retention controls;
-6. expose promotion, retrieval, audit, and negative-scope evidence in the
+4. replace deterministic demo embeddings with a bounded semantic embedder and
+   add connection pooling, deadlines, and application identity metadata;
+5. expose promotion, retrieval, audit, and negative-scope evidence in the
    reviewer console;
-7. capture a repeatable deployment check and query-plan evidence in CI or a
+6. capture a repeatable deployment check and query-plan evidence in CI or a
    separately documented smoke test.
 
 Exit criteria:
@@ -40,8 +40,9 @@ Exit criteria:
 - the cloud resource has an explicit budget/usage guardrail and teardown plan.
 
 **Why this is first:** P2A already proves the application contract locally.
-P2B closes the competition's decisive evidence gap: managed CockroachDB,
-qualifying tool count, AWS use, authentication, and a judge-runnable demo.
+The repository now contains the cost-bounded Managed MCP/AWS deployment path,
+so P2B's shortest remaining gate is live participant-owned evidence. That closes
+the competition's decisive proof gap before broader product features.
 
 ## Priority 2 — P3 reliable external-action delivery
 

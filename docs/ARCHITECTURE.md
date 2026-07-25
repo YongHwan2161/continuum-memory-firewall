@@ -63,6 +63,23 @@ executable evidence, but not a managed-cloud or public MCP deployment.
 
 ## Target cloud boundary
 
+The first cloud component is now implemented as deployment-ready code, although
+it has not been deployed:
+
+```text
+authorized AWS direct invoke
+    -> private Lambda evidence worker
+       - read-only Managed MCP tool allowlist
+       - input/output bounds
+       - one Secrets Manager ARN
+       - reserved concurrency 1
+       -> CockroachDB Cloud Managed MCP over HTTPS
+```
+
+The Lambda intentionally has no Function URL, API Gateway, VPC, or NAT Gateway.
+It is an operational evidence client, not the repository MCP service and not a
+public application authorization boundary.
+
 The planned competition vertical slice is:
 
 ```text
@@ -76,12 +93,15 @@ Reviewer UI / agent
           -> transactional outbox
              -> optional AWS worker / model service
              -> provider acknowledgement and reconciliation
-    -> CockroachDB Cloud Managed MCP
+    -> private AWS Managed MCP evidence worker
+       -> CockroachDB Cloud Managed MCP
        -> operational database evidence for the agent/reviewer
 ```
 
-This diagram is a target design. CockroachDB Cloud, Cloud Managed MCP, and AWS
-are not implemented merely because they appear here. Vector query execution is
+The application service and live resources in this diagram remain a target
+design. The AWS worker, package, and IaC are implemented locally, but
+CockroachDB Cloud, Managed MCP response, and AWS deployment are not verified
+until participant-owned smoke-test evidence exists. Vector query execution is
 implemented only against the disposable integration environment.
 
 ## Component ownership
@@ -93,6 +113,7 @@ implemented only against the disposable integration environment.
 | CockroachDB | durable accepted state, uniqueness, audit, concurrent winner | interpreting untrusted prose |
 | Repository MCP boundary | authenticated, least-privilege `search`/`fetch` contract | database credentials or caller-selected tenant scope |
 | CockroachDB Managed MCP | managed operational database tools for the competition agent | replacing application retrieval authorization |
+| Private AWS evidence worker | bounded direct invocation of a hard-coded read-only Managed MCP subset | public query access, row-level tenant authorization, or arbitrary Managed MCP writes |
 | Retrieval service | tenant filter, embedding query, retrieval audit | promotion of untrusted candidates |
 | Outbox worker | delivery attempts, leases, acknowledgement, reconciliation | rewriting canonical memory |
 | Reviewer console | understandable evidence and scenario control | secret material or unverified production claims |
@@ -109,6 +130,9 @@ implemented only against the disposable integration environment.
    outbox-style delivery boundary.
 7. Secrets must remain server-side and be injected through an approved secret
    channel.
+8. A bearer-token destination must be pinned to the official HTTPS host; a
+   configurable endpoint must not become a credential-exfiltration path.
+9. Managed MCP write tools must be denied before the worker reads its secret.
 
 ## Failure semantics
 

@@ -1,0 +1,84 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Account-level cost alert that must precede Continuum workloads",
+  "Parameters": {
+    "BudgetName": {
+      "Type": "String",
+      "Default": "continuum-hackathon-monthly-cost",
+      "AllowedPattern": "^[A-Za-z0-9_-]{1,100}$"
+    },
+    "BudgetEmail": {
+      "Type": "String",
+      "AllowedPattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+      "Description": "Email subscriber for actual and forecast AWS budget alerts"
+    },
+    "MonthlyBudgetUsd": {
+      "Type": "Number",
+      "Default": 5,
+      "MinValue": 1,
+      "MaxValue": 30,
+      "Description": "Account-level monthly alert ceiling; this does not stop AWS resources"
+    }
+  },
+  "Resources": {
+    "ProjectBudget": {
+      "Type": "AWS::Budgets::Budget",
+      "Properties": {
+        "Budget": {
+          "BudgetName": {
+            "Ref": "BudgetName"
+          },
+          "BudgetLimit": {
+            "Amount": {
+              "Ref": "MonthlyBudgetUsd"
+            },
+            "Unit": "USD"
+          },
+          "BudgetType": "COST",
+          "TimeUnit": "MONTHLY"
+        },
+        "NotificationsWithSubscribers": [
+          {
+            "Notification": {
+              "ComparisonOperator": "GREATER_THAN",
+              "NotificationType": "FORECASTED",
+              "Threshold": 80,
+              "ThresholdType": "PERCENTAGE"
+            },
+            "Subscribers": [
+              {
+                "Address": {
+                  "Ref": "BudgetEmail"
+                },
+                "SubscriptionType": "EMAIL"
+              }
+            ]
+          },
+          {
+            "Notification": {
+              "ComparisonOperator": "GREATER_THAN",
+              "NotificationType": "ACTUAL",
+              "Threshold": 100,
+              "ThresholdType": "PERCENTAGE"
+            },
+            "Subscribers": [
+              {
+                "Address": {
+                  "Ref": "BudgetEmail"
+                },
+                "SubscriptionType": "EMAIL"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "BudgetName": {
+      "Value": {
+        "Ref": "BudgetName"
+      }
+    }
+  }
+}
