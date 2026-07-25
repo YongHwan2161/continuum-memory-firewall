@@ -44,14 +44,20 @@ evidence, and explicit non-claims.
   <https://github.com/YongHwan2161/continuum-memory-firewall/pull/1>
 - P2A retrieval and MCP implementation PR:
   <https://github.com/YongHwan2161/continuum-memory-firewall/pull/2>
+- P2B cloud deployment readiness PR:
+  <https://github.com/YongHwan2161/continuum-memory-firewall/pull/3>
+- Passing P2B pull-request workflow:
+  <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30151446778>
+- P2B merged commit:
+  <https://github.com/YongHwan2161/continuum-memory-firewall/commit/807909b2dd7a0ac3ce76f0861787356f1e86383d>
 - GitHub Actions workflow:
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/workflows/ci.yml>
 - Public proof console:
   <https://continuum-memory-firewall.ant713800.chatgpt.site>
 - Devpost draft: <https://devpost.com/software/continuum-memory-firewall>
 
-`main` and its latest passing post-merge workflow are the authoritative code and
-CI evidence; pull requests remain the review record.
+`main` is the authoritative code. The passing workflow for the exact reviewed
+PR head is the P2B CI evidence; pull requests remain the review record.
 
 ## What the current implementation establishes
 
