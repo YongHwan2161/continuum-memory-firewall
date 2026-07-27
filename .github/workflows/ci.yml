@@ -78,7 +78,7 @@ jobs:
             --http-addr=127.0.0.1:8080 \
             --pid-file=cockroach.pid \
             --background
-      - name: Run CockroachDB transaction tests
+      - name: Run migrations and CockroachDB smoke tests
         env:
           CONTINUUM_DATABASE_URL: >-
             postgresql://root@127.0.0.1:26257/defaultdb?sslmode=disable

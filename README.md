@@ -51,7 +51,9 @@ of truth for whether the promotion and action claim committed.
 - `src/continuum/retrieval.py` — embedding persistence, scoped vector search, and retrieval audit
 - `src/continuum/mcp_server.py` — read-only standard MCP `search`/`fetch` surface
 - `src/continuum/aws_mcp_worker.py` — private read-only Managed MCP Lambda client
-- `db/schema.sql` — durable authority, audit, action, and retrieval schema
+- `src/continuum/migrations/` — versioned durable schema SSOT
+- `src/continuum/migrate.py` — checksum, lease, retry, adoption, and validation runner
+- `src/continuum/db_smoke.py` — synthetic live-database promotion/retrieval smoke path
 - `infra/aws/` — cost-bounded CloudFormation and Lambda dependency manifest
 - `scripts/` — dry-by-default CockroachDB/AWS preflight, packaging, and deployment
 - `tests/` — policy, retry, promotion, replay, retrieval, MCP, and concurrency tests
@@ -77,6 +79,14 @@ export CONTINUUM_DATABASE_URL='postgresql://...'
 make integration
 ```
 
+Apply the versioned schema and run a synthetic smoke test:
+
+```bash
+export CONTINUUM_DATABASE_URL='postgresql://...?...&sslmode=verify-full'
+make migrate
+make db-smoke
+```
+
 Validate the MCP protocol contract:
 
 ```bash
@@ -90,8 +100,8 @@ Build and verify the Linux/Python 3.12 Lambda package without deploying:
 make cloud-package
 ```
 
-Run the tool-only MCP server at `/mcp` after applying `db/schema.sql` and
-seeding accepted memory:
+Run the tool-only MCP server at `/mcp` after applying the migrations and seeding
+accepted memory:
 
 ```bash
 export CONTINUUM_DATABASE_URL='postgresql://...?...&sslmode=verify-full'
@@ -130,6 +140,7 @@ production remediation systems.
 - [Roadmap](docs/ROADMAP.md) — implementation priority and acceptance gates SSOT
 - [Architecture](docs/ARCHITECTURE.md) — trust boundaries and component ownership
 - [Transaction Model](docs/TRANSACTION_MODEL.md) — transaction and retry semantics
+- [Database Migrations](docs/MIGRATIONS.md) — ordered DDL, drift, lease, adoption, and recovery contract
 - [MCP Contract](docs/MCP_CONTRACT.md) — tool schema, scope, transport, and deployment boundary
 - [Devpost Checklist](docs/DEVPOST_CHECKLIST.md) — submission readiness SSOT
 - [Cost Safety](docs/COST_SAFETY.md) — spending assumptions and guardrails

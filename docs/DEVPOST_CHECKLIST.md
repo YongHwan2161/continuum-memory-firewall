@@ -31,6 +31,8 @@ complete attestations and organizer agreements.
 - [x] Proof console explicitly labelled as a simulation rather than a live cloud claim
 - [x] CockroachDB transaction integration tests run in GitHub Actions
 - [x] Tenant-scoped vector write, search, and retrieval-audit integration tests included
+- [x] Versioned migration replay, checksum drift, lease exclusion, and synthetic
+      live-database smoke path verified against disposable CockroachDB
 - [x] Read-only standard MCP `search`/`fetch` contract and protocol tests included
 - [ ] Functional cloud-backed application demo URL
 - [ ] Live CockroachDB Cloud promotion and vector retrieval evidence

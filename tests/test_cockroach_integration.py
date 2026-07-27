@@ -2,9 +2,17 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 import json
 import os
-from pathlib import Path
 import unittest
+from urllib.parse import urlsplit, urlunsplit
+from uuid import uuid4
 
+from continuum.db_smoke import run_smoke
+from continuum.migrate import (
+    MigrationDriftError,
+    MigrationLockError,
+    Migrator,
+    discover_migrations,
+)
 from continuum.memory import DecisionCode
 from continuum.retrieval import (
     HASH_EMBEDDING_MODEL,
@@ -36,15 +44,13 @@ class CockroachIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.connect = staticmethod(psycopg_connection_factory(DATABASE_URL))
-        schema = (
-            Path(__file__).parents[1] / "db" / "schema.sql"
-        ).read_text(encoding="utf-8")
         with cls.connect() as connection:
             connection.autocommit = True
             connection.execute(
                 "SET CLUSTER SETTING feature.vector_index.enabled = true"
             )
-            connection.execute(schema)
+        cls.migrator = Migrator(cls.connect, sleep=lambda _: None)
+        cls.initial_migration_report = cls.migrator.migrate()
 
     def setUp(self):
         with self.connect() as connection:
@@ -75,6 +81,108 @@ class CockroachIntegrationTests(unittest.TestCase):
             sleep=lambda _: None,
         )
         self.embedder = HashingEmbedder()
+
+    def test_migrations_are_complete_and_idempotent(self):
+        report = self.migrator.migrate()
+        migrations = discover_migrations()
+
+        self.assertEqual(report.applied, ())
+        self.assertEqual(report.adopted, ())
+        self.assertEqual(report.current_version, migrations[-1].version)
+        with self.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT version, name, checksum
+                FROM continuum_schema_migrations
+                ORDER BY version
+                """
+            ).fetchall()
+        self.assertEqual(
+            [(row[0], row[1]) for row in rows],
+            [(item.version, item.name) for item in migrations],
+        )
+        self.assertEqual(
+            [row[2] for row in rows],
+            [item.checksum for item in migrations],
+        )
+
+    def test_live_database_smoke_round_trip_cleans_up(self):
+        result = run_smoke(DATABASE_URL)
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["retained"])
+        self.assertEqual(result["migration"]["applied"], [])
+        with self.connect() as connection:
+            count = connection.execute(
+                """
+                SELECT count(*)
+                FROM incidents
+                WHERE incident_id = %s
+                """,
+                (result["incident_id"],),
+            ).fetchone()[0]
+        self.assertEqual(count, 0)
+
+    def test_migration_checksum_drift_is_rejected(self):
+        migrations = list(discover_migrations())
+        migrations[0] = type(migrations[0])(
+            version=migrations[0].version,
+            name=migrations[0].name,
+            checksum="0" * 64,
+            sql=migrations[0].sql,
+            path=migrations[0].path,
+        )
+        with self.assertRaises(MigrationDriftError):
+            Migrator(
+                self.connect,
+                migrations=migrations,
+                sleep=lambda _: None,
+            ).migrate()
+
+    def test_migration_lease_rejects_a_second_owner(self):
+        with self.migrator.lease():
+            with self.assertRaises(MigrationLockError):
+                Migrator(
+                    self.connect,
+                    sleep=lambda _: None,
+                ).migrate()
+
+    def test_migration_resumes_after_ddl_before_history_crash(self):
+        database_name = f"continuum_resume_{uuid4().hex}"
+        parts = urlsplit(DATABASE_URL)
+        database_url = urlunsplit(
+            (parts.scheme, parts.netloc, f"/{database_name}", parts.query, "")
+        )
+        with self.connect() as connection:
+            connection.autocommit = True
+            connection.execute(f"CREATE DATABASE {database_name}")
+        try:
+            connect = psycopg_connection_factory(database_url)
+            migrations = discover_migrations()
+            interrupted = Migrator(connect, sleep=lambda _: None)
+            interrupted._bootstrap_metadata()
+            interrupted._start_intent(migrations[0])
+            interrupted._execute_migration(migrations[0])
+
+            report = Migrator(connect, sleep=lambda _: None).migrate()
+
+            self.assertEqual(
+                report.applied,
+                tuple(item.version for item in migrations),
+            )
+            with connect() as connection:
+                intents = connection.execute(
+                    "SELECT count(*) FROM continuum_migration_intents"
+                ).fetchone()[0]
+                history = connection.execute(
+                    "SELECT count(*) FROM continuum_schema_migrations"
+                ).fetchone()[0]
+            self.assertEqual(intents, 0)
+            self.assertEqual(history, len(migrations))
+        finally:
+            with self.connect() as connection:
+                connection.autocommit = True
+                connection.execute(f"DROP DATABASE {database_name} CASCADE")
 
     def _insert_incident(
         self,

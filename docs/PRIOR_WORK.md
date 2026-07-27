@@ -22,7 +22,9 @@ The repository now contains the P1 transactional-authority implementation:
 - deterministic promotion policy in `src/continuum/memory.py`;
 - CockroachDB transaction, replay, and retry logic in
   `src/continuum/store.py`;
-- durable schema and vector-index DDL in `db/schema.sql`;
+- packaged versioned schema, checksum history, renewable migration lease, and
+  vector-index DDL in `src/continuum/migrations/`;
+- synthetic live-database migration/promotion/retrieval smoke path;
 - unit and real CockroachDB integration tests in `tests/`;
 - GitHub Actions verification for the unit and integration paths;
 - public proof-console deployment for reviewer-oriented policy scenarios;

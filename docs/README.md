@@ -10,6 +10,7 @@ changing status, dates, or priorities.
 | Milestones, priorities, and exit criteria | [ROADMAP.md](ROADMAP.md) |
 | Trust boundaries and component responsibilities | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | Promotion, replay, and retry semantics | [TRANSACTION_MODEL.md](TRANSACTION_MODEL.md) |
+| Database migration format, guarantees, and failure handling | [MIGRATIONS.md](MIGRATIONS.md) |
 | MCP tools, scope, transport, and deployment contract | [MCP_CONTRACT.md](MCP_CONTRACT.md) |
 | Devpost readiness and participant-owned blockers | [DEVPOST_CHECKLIST.md](DEVPOST_CHECKLIST.md) |
 | Cost assumptions and spending controls | [COST_SAFETY.md](COST_SAFETY.md) |
@@ -30,3 +31,5 @@ changing status, dates, or priorities.
 6. Keep commands and operator-owned cloud steps in
    `CLOUD_DEPLOYMENT_RUNBOOK.md`; status and price documents should link to it
    instead of copying the procedure.
+7. Keep migration authoring and recovery rules in `MIGRATIONS.md`; other
+   documents should link to that contract rather than restating it.

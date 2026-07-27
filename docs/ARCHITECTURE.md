@@ -55,11 +55,13 @@ Python policy kernel
     -> read-only MCP search/fetch
 ```
 
-The test environment launches an ephemeral CockroachDB node, applies
-`db/schema.sql`, and exercises promotion, replay, rejection, and concurrent
-claims plus vector persistence, retrieval audit, and cross-tenant exclusion. The
-MCP protocol is tested with an in-memory client/server transport. This is
-executable evidence, but not a managed-cloud or public MCP deployment.
+The test environment launches an ephemeral CockroachDB node, applies the
+packaged versioned migrations, and exercises migration replay, drift detection,
+DDL/history crash recovery, lease exclusion, promotion, rejection, concurrent
+claims, vector persistence, retrieval audit, cross-tenant exclusion, and a
+synthetic end-to-end database smoke path. The MCP protocol is tested with an
+in-memory client/server transport. This is executable evidence, but not a
+CockroachDB Cloud or public MCP deployment.
 
 ## Target cloud boundary
 
@@ -110,6 +112,7 @@ implemented only against the disposable integration environment.
 |---|---|---|
 | Policy kernel | eligibility rules and deterministic decision reason | transaction outcome or external side effects |
 | Store transaction | row locking, persistence, replay, conflict retry | changing policy meaning |
+| Migration runner | ordered single-statement DDL, durable intent, checksums, renewable lease, schema validation, explicit adoption | hiding drift, guessing a partial legacy schema, or claiming DDL/history atomicity |
 | CockroachDB | durable accepted state, uniqueness, audit, concurrent winner | interpreting untrusted prose |
 | Repository MCP boundary | authenticated, least-privilege `search`/`fetch` contract | database credentials or caller-selected tenant scope |
 | CockroachDB Managed MCP | managed operational database tools for the competition agent | replacing application retrieval authorization |
@@ -133,6 +136,8 @@ implemented only against the disposable integration environment.
 8. A bearer-token destination must be pinned to the official HTTPS host; a
    configurable endpoint must not become a credential-exfiltration path.
 9. Managed MCP write tools must be denied before the worker reads its secret.
+10. Applied migration bytes are immutable; checksum drift and uncertain schema
+    states must fail closed.
 
 ## Failure semantics
 
