@@ -55,8 +55,10 @@ evidence, and explicit non-claims.
   <https://github.com/YongHwan2161/continuum-memory-firewall/commit/807909b2dd7a0ac3ce76f0861787356f1e86383d>
 - Versioned migration and live-DB smoke implementation PR:
   <https://github.com/YongHwan2161/continuum-memory-firewall/pull/5>
-- Passing migration and live-DB smoke pull-request workflow:
-  <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30257673569>
+- Passing migration and live-DB smoke final-head workflow:
+  <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30257855572>
+- Versioned migration and live-DB smoke merged commit:
+  <https://github.com/YongHwan2161/continuum-memory-firewall/commit/3fe0c047ac4b0b35f010f2a630f54f50db9b39e7>
 - GitHub Actions workflow:
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/workflows/ci.yml>
 - Public proof console:
