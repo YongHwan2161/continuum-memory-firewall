@@ -53,14 +53,18 @@ evidence, and explicit non-claims.
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30151446778>
 - P2B merged commit:
   <https://github.com/YongHwan2161/continuum-memory-firewall/commit/807909b2dd7a0ac3ce76f0861787356f1e86383d>
+- Versioned migration and live-DB smoke implementation PR:
+  <https://github.com/YongHwan2161/continuum-memory-firewall/pull/5>
+- Passing migration and live-DB smoke pull-request workflow:
+  <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30257673569>
 - GitHub Actions workflow:
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/workflows/ci.yml>
 - Public proof console:
   <https://continuum-memory-firewall.ant713800.chatgpt.site>
 - Devpost draft: <https://devpost.com/software/continuum-memory-firewall>
 
-`main` is the authoritative code. The passing workflow for the exact reviewed
-PR head is the P2B CI evidence; pull requests remain the review record.
+`main` is the authoritative code. The linked passing workflows cover the exact
+reviewed P2B and migration PR heads; pull requests remain the review record.
 
 ## What the current implementation establishes
 
