@@ -63,8 +63,9 @@ evidence, and explicit non-claims.
   <https://continuum-memory-firewall.ant713800.chatgpt.site>
 - Devpost draft: <https://devpost.com/software/continuum-memory-firewall>
 
-`main` is the authoritative code. The linked passing workflows cover the exact
-reviewed P2B and migration PR heads; pull requests remain the review record.
+`main` is the authoritative code. The linked workflows cover the reviewed P2B
+and migration implementation commits; the pull request records final-head
+checks and remains the review record.
 
 ## What the current implementation establishes
 
