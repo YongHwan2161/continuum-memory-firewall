@@ -47,8 +47,8 @@ CloudFormation
 Lambda does not connect to the CockroachDB SQL port. A non-VPC Lambda has no
 stable outbound IP, while adding a VPC/NAT Gateway would violate the project's
 cost rules. Managed MCP over HTTPS avoids both the broad SQL allowlist and NAT
-cost. SQL access is needed only from a temporary operator workstation for schema
-bootstrap and application verification.
+cost. SQL access is needed only from a temporary operator workstation for
+versioned migrations and application verification.
 
 The Managed MCP service has write-capable tools. The worker rejects every tool
 outside the explicit set in `src/continuum/aws_mcp_worker.py` before it reads the
@@ -181,26 +181,34 @@ After creation:
 1. Record the cluster ID and organization ID in the private deployment record.
 2. If the SQL network list contains `0.0.0.0/0`, remove it immediately.
 3. Add only the current workstation's public `/32` address while applying the
-   schema. Remove it after the SQL smoke test.
+   migrations. Remove it after the SQL smoke test.
 4. Create a dedicated SQL application user and download the CockroachDB CA
    certificate. Use `sslmode=verify-full`; never commit its URL or password.
-5. Treat `db/schema.sql` as bootstrap DDL for this disposable empty cluster.
-   Versioned migrations remain required before any long-lived or shared
-   environment.
+5. Use the packaged, checksummed migrations documented in
+   [MIGRATIONS.md](MIGRATIONS.md). Do not reconstruct or paste a bootstrap
+   schema in the SQL console.
 
-Example bootstrap from a machine with `cockroach` installed:
+Apply migrations and run the cleanup-by-default live smoke test:
 
 ```bash
+python -m pip install -e ".[cockroach]"
 read -rsp 'CockroachDB SQL URL: ' CONTINUUM_DATABASE_URL
 printf '\n'
 export CONTINUUM_DATABASE_URL
-cockroach sql --url "$CONTINUUM_DATABASE_URL" --file db/schema.sql
-make integration
+make migrate
+./scripts/smoke_live_database.sh --apply
 unset CONTINUUM_DATABASE_URL
 ```
 
 The URL must include the CA path and `sslmode=verify-full`. Use synthetic data
-only.
+only. The smoke test applies or validates migrations, exercises promotion,
+vector indexing, scoped retrieval, fetch, and retrieval audit, then deletes only
+the randomly generated rows.
+
+An existing database made from the final P2 bootstrap schema is not silently
+trusted. A normal migration run refuses it. After inspecting it and confirming
+that no schema job is active, follow the validated `--adopt-existing` procedure
+in [MIGRATIONS.md](MIGRATIONS.md). Never adopt an older or partial schema.
 
 ## Phase 3 — create the Managed MCP service account
 
@@ -340,7 +348,10 @@ Save only non-secret evidence:
 - CockroachDB console screenshot showing Basic, AWS Singapore, usage/spend limit,
   and cluster status;
 - a redacted `ccloud cluster list` result;
-- the passing SQL integration test against the live disposable cluster;
+- migration JSON showing the applied or current version, plus a redacted
+  ordered query of `continuum_schema_migrations`;
+- the passing synthetic SQL smoke-test JSON against the live disposable
+  cluster (retain identifiers only if reviewer evidence is required);
 - CloudFormation stack outputs;
 - Lambda positive metadata invocation and write-tool denial result;
 - AWS Budget name and both alert thresholds;
@@ -385,6 +396,7 @@ aws cloudformation delete-stack \
 - [`ccloud` reference](https://www.cockroachlabs.com/docs/cockroachcloud/ccloud-reference)
 - [CockroachDB Cloud Managed MCP](https://www.cockroachlabs.com/docs/cockroachcloud/connect-to-the-cockroachdb-cloud-mcp-server)
 - [CockroachDB network authorization](https://www.cockroachlabs.com/docs/cockroachcloud/network-authorization)
+- [CockroachDB online schema changes](https://www.cockroachlabs.com/docs/stable/online-schema-changes)
 - [AWS Budgets CloudFormation resource](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-budgets-budget.html)
 - [Retrieve Secrets Manager values in Python](https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets-python-sdk.html)
 - [AWS Lambda Python packages](https://docs.aws.amazon.com/lambda/latest/dg/python-package.html)

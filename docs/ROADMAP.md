@@ -14,9 +14,9 @@ Implement:
 1. run the guarded CockroachDB Basic and AWS account procedure in
    [CLOUD_DEPLOYMENT_RUNBOOK.md](CLOUD_DEPLOYMENT_RUNBOOK.md), then capture one
    successful and one denied Managed MCP Lambda invocation;
-2. provision the live database with a least-privilege application identity,
-   replace bootstrap-only DDL with versioned migrations, and capture vector
-   query-plan evidence;
+2. run the implemented versioned migrator and synthetic smoke path against the
+   live database with a least-privilege application identity, then capture
+   vector query-plan evidence;
 3. deploy the repository MCP server behind authenticated stable HTTPS and add a
    reproducible remote smoke test;
 4. replace deterministic demo embeddings with a bounded semantic embedder and

@@ -1,6 +1,6 @@
 # Project status
 
-**Status date:** 2026-07-25
+**Status date:** 2026-07-27
 **Current milestone:** P2B — managed-cloud deployment readiness
 **Overall state:** the local promotion-to-retrieval vertical slice, repository
 MCP contract, and cost-bounded AWS-to-CockroachDB Managed MCP deployment package
@@ -19,7 +19,10 @@ evidence, and explicit non-claims.
 | Idempotent replay | Implemented | Replaying the same source event returns the existing canonical record without duplication |
 | Serializable retry handling | Implemented | SQLSTATE `40001` is retried at the transaction boundary; unit tests exercise retry and exhaustion |
 | Concurrent action claim | Implemented | Two concurrent workers produce one `CLAIMED` result and one `DUPLICATE` result |
-| CockroachDB schema | Implemented and integration-tested | CI applies `db/schema.sql` to CockroachDB v26.2.3, including `VECTOR(512)` and the vector index DDL |
+| CockroachDB schema migrations | Implemented and integration-tested | Eight packaged single-statement migrations apply `VECTOR(512)` and vector-index DDL; CI verifies initial apply and replay |
+| Migration integrity and recovery | Implemented and integration-tested | SHA-256 history rejects drift and gaps; durable pre-DDL intent resumes the DDL/history crash gap; a renewable lease excludes a second owner; `XXA00` fails closed |
+| Existing-schema adoption | Implemented and fail-closed | Unmanaged tables are refused by default; explicit adoption validates required columns, indexes, and composite scope foreign keys |
+| Synthetic live-DB smoke | Implemented and integration-tested on disposable CockroachDB | The production smoke path migrates, promotes, embeds, retrieves, audits, fetches, and deletes only its generated rows |
 | Tenant and incident integrity | Implemented | Composite foreign keys and query predicates bind candidates, canonical memory, actions, and retrieval audit to the same scope |
 | Vector write and retrieval | Implemented for disposable DB | Deterministic 512-dimensional test/demo embeddings are persisted; CockroachDB cosine search is prefix-scoped by tenant and incident |
 | Retrieval audit | Implemented | Search transaction records model, query digest, policy digest, evaluated IDs, and accepted IDs |
@@ -79,6 +82,10 @@ boundary:
 9. A separately packaged AWS worker can call only an explicit read-only subset
    of CockroachDB Cloud Managed MCP; it cannot expose a public Lambda URL and
    cannot retrieve any other Secrets Manager resource under its generated role.
+10. Database schema state is reproducible from immutable ordered migrations;
+    replay is a no-op, checksum drift is rejected, an interrupted DDL/history
+    boundary resumes from durable intent, and concurrent owners cannot proceed
+    together.
 
 These guarantees apply to the repository code and tested database boundary. They
 do not extend to an unimplemented external API call.
@@ -91,10 +98,11 @@ feature:
 1. **Confirm account economics and identity:** capture the actual CockroachDB
    credit/free allowance, configure AWS SSO/MFA, and verify the intended AWS
    billing account.
-2. **Create the two secrets-bearing resources manually:** a disposable
-   CockroachDB Basic cluster and its Managed MCP service-account key, then store
-   that key directly in AWS Secrets Manager.
-3. **Run the guarded deployment and two smoke tests:** one successful
+2. **Create and migrate the disposable database:** create CockroachDB Basic,
+   run the versioned migrator and synthetic DB smoke, and retain only the
+   reviewer evidence row if needed.
+3. **Create the Managed MCP identity and deploy AWS:** store its key directly in
+   AWS Secrets Manager, then run one successful
    `list_databases` invocation and one denied `insert_rows` invocation. Retain
    only redacted, non-secret evidence.
 
@@ -114,5 +122,5 @@ The exact commands and stop conditions are in
 - The Devpost submission still needs a cloud-backed demo, architecture diagram,
   short public video, and final narrative. See
   [DEVPOST_CHECKLIST.md](DEVPOST_CHECKLIST.md).
-- `db/schema.sql` remains bootstrap DDL. Versioned migrations are the next
-  fundamental database-lifecycle improvement before a long-lived environment.
+- The versioned migration and real-engine smoke paths are implemented, but have
+  not yet been executed against the participant's CockroachDB Cloud cluster.

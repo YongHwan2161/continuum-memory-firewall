@@ -24,6 +24,9 @@ classifiers = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+continuum = ["migrations/*.sql"]
+
 [project.optional-dependencies]
 cockroach = [
   "psycopg[binary]>=3.2,<4"
@@ -40,3 +43,5 @@ dev = [
 
 [project.scripts]
 continuum-mcp = "continuum.mcp_server:main"
+continuum-migrate = "continuum.migrate:main"
+continuum-db-smoke = "continuum.db_smoke:main"
