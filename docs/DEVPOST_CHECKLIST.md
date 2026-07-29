@@ -26,10 +26,11 @@ complete attestations and organizer agreements.
 
 ## Working product evidence
 
-- [x] Interactive proof console deployed:
-      <https://continuum-memory-firewall.ant713800.chatgpt.site>
+- [x] Logged-out interactive proof console deployed:
+      <https://yonghwan2161.github.io/continuum-memory-firewall/>
 - [x] Proof console explicitly labelled as a simulation rather than a live cloud claim
-- [ ] Reviewer demo URL opens without the current Sign in with ChatGPT gate
+- [x] Reviewer demo URL opens without a sign-in gate; Browser verification on
+      2026-07-29 exercised rejection and failover controls
 - [x] CockroachDB transaction integration tests run in GitHub Actions
 - [x] Tenant-scoped vector write, search, and retrieval-audit integration tests included
 - [x] Versioned migration replay, checksum drift, lease exclusion, and synthetic
