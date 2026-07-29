@@ -29,11 +29,11 @@ evidence, and explicit non-claims.
 | Standard MCP boundary | Implemented and protocol-tested | Official Python MCP SDK exposes only read-only `search` and `fetch`; in-memory client tests validate schemas and structured responses |
 | Secure configuration guard | Implemented | Public citation base URL must be HTTPS; remote database URLs must use `sslmode=verify-full`; tenant and incident scope are server configuration, not tool input |
 | Cloud deployment runbook | Implemented | One SSOT procedure separates automated checks from participant-owned account, credit, MFA, key-copy, evidence, and teardown steps |
-| CockroachDB Basic provisioning guard | Implemented locally, not executed | Dry-by-default `ccloud` script pins Basic/AWS/Singapore/spend-limit 0 and aborts if the installed CLI no longer supports the limit flag |
+| CockroachDB Basic provisioning | Provisioned through the Cloud Console; CLI guard not executed | Participant console verification on 2026-07-29 shows Basic on AWS Singapore, a 50M RU and 10 GiB monthly limit, optional payment method, and zero due at creation |
 | AWS Managed MCP worker | Implemented locally, not deployed | Lambda client pins the official HTTPS endpoint, caps input/output, retrieves one Secrets Manager ARN, and rejects Managed MCP write tools before credential access |
 | AWS infrastructure and package | Implemented and locally verified, not deployed | CloudFormation defines budget alerts, minimum IAM, concurrency 1, 30-second timeout, seven-day logs, and no public endpoint/VPC/NAT; the Python 3.12 manylinux zip builds and passes integrity checks |
 | Reviewer experience | Deployed, access-gated simulation | Browser proof console demonstrates policy outcomes and replay behavior, but currently requires Sign in with ChatGPT and is not a logged-out public demo |
-| Live CockroachDB Cloud | Not implemented | No cloud cluster or cloud connection evidence in this repository |
+| Live CockroachDB Cloud | Provisioned; application schema and smoke pending | The participant-owned `continuum-ai` cluster is available and the `continuum` database exists; the default `0.0.0.0/0` SQL rule was removed and replaced by one temporary workstation rule |
 | Public MCP endpoint | Not deployed | The server contract exists, but no authenticated, stable HTTPS MCP deployment has been verified |
 | CockroachDB Managed MCP | Client boundary only; no live evidence | The AWS worker is prepared for the managed service, but no participant API key or successful cloud response has been used |
 | AWS service use | Deployment-ready only; no live evidence | Lambda/Secrets Manager/Budgets/Logs/S3 definitions and package exist, but no AWS stack has been created |
@@ -103,12 +103,12 @@ do not extend to an unimplemented external API call.
 The shortest path to competition evidence is now operational rather than a new
 feature:
 
-1. **Confirm account economics and identity:** capture the actual CockroachDB
-   credit/free allowance, configure AWS SSO/MFA, and verify the intended AWS
-   billing account.
-2. **Create and migrate the disposable database:** create CockroachDB Basic,
-   run the versioned migrator and synthetic DB smoke, and retain only the
-   reviewer evidence row if needed.
+1. **Migrate and verify the disposable database:** securely transfer the
+   generated SQL credential to the local operator environment, run the
+   versioned migrator and synthetic DB smoke, and retain only the reviewer
+   evidence row if needed.
+2. **Configure AWS identity and budget:** configure AWS SSO/MFA, verify the
+   intended billing account, and create the budget stack before any workload.
 3. **Create the Managed MCP identity and deploy AWS:** store its key directly in
    AWS Secrets Manager, then run one successful
    `list_databases` invocation and one denied `insert_rows` invocation. Retain
@@ -124,8 +124,11 @@ The exact commands and stop conditions are in
 - The reviewer console requires Sign in with ChatGPT. It must be made public or
   replaced by a logged-out functional demo before it is used as the required
   demo URL.
-- Cloud credentials, account-specific credit verification, and participant
-  approval are required before the prepared deployment can be executed.
+- The SQL credential was generated in the participant console but was not
+  copied into chat, logs, or the repository. A secure one-time transfer into the
+  local environment is required before the live migrator can run.
+- No authenticated AWS CLI identity is active, so the budget and workload
+  stacks have not been created.
 - The challenge requires at least two qualifying CockroachDB tools and one AWS
   service. The repository proves Distributed Vector Indexing locally and
   prepares `ccloud`, Managed MCP, and AWS paths, but live use evidence is still

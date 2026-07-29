@@ -35,6 +35,8 @@ complete attestations and organizer agreements.
 - [x] Versioned migration replay, checksum drift, lease exclusion, and synthetic
       live-database smoke path verified against disposable CockroachDB
 - [x] Read-only standard MCP `search`/`fetch` contract and protocol tests included
+- [x] Participant-owned CockroachDB Basic cluster provisioned on AWS Singapore
+      with the free-resource monthly limits and a restricted temporary SQL network
 - [ ] Functional cloud-backed application demo URL
 - [ ] Live CockroachDB Cloud promotion and vector retrieval evidence
 - [ ] Authenticated public repository MCP endpoint and reproducible remote smoke test
