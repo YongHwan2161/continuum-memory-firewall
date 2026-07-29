@@ -27,7 +27,8 @@ The repository now contains the P1 transactional-authority implementation:
 - synthetic live-database migration/promotion/retrieval smoke path;
 - unit and real CockroachDB integration tests in `tests/`;
 - GitHub Actions verification for the unit and integration paths;
-- public proof-console deployment for reviewer-oriented policy scenarios;
+- reviewer proof-console deployment for policy scenarios, currently gated by
+  Sign in with ChatGPT rather than available as a logged-out public demo;
 - SSOT documentation for status, roadmap, architecture, transaction semantics,
   cost safety, and submission readiness.
 
