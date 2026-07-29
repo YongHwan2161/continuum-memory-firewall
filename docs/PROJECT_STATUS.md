@@ -32,7 +32,7 @@ evidence, and explicit non-claims.
 | CockroachDB Basic provisioning | Provisioned through the Cloud Console; CLI guard not executed | Participant console verification on 2026-07-29 shows Basic on AWS Singapore, a 50M RU and 10 GiB monthly limit, optional payment method, and zero due at creation |
 | AWS Managed MCP worker | Implemented locally, not deployed | Lambda client pins the official HTTPS endpoint, caps input/output, retrieves one Secrets Manager ARN, and rejects Managed MCP write tools before credential access |
 | AWS infrastructure and package | Implemented and locally verified, not deployed | CloudFormation defines budget alerts, minimum IAM, concurrency 1, 30-second timeout, seven-day logs, and no public endpoint/VPC/NAT; the Python 3.12 manylinux zip builds and passes integrity checks |
-| Reviewer experience | Deployed, access-gated simulation | Browser proof console demonstrates policy outcomes and replay behavior, but currently requires Sign in with ChatGPT and is not a logged-out public demo |
+| Reviewer experience | Deployed public simulation | GitHub Pages opens without login and Browser verification exercised policy rejection plus one-owner failover; it remains explicitly separate from live cloud evidence |
 | Live CockroachDB Cloud | Provisioned; application schema and smoke pending | The participant-owned `continuum-ai` cluster is available and the `continuum` database exists; the default `0.0.0.0/0` SQL rule was removed and replaced by one temporary workstation rule |
 | Public MCP endpoint | Not deployed | The server contract exists, but no authenticated, stable HTTPS MCP deployment has been verified |
 | CockroachDB Managed MCP | Client boundary only; no live evidence | The AWS worker is prepared for the managed service, but no participant API key or successful cloud response has been used |
@@ -61,8 +61,10 @@ evidence, and explicit non-claims.
   <https://github.com/YongHwan2161/continuum-memory-firewall/commit/3fe0c047ac4b0b35f010f2a630f54f50db9b39e7>
 - GitHub Actions workflow:
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/workflows/ci.yml>
-- Reviewer proof console (currently requires Sign in with ChatGPT):
-  <https://continuum-memory-firewall.ant713800.chatgpt.site>
+- Public proof console:
+  <https://yonghwan2161.github.io/continuum-memory-firewall/>
+- Passing public-demo deployment:
+  <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30464165943>
 - Published Devpost project page (not submitted to the hackathon):
   <https://devpost.com/software/continuum-memory-firewall>
 
@@ -121,9 +123,6 @@ The exact commands and stop conditions are in
 
 - Organizer eligibility attestations beyond the confirmed Devpost registration
   remain participant-owned.
-- The reviewer console requires Sign in with ChatGPT. It must be made public or
-  replaced by a logged-out functional demo before it is used as the required
-  demo URL.
 - The SQL credential was generated in the participant console but was not
   copied into chat, logs, or the repository. A secure one-time transfer into the
   local environment is required before the live migrator can run.
@@ -133,8 +132,8 @@ The exact commands and stop conditions are in
   service. The repository proves Distributed Vector Indexing locally and
   prepares `ccloud`, Managed MCP, and AWS paths, but live use evidence is still
   required.
-- The Devpost submission still needs a cloud-backed demo, architecture diagram,
-  short public video, and final narrative. See
+- The Devpost submission still needs live cloud evidence, an architecture
+  diagram, a short public video, and the final narrative. See
   [DEVPOST_CHECKLIST.md](DEVPOST_CHECKLIST.md).
 - The versioned migration and real-engine smoke paths are implemented, but have
   not yet been executed against the participant's CockroachDB Cloud cluster.

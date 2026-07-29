@@ -117,18 +117,18 @@ not require a paid cloud account. The deterministic hashing embedder proves
 storage, filtering, ranking, and audit semantics; it is not presented as a
 production semantic embedding model.
 
-## Reviewer proof console
+## Public proof console
 
-The browser proof console is available at:
+The logged-out browser proof console is available at:
 
-<https://continuum-memory-firewall.ant713800.chatgpt.site>
+<https://yonghwan2161.github.io/continuum-memory-firewall/>
 
 It is an interactive simulation of the policy and replay semantics for review
-and presentation. The current Sites access policy requires **Sign in with
-ChatGPT**, so it is not yet a logged-out public functional demo. It is also
-**not** evidence of a live CockroachDB Cloud connection. The executable database
-evidence is the integration test suite and CI run linked from
-[Project Status](docs/PROJECT_STATUS.md).
+and presentation. It is **not** evidence of a live CockroachDB Cloud connection.
+The executable database evidence is the integration test suite and CI run
+linked from [Project Status](docs/PROJECT_STATUS.md). The original Sites
+deployment remains an access-gated backup because this workspace does not allow
+internet-public Sites access.
 
 ## Safety boundary
 
