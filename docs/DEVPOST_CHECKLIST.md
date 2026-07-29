@@ -8,7 +8,7 @@ complete attestations and organizer agreements.
 
 - [x] Hackathon registration confirmed through Devpost on 2026-07-25
 - [ ] Required participant eligibility and organizer agreements confirmed
-- [x] Live challenge requirements rechecked on 2026-07-25: public repository,
+- [x] Live challenge requirements rechecked on 2026-07-29: public repository,
       functional demo, public video under three minutes, at least two qualifying
       CockroachDB tools, and at least one AWS service
 
@@ -26,9 +26,10 @@ complete attestations and organizer agreements.
 
 ## Working product evidence
 
-- [x] Public interactive proof console:
+- [x] Interactive proof console deployed:
       <https://continuum-memory-firewall.ant713800.chatgpt.site>
 - [x] Proof console explicitly labelled as a simulation rather than a live cloud claim
+- [ ] Reviewer demo URL opens without the current Sign in with ChatGPT gate
 - [x] CockroachDB transaction integration tests run in GitHub Actions
 - [x] Tenant-scoped vector write, search, and retrieval-audit integration tests included
 - [x] Versioned migration replay, checksum drift, lease exclusion, and synthetic
@@ -46,6 +47,8 @@ complete attestations and organizer agreements.
 
 ## Submission materials
 
+- [x] Devpost project page published with the current implementation boundary
+- [ ] Project submitted to the CockroachDB x AWS hackathon
 - [ ] Architecture diagram distinguishing implemented and planned components
 - [ ] Two-to-three minute demo video
 - [ ] Screenshots or GIFs for promotion, rejection, replay, and retrieval
