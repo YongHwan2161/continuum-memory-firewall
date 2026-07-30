@@ -16,20 +16,32 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "$package_root" "$(dirname -- "$output_path")"
-python -m pip install \
-  --disable-pip-version-check \
-  --platform manylinux2014_x86_64 \
-  --implementation cp \
-  --python-version 3.12 \
-  --only-binary=:all: \
-  --requirement "$repo_root/infra/aws/requirements-lambda.txt" \
-  --target "$package_root"
+uv_bin="${UV_BIN:-uv}"
+python_bin="${PYTHON_BIN:-python}"
+if command -v "$uv_bin" >/dev/null 2>&1; then
+  "$uv_bin" pip install \
+    --python-platform x86_64-manylinux2014 \
+    --python-version 3.12 \
+    --only-binary=:all: \
+    --requirement "$repo_root/infra/aws/requirements-lambda.txt" \
+    --target "$package_root"
+else
+  "$python_bin" -m pip install \
+    --disable-pip-version-check \
+    --platform manylinux2014_x86_64 \
+    --implementation cp \
+    --python-version 3.12 \
+    --only-binary=:all: \
+    --requirement "$repo_root/infra/aws/requirements-lambda.txt" \
+    --target "$package_root"
+fi
+rm -f -- "$package_root/.lock"
 cp -R "$repo_root/src/continuum" "$package_root/"
 find "$package_root" -type d -name __pycache__ -prune -exec rm -rf -- {} +
 find "$package_root" -type f -name '*.pyc' -delete
 
 (
   cd "$package_root"
-  zip -q -r "$output_path" .
+  "$python_bin" -m zipfile -c "$output_path" .
 )
 printf 'Lambda package: %s\n' "$output_path"

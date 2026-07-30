@@ -38,12 +38,17 @@ complete attestations and organizer agreements.
 - [x] Read-only standard MCP `search`/`fetch` contract and protocol tests included
 - [x] Participant-owned CockroachDB Basic cluster provisioned on AWS Singapore
       with the free-resource monthly limits and a restricted temporary SQL network
+- [x] Live cluster state rechecked on 2026-07-30: cluster available, broad SQL
+      rule absent, one temporary `/32` rule retained, and the `continuum`
+      database `public` schema still empty before migration
 - [ ] Functional cloud-backed application demo URL
 - [ ] Live CockroachDB Cloud promotion and vector retrieval evidence
 - [ ] Authenticated public repository MCP endpoint and reproducible remote smoke test
-- [ ] CockroachDB Cloud Managed MCP evidence
+- [ ] CockroachDB Cloud Managed MCP evidence (OAuth connection instructions are
+      available in the console, but no successful participant-owned call exists)
 - [ ] Second qualifying CockroachDB tool evidenced
-- [ ] At least one AWS service deployed and evidenced
+- [ ] At least one AWS service deployed and evidenced (AWS website profile login
+      does not yet provide a Management Console or CLI workload identity)
 - [x] Cost-bounded AWS Lambda/Secrets Manager/Budgets/Logs deployment package
       and negative-boundary tests implemented locally
 - [ ] External action delivery/reconciliation evidence, if included in the final claim
