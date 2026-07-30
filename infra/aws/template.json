@@ -19,6 +19,27 @@
       "MinLength": 1,
       "MaxLength": 256,
       "Description": "CockroachDB Cloud cluster ID sent in the mcp-cluster-id header"
+    },
+    "ReservedConcurrentExecutions": {
+      "Type": "Number",
+      "Default": 0,
+      "MinValue": 0,
+      "MaxValue": 1,
+      "Description": "Set to 1 only when the account concurrency quota can retain AWS's minimum unreserved concurrency; 0 omits the reservation"
+    }
+  },
+  "Conditions": {
+    "UseReservedConcurrency": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "ReservedConcurrentExecutions"
+            },
+            0
+          ]
+        }
+      ]
     }
   },
   "Resources": {
@@ -117,7 +138,17 @@
         "Handler": "continuum.aws_mcp_worker.handler",
         "MemorySize": 256,
         "Timeout": 30,
-        "ReservedConcurrentExecutions": 1,
+        "ReservedConcurrentExecutions": {
+          "Fn::If": [
+            "UseReservedConcurrency",
+            {
+              "Ref": "ReservedConcurrentExecutions"
+            },
+            {
+              "Ref": "AWS::NoValue"
+            }
+          ]
+        },
         "Role": {
           "Fn::GetAtt": [
             "WorkerRole",

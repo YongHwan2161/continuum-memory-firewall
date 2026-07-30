@@ -63,10 +63,9 @@ synthetic end-to-end database smoke path. The MCP protocol is tested with an
 in-memory client/server transport. This is executable evidence, but not a
 CockroachDB Cloud or public MCP deployment.
 
-## Target cloud boundary
+## Live evidence boundary
 
-The first cloud component is now implemented as deployment-ready code, although
-it has not been deployed:
+The first cloud component is deployed and live-smoked:
 
 ```text
 authorized AWS direct invoke
@@ -74,7 +73,8 @@ authorized AWS direct invoke
        - read-only Managed MCP tool allowlist
        - input/output bounds
        - one Secrets Manager ARN
-       - reserved concurrency 1
+       - optional reserved concurrency 1 when the account quota can retain
+         AWS's minimum unreserved concurrency; otherwise no reservation
        -> CockroachDB Cloud Managed MCP over HTTPS
 ```
 
@@ -82,29 +82,47 @@ The Lambda intentionally has no Function URL, API Gateway, VPC, or NAT Gateway.
 It is an operational evidence client, not the repository MCP service and not a
 public application authorization boundary.
 
-The planned competition vertical slice is:
+The live-versus-planned boundary is:
 
-```text
-Reviewer UI / agent
-    -> authenticated repository MCP service
-       -> promotion and retrieval service
-          -> CockroachDB Cloud
-             - candidate and canonical authority
-             - vector storage and tenant-scoped retrieval
-             - decision and retrieval audit
-          -> transactional outbox
-             -> optional AWS worker / model service
-             -> provider acknowledgement and reconciliation
-    -> private AWS Managed MCP evidence worker
-       -> CockroachDB Cloud Managed MCP
-       -> operational database evidence for the agent/reviewer
+```mermaid
+flowchart LR
+  reviewer["Reviewer / authorized AWS operator"]
+
+  subgraph live["Live deployed and verified"]
+    lambda["Private AWS Lambda<br/>read-only allowlist"]
+    secret["AWS Secrets Manager<br/>one API key"]
+    managed["CockroachDB Cloud<br/>Managed MCP"]
+    basic["CockroachDB Basic<br/>empty application schema"]
+    budget["AWS Budget + 7-day logs<br/>private S3 package"]
+    lambda --> secret
+    lambda --> managed
+    managed --> basic
+    budget -. guardrails .-> lambda
+  end
+
+  subgraph local["Implemented and integration-tested locally"]
+    policy["Promotion policy"]
+    store["Transaction + vector retrieval"]
+    repoMcp["Repository MCP<br/>search / fetch"]
+    policy --> store --> repoMcp
+  end
+
+  subgraph planned["Not yet deployed"]
+    auth["Authenticated HTTPS<br/>application service"]
+    outbox["Outbox delivery + reconciliation"]
+    auth --> outbox
+  end
+
+  reviewer -->|"AWS direct invoke"| lambda
+  reviewer -. "future public judge flow" .-> auth
+  repoMcp -. "future deployment" .-> auth
+  auth -. "after live migrations" .-> basic
 ```
 
-The application service and live resources in this diagram remain a target
-design. The AWS worker, package, and IaC are implemented locally, but
-CockroachDB Cloud, Managed MCP response, and AWS deployment are not verified
-until participant-owned smoke-test evidence exists. Vector query execution is
-implemented only against the disposable integration environment.
+The private AWS worker, its minimum-IAM role, its one-secret boundary, the
+Managed MCP connection, and two read calls are live. The application schema,
+vector query execution, authenticated repository MCP service, and outbox remain
+local-only or planned as shown.
 
 ## Component ownership
 

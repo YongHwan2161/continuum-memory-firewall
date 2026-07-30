@@ -18,11 +18,13 @@ copying a newly issued API key are participant-owned actions.
 | Managed MCP identity | Lambda reads one secret ARN and accepts read-only tools only | create the CockroachDB service account/API key and copy it once |
 | AWS identity | read-only preflight verifies STS, S3, Secrets Manager, Budgets, and CloudFormation | secure the AWS root user, configure MFA/SSO, and choose the deployment account |
 | AWS budget | a separate, first-deployed CloudFormation stack creates forecast-at-80% and actual-at-100% email alerts | supply the billing-owner email and understand that alerts do not stop spend |
-| AWS worker | tested Lambda package, minimum IAM, concurrency 1, 30-second timeout, 7-day logs | create a private package bucket and secret, then approve deployment |
+| AWS worker | tested Lambda package, minimum IAM, optional concurrency reservation, 30-second timeout, 7-day logs | create a private package bucket and secret, then approve deployment |
 | Public exposure | no Function URL or API Gateway is created | keep direct invocation restricted to authorized AWS principals |
 | Live evidence | deterministic smoke-test commands are documented | run them against the participant's accounts and retain non-secret output |
 
-No CockroachDB or AWS resource has been created merely by merging these files.
+Merging these files never creates a resource by itself. The current
+participant-owned deployment state is tracked separately in
+[PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ## Deployed architecture
 
@@ -39,7 +41,10 @@ authorized AWS operator
 
 CloudFormation
     +-> account-level monthly AWS Budget alerts
-    +-> Lambda reserved concurrency = 1
+    +-> Lambda reserved concurrency = 0 or 1
+        (0 omits the reservation on new accounts whose quota is the AWS
+        minimum; 1 is allowed only when at least 10 unreserved executions
+        remain)
     +-> CloudWatch Logs retention = 7 days
     +-> no VPC, NAT Gateway, Function URL, or API Gateway
 ```
@@ -355,7 +360,8 @@ Save only non-secret evidence:
 - CloudFormation stack outputs;
 - Lambda positive metadata invocation and write-tool denial result;
 - AWS Budget name and both alert thresholds;
-- CloudWatch log group retention and Lambda reserved concurrency;
+- CloudWatch log group retention and the account-compatible Lambda concurrency
+  setting;
 - GitHub Actions run for the exact deployed commit.
 
 Never capture the SQL URL, API key, secret value, AWS cookies, or access tokens.

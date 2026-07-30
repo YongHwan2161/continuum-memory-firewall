@@ -1,11 +1,13 @@
 # Project status
 
-**Status date:** 2026-07-30
-**Current milestone:** P2B — managed-cloud deployment readiness
-**Overall state:** the local promotion-to-retrieval vertical slice, repository
-MCP contract, and cost-bounded AWS-to-CockroachDB Managed MCP deployment package
-are implemented and locally verified. Participant-owned cloud accounts,
-credentials, live provisioning, and final submission evidence remain.
+**Status date:** 2026-07-31
+**Current milestone:** P2B — live managed-cloud evidence; application data plane pending
+**Overall state:** the local promotion-to-retrieval vertical slice and repository
+MCP contract are implemented and tested. A private, cost-bounded AWS Lambda
+worker is deployed and has completed two live read-only CockroachDB Cloud
+Managed MCP calls while rejecting a write tool before credential access. The
+participant cluster's application schema, live vector smoke, public
+authenticated application endpoint, and final submission materials remain.
 
 This document is the single source of truth for current capability, verification
 evidence, and explicit non-claims.
@@ -30,15 +32,15 @@ evidence, and explicit non-claims.
 | Secure configuration guard | Implemented | Public citation base URL must be HTTPS; remote database URLs must use `sslmode=verify-full`; tenant and incident scope are server configuration, not tool input |
 | Cloud deployment runbook | Implemented | One SSOT procedure separates automated checks from participant-owned account, credit, MFA, key-copy, evidence, and teardown steps |
 | CockroachDB Basic provisioning | Provisioned through the Cloud Console; CLI guard not executed | Participant console verification on 2026-07-30 shows the cluster available on Basic in AWS Singapore, with usage below the displayed 50M RU and 10 GiB monthly limits |
-| AWS Managed MCP worker | Implemented locally, not deployed | Lambda client pins the official HTTPS endpoint, caps input/output, retrieves one Secrets Manager ARN, and rejects Managed MCP write tools before credential access |
-| AWS infrastructure and package | Implemented and locally verified, not deployed | CloudFormation defines budget alerts, minimum IAM, concurrency 1, 30-second timeout, seven-day logs, and no public endpoint/VPC/NAT; the Python 3.12 manylinux zip builds on Windows or Linux and passes archive integrity checks |
+| AWS Managed MCP worker | Deployed and live-smoked | Private direct-invoke Lambda returned `ok: true` for `list_databases` and `list_tables`; `insert_rows` returned `INVALID_REQUEST` before secret access |
+| AWS infrastructure and package | Deployed and verified | Separate Budget and worker stacks are `CREATE_COMPLETE`; the worker has minimum secret/log IAM, 256 MiB memory, 30-second timeout, seven-day logs, no public endpoint/VPC/NAT, and an account-compatible optional concurrency reservation |
 | Reviewer experience | Deployed public simulation | GitHub Pages opens without login and Browser verification exercised policy rejection plus one-owner failover; it remains explicitly separate from live cloud evidence |
 | Live CockroachDB Cloud | Provisioned; application schema and smoke pending | A read-only SQL Shell query on 2026-07-30 confirmed that the `continuum` database exists but its `public` schema has no application tables; the broad SQL rule is absent and one temporary workstation `/32` rule remains |
 | Public MCP endpoint | Not deployed | The server contract exists, but no authenticated, stable HTTPS MCP deployment has been verified |
-| CockroachDB Managed MCP | Client boundary only; no live evidence | The Cloud Console exposes the cluster's Managed MCP OAuth connection instructions, and the AWS worker is prepared for the API-key path, but neither route has produced a successful participant-owned call |
-| AWS service use | Deployment-ready only; no live evidence | The AWS website profile is signed in, but the Management Console and CLI have no authenticated workload identity; Lambda/Secrets Manager/Budgets/Logs/S3 definitions and package exist, but no AWS stack has been created |
+| CockroachDB Managed MCP | Live read-only evidence complete | A cluster-scoped `Cluster Operator` service account initialized the managed server, advertised 12 tools, listed the `continuum` database, and returned zero tables for its still-unmigrated `public` schema through the deployed Lambda |
+| AWS service use | Live deployment evidenced | Lambda, Secrets Manager, S3, CloudWatch Logs, CloudFormation, and AWS Budgets are active in Singapore; the private package object is encrypted and expires after seven days, and the USD 5 monthly budget has forecast-at-80% and actual-at-100% email alerts |
 | Exactly-once external effect | Not guaranteed | The database claim is idempotent; an external provider call and acknowledgement are not yet coordinated |
-| Production security and resilience | Not implemented | No workload identity, secret rotation, tenant RLS, multi-region test, or worker-crash reconciliation evidence |
+| Production security and resilience | Partial | Lambda uses a generated minimum-IAM workload role and one-secret scope, but API-key rotation, application SQL identity/RLS, multi-region testing, and worker-crash reconciliation are not complete |
 
 ## Evidence
 
@@ -67,6 +69,8 @@ evidence, and explicit non-claims.
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30464165943>
 - Published Devpost project page (not submitted to the hackathon):
   <https://devpost.com/software/continuum-memory-firewall>
+- Redacted live AWS and CockroachDB evidence:
+  [2026-07-31-cloud-live-smoke.md](evidence/2026-07-31-cloud-live-smoke.md)
 
 `main` is the authoritative code. The linked workflows cover the reviewed P2B
 and migration implementation commits; the pull request records final-head
@@ -102,21 +106,22 @@ do not extend to an unimplemented external API call.
 
 ## Immediate participant focus
 
-The shortest path to competition evidence is now operational rather than a new
-feature:
+The AWS and Managed MCP evidence gate is closed. The shortest remaining path to
+a cloud-backed competition demo is:
 
-1. **Configure AWS identity and budget:** sign in to the actual AWS Management
-   Console (the AWS website profile is a separate session), configure CLI
-   SSO/MFA, verify the
-   intended billing account, and create the budget stack before any workload.
-2. **Migrate and verify the disposable database:** securely transfer the
+1. **Migrate and verify the disposable database:** securely transfer the
    generated SQL credential to the local operator environment, run the
-   versioned migrator and synthetic DB smoke, and retain only the reviewer
-   evidence row if needed.
-3. **Create the Managed MCP identity and deploy AWS:** store its key directly in
-   AWS Secrets Manager, then run one successful
-   `list_databases` invocation and one denied `insert_rows` invocation. Retain
-   only redacted, non-secret evidence.
+   versioned migrator and synthetic vector smoke, retain only non-secret
+   evidence, and remove the temporary workstation `/32` rule immediately after
+   the SQL verification.
+2. **Expose the application boundary:** deploy the repository `search`/`fetch`
+   MCP service behind authenticated HTTPS with fixed tenant/incident scope, or
+   keep the submission claim explicitly limited to the private operational
+   evidence worker.
+3. **Package the judge flow:** record a two-to-three minute video showing one
+   accepted path, one rejected path, live Managed MCP evidence, and the explicit
+   local-versus-live boundary; then complete the participant attestations and
+   final Devpost submission.
 
 The exact commands and stop conditions are in
 [CLOUD_DEPLOYMENT_RUNBOOK.md](CLOUD_DEPLOYMENT_RUNBOOK.md).
@@ -128,17 +133,17 @@ The exact commands and stop conditions are in
 - The SQL credential was generated in the participant console but was not
   copied into chat, logs, or the repository. A secure one-time transfer into the
   local environment is required before the live migrator can run.
-- The visible AWS website profile session is not an AWS Management Console
-  session. No authenticated AWS CLI identity is active, so the budget and
-  workload stacks have not been created.
-- The challenge requires at least two qualifying CockroachDB tools and one AWS
-  service. The repository proves Distributed Vector Indexing locally and
-  prepares `ccloud`, Managed MCP, and AWS paths, but live use evidence is still
-  required.
-- The Devpost submission still needs live cloud evidence, an architecture
-  diagram, a short public video, and the final narrative. See
+- One temporary workstation `/32` SQL network rule remains and must be removed
+  after the live migration/vector smoke.
+- The deployed long-lived service-account API key has no automatic rotation.
+  Rotate or delete it and tear down the worker resources after judging.
+- The private Lambda proves AWS-to-Managed-MCP integration but is intentionally
+  not a functional public application URL. The repository MCP service is not
+  deployed behind authenticated HTTPS.
+- The Devpost submission still needs a short public video, screenshots, the
+  final narrative, participant attestations, and submission confirmation. See
   [DEVPOST_CHECKLIST.md](DEVPOST_CHECKLIST.md).
 - The versioned migration and real-engine smoke paths are implemented, but have
   not yet been executed against the participant's CockroachDB Cloud cluster;
-  a 2026-07-30 read-only query confirmed that its application schema remains
-  empty.
+  a 2026-07-31 live Managed MCP query confirmed that its application schema
+  remains empty.

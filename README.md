@@ -5,14 +5,14 @@ memory promotion in long-running AI agents. It separates untrusted candidate
 memories from canonical memory and makes every promotion decision explicit,
 deterministic, and transactionally durable.
 
-The current milestone is **P2B: managed-cloud deployment readiness**. In
-addition to the transactional promotion and retrieval boundary, the repository
-now packages a private, cost-bounded AWS Lambda client for CockroachDB Cloud
-Managed MCP and defines minimum-IAM, budget, concurrency, and log-retention
-infrastructure. CI exercises the local database/MCP contracts and builds the
-Python 3.12 Lambda artifact. Live CockroachDB Cloud and AWS resources still
-require participant-owned accounts, credentials, approval, and smoke-test
-evidence; deployment-ready code is not described as a live deployment.
+The current milestone is **P2B: live managed-cloud evidence**. In addition to
+the transactional promotion and retrieval boundary, a private, cost-bounded AWS
+Lambda client for CockroachDB Cloud Managed MCP is deployed with minimum IAM,
+budget alerts, bounded execution, and seven-day logs. Live smoke tests proved
+two read tools and a pre-secret write-tool denial. The participant cluster's
+application migrations/vector smoke and the authenticated public application
+boundary remain explicit gaps; the operational evidence worker is not presented
+as a live application.
 
 For the authoritative project state and evidence, see
 [Project Status](docs/PROJECT_STATUS.md). For implementation order and exit
@@ -129,6 +129,9 @@ The executable database evidence is the integration test suite and CI run
 linked from [Project Status](docs/PROJECT_STATUS.md). The original Sites
 deployment remains an access-gated backup because this workspace does not allow
 internet-public Sites access.
+
+The redacted private-worker deployment proof is recorded in
+[Live AWS and Managed MCP evidence](docs/evidence/2026-07-31-cloud-live-smoke.md).
 
 ## Safety boundary
 

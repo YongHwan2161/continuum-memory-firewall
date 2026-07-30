@@ -1,6 +1,6 @@
 # Cost safety
 
-**Planning assumptions last reviewed:** 2026-07-25
+**Planning assumptions last reviewed:** 2026-07-31
 
 This document is the authoritative source for spending assumptions and controls.
 Provider prices, free tiers, hackathon credits, and eligibility can change. The
@@ -54,7 +54,9 @@ and [CockroachDB Cloud trial](https://www.cockroachlabs.com/docs/cockroachcloud/
   and Lambda; make the workload preflight fail unless that exact budget exists;
 - alert at 80% forecast and 100% actual monthly budget;
 - remember that AWS Budget alerts do not stop resources;
-- reserve Lambda concurrency at 1, use 256 MiB memory and a 30-second timeout;
+- reserve Lambda concurrency at 1 only when the account quota can retain AWS's
+  minimum unreserved pool; omit the reservation at the new-account quota of 10,
+  and keep 256 MiB memory with a 30-second timeout;
 - avoid a VPC/NAT path by calling Managed MCP over HTTPS;
 - cap Bedrock input, output, retries, and daily invocation counts in code
 - keep CloudWatch log retention at 3–7 days
@@ -69,6 +71,19 @@ USD 5 account-level monthly AWS alert budget. The template accepts USD 1–30, a
 USD 30 remains the absolute project planning ceiling if optional paid AWS work
 is explicitly approved. These alerts are internal planning controls, not
 guaranteed free-tier eligibility or automatic shutdown.
+
+## Live controls observed on 2026-07-31
+
+- the USD 5 Budget stack is `CREATE_COMPLETE`, with forecast-at-80% and
+  actual-at-100% notifications;
+- the private package bucket blocks public access, uses AES256 server-side
+  encryption, and expires `lambda/` objects after seven days;
+- the Lambda has no public URL, retains logs for seven days, and can read only
+  the one Managed MCP secret;
+- no NAT Gateway, VPC, API Gateway, EKS, or provisioned model service was
+  deployed;
+- the Secrets Manager key does not yet rotate automatically, so teardown or
+  rotation remains a cost and security gate after judging.
 
 Before provisioning any managed service:
 
