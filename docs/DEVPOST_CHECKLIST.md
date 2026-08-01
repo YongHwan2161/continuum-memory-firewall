@@ -7,7 +7,8 @@ complete attestations and organizer agreements.
 ## Participation
 
 - [x] Hackathon registration confirmed through Devpost on 2026-07-25
-- [ ] Required participant eligibility and organizer agreements confirmed
+- [x] Required participant eligibility and organizer agreements confirmed by
+      the participant on 2026-08-02
 - [x] Live challenge requirements rechecked on 2026-07-29: public repository,
       functional demo, public video under three minutes, at least two qualifying
       CockroachDB tools, and at least one AWS service
@@ -77,22 +78,24 @@ complete attestations and organizer agreements.
 ## Submission materials
 
 - [x] Devpost project page published with the current implementation boundary
-- [ ] Project submitted to the CockroachDB x AWS hackathon
+- [x] Project submitted to the CockroachDB x AWS hackathon on 2026-08-02;
+      Devpost submission `1121568` returned `Submitted`
 - [x] Architecture diagram distinguishes locally implemented, live deployed,
       and planned application components
 - [x] Secret-free 72-second narrated demo video generated at
       [docs/demo/continuum-memory-firewall-demo.mp4](demo/continuum-memory-firewall-demo.mp4)
 - [x] Secret-free screenshots captured for the live overview, policy rejection,
       and one-owner failover in [docs/demo/](demo/)
-- [ ] Demo video uploaded to a Devpost-supported public host and tested logged out
-- [x] Problem, approach, architecture, and technical challenge narrative in the
-      repository documentation; concise Devpost field copy still needs a final
-      logged-out rendering check
+- [x] Demo video uploaded publicly to YouTube and embedded on Devpost:
+      <https://youtu.be/raad44nJj5I>
+- [x] Problem, approach, architecture, and technical challenge narrative
+      rendered on the public Devpost project page
 - [x] Measured retrieval/isolation results recorded; broader latency and
       production-quality statistics remain explicit non-claims
 - [x] Final technology inventory limited to deployed/tested components in
-      `PROJECT_STATUS.md`; copy into Devpost remains pending
-- [ ] Repository, demo, video, and documentation links tested in a logged-out browser
+      `PROJECT_STATUS.md` and copied into Devpost
+- [x] Repository, demo, video, and documentation links tested without project
+      credentials
 
 ## Final integrity review
 
@@ -101,6 +104,7 @@ complete attestations and organizer agreements.
       in the deployment evidence commit
 - [x] No planned application component is described as implemented
 - [ ] Pricing, credit, and organizer-support claims are rechecked against current official sources
-- [ ] Participant performs final submission and retains confirmation evidence
+- [x] Participant-owned attestations were selected and final submission receipt
+      retained: submission `1121568`, `Submitted` at 2026-08-02 00:22 KST
 - [ ] After judging, dedicated-role teardown deletes the authenticated MCP EC2
       stack and confirms the Elastic IP release
