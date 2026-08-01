@@ -187,3 +187,9 @@ jobs:
             echo "migration_capability_absent=true"
           fi
           rm -f -- /tmp/continuum-current.zip /tmp/cockroach-ca.crt
+      - name: Rotate Managed MCP key and prove two read tools when staged
+        if: success()
+        shell: bash
+        env:
+          ROTATED_API_KEY: ${{ secrets.CONTINUUM_ROTATED_MCP_API_KEY }}
+        run: ./scripts/rotate_managed_mcp_secret.sh
