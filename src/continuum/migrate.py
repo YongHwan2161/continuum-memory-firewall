@@ -169,6 +169,13 @@ def _statement_count(sql: str) -> int:
     )
 
 
+def canonical_migration_bytes(raw: bytes) -> bytes:
+    """Normalize SQL newlines to the historical CRLF migration format."""
+
+    normalized = raw.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return normalized.replace(b"\n", b"\r\n")
+
+
 def discover_migrations(directory: Path | None = None) -> tuple[Migration, ...]:
     root = directory or default_migrations_dir()
     if not root.is_dir():
@@ -181,7 +188,7 @@ def discover_migrations(directory: Path | None = None) -> tuple[Migration, ...]:
             raise MigrationDefinitionError(
                 f"invalid migration filename: {path.name}"
             )
-        raw = path.read_bytes()
+        raw = canonical_migration_bytes(path.read_bytes())
         sql = raw.decode("utf-8")
         if _statement_count(sql) != 1:
             raise MigrationDefinitionError(

@@ -26,7 +26,9 @@ Each migration:
 - contains exactly one SQL statement;
 - is safe to execute again if its metadata write was interrupted;
 - performs one online schema change and ends with a semicolon;
-- is immutable after it has been applied anywhere.
+- is immutable after it has been applied anywhere;
+- is checksummed and executed after newline normalization to the historical
+  CRLF representation, so Windows and Linux checkouts produce the same bytes.
 
 CockroachDB recommends executing schema-changing DDL as individual implicit
 transactions. A single statement per migration avoids presenting multiple DDL
@@ -42,7 +44,7 @@ must not be mixed with an unrelated schema change.
 `continuum-migrate` provides:
 
 1. ordered discovery with gap and filename validation;
-2. a SHA-256 checksum for the exact migration bytes;
+2. a SHA-256 checksum for the canonical CRLF migration bytes;
 3. `continuum_schema_migrations` history;
 4. a durable pre-DDL intent in `continuum_migration_intents`, so a process
    stopped between DDL success and history recording can safely resume;
@@ -126,7 +128,7 @@ The output contains identifiers but never prints the database URL or password.
 
 | Failure | Required response |
 |---|---|
-| Checksum drift | restore the committed file; never update the database checksum to hide drift |
+| Checksum drift | restore the committed file; never update the database checksum to hide drift. A checkout-only LF/CRLF difference is normalized before comparison. |
 | Active lease | wait for the other migration; do not bypass it |
 | Expired lease after a crash | inspect CockroachDB schema jobs, then rerun the idempotent migration |
 | `XXA00` uncertain state | inspect `SHOW JOBS` and the affected object before any retry |
