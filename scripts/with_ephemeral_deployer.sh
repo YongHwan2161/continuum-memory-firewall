@@ -64,8 +64,23 @@ if [[ -z "$access_key_id" || -z "$secret_access_key" ]]; then
   exit 7
 fi
 
-env -u AWS_PROFILE \
+broker_ready="false"
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  if env -u AWS_PROFILE -u AWS_SESSION_TOKEN \
+    AWS_ACCESS_KEY_ID="$access_key_id" \
+    AWS_SECRET_ACCESS_KEY="$secret_access_key" \
+    aws sts get-caller-identity >/dev/null 2>&1; then
+    broker_ready="true"
+    break
+  fi
+  sleep 2
+done
+if [[ "$broker_ready" != "true" ]]; then
+  printf 'Ephemeral broker credentials did not become ready; refusing deployment.\n' >&2
+  exit 8
+fi
+
+env -u AWS_PROFILE -u AWS_SESSION_TOKEN \
   AWS_ACCESS_KEY_ID="$access_key_id" \
   AWS_SECRET_ACCESS_KEY="$secret_access_key" \
-  AWS_SESSION_TOKEN="" \
   bash "$repo_root/scripts/run_as_deployer.sh" "$@"
