@@ -63,6 +63,13 @@ class McpHostInfrastructureTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("assert_deployer_identity.sh", script)
+        recovery = (
+            ROOT / "scripts" / "deploy_mcp_host_direct_recovery.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn("assert_deployer_identity.sh", recovery)
+        self.assertIn("UPDATE_ROLLBACK_FAILED", recovery)
+        self.assertIn("--resources-to-skip McpInstance", recovery)
+        self.assertIn("sha256sum --check --strict", recovery)
 
     def test_deployer_verifies_the_artifact_hash_before_install(self):
         script = (ROOT / "scripts" / "deploy_mcp_host.sh").read_text(

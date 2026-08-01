@@ -75,7 +75,17 @@ jobs:
         run: |
           test -x ./scripts/deploy_mcp_host.sh
           test -x ./scripts/build_mcp_host_package.sh
-          ./scripts/deploy_mcp_host.sh
+          stack_status="$(aws cloudformation describe-stacks \
+            --region ap-southeast-1 \
+            --stack-name continuum-authenticated-mcp \
+            --query 'Stacks[0].StackStatus' --output text)"
+          if [[ "$stack_status" == "UPDATE_ROLLBACK_FAILED" || \
+                "$stack_status" == "UPDATE_ROLLBACK_COMPLETE" ]]; then
+            test -x ./scripts/deploy_mcp_host_direct_recovery.sh
+            ./scripts/deploy_mcp_host_direct_recovery.sh
+          else
+            ./scripts/deploy_mcp_host.sh
+          fi
       - name: Report CloudFormation failure without secret values
         if: failure()
         run: |
