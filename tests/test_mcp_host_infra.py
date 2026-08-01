@@ -96,6 +96,7 @@ class McpHostInfrastructureTests(unittest.TestCase):
             "live_semantic_eval.py",
             "remote_oidc_smoke.py",
             "semantic-retrieval-v1.json",
+            "adversarial-semantic-retrieval-v2.json",
         ):
             self.assertIn(path, script)
 

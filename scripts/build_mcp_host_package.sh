@@ -23,6 +23,7 @@ cp "$repo_root/scripts/cutover_scope_identity.py" "$stage/scripts/"
 cp "$repo_root/scripts/live_semantic_eval.py" "$stage/scripts/"
 cp "$repo_root/scripts/remote_oidc_smoke.py" "$stage/scripts/"
 cp "$repo_root/evals/semantic-retrieval-v1.json" "$stage/evals/"
+cp "$repo_root/evals/adversarial-semantic-retrieval-v2.json" "$stage/evals/"
 if [[ -n "${CONTINUUM_CA_CERT_PATH:-}" ]]; then
   if [[ ! -f "$CONTINUUM_CA_CERT_PATH" ]]; then
     printf 'CONTINUUM_CA_CERT_PATH does not exist.\n' >&2
