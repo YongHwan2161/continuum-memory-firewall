@@ -1,0 +1,24 @@
+name: aws-identity-proof
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  prove-keyless-deployer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          role-session-name: continuum-oidc-proof
+      - name: Prove exact deployment role
+        run: ./scripts/assert_deployer_identity.sh
+      - name: Record short-lived role proof
+        run: aws sts get-caller-identity --query Arn --output text

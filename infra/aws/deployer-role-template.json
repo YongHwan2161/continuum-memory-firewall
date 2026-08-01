@@ -1,7 +1,23 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "One-hour, project-scoped deployment role replacing root CLI operations",
+  "Description": "One-hour, project-scoped GitHub OIDC deployment role replacing root CLI operations",
+  "Parameters": {
+    "GitHubOwner": {"Type": "String", "Default": "YongHwan2161"},
+    "GitHubRepository": {"Type": "String", "Default": "continuum-memory-firewall"},
+    "DeploymentRef": {"Type": "String", "Default": "refs/heads/agent/north-star-security-semantic"}
+  },
   "Resources": {
+    "GitHubOidcProvider": {
+      "Type": "AWS::IAM::OIDCProvider",
+      "Properties": {
+        "Url": "https://token.actions.githubusercontent.com",
+        "ClientIdList": ["sts.amazonaws.com"],
+        "Tags": [
+          {"Key": "Project", "Value": "continuum-memory-firewall"},
+          {"Key": "Purpose", "Value": "keyless-deployment"}
+        ]
+      }
+    },
     "ContinuumDeployer": {
       "Type": "AWS::IAM::Role",
       "Properties": {
@@ -13,9 +29,15 @@
             {
               "Effect": "Allow",
               "Principal": {
-                "AWS": {"Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"}
+                "Federated": {"Ref": "GitHubOidcProvider"}
               },
-              "Action": "sts:AssumeRole"
+              "Action": "sts:AssumeRoleWithWebIdentity",
+              "Condition": {
+                "StringEquals": {
+                  "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+                  "token.actions.githubusercontent.com:sub": {"Fn::Sub": "repo:${GitHubOwner}/${GitHubRepository}:ref:${DeploymentRef}"}
+                }
+              }
             }
           ]
         },

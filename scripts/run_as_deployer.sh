@@ -9,7 +9,7 @@ region="${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}"
 source_arn="$(aws sts get-caller-identity --query Arn --output text)"
 case "$source_arn" in
   arn:aws:iam::*:root)
-    printf 'AWS root cannot assume roles. Use with_ephemeral_deployer.sh for the one-time bridge.\n' >&2
+    printf 'AWS root cannot assume roles. Use the repository GitHub OIDC workflow.\n' >&2
     exit 4
     ;;
 esac
