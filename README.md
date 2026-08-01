@@ -5,14 +5,15 @@ memory promotion in long-running AI agents. It separates untrusted candidate
 memories from canonical memory and makes every promotion decision explicit,
 deterministic, and transactionally durable.
 
-The current milestone is **P2B: live managed-cloud and SQL data-plane evidence**.
-In addition to the transactional promotion and retrieval boundary, a private,
-cost-bounded AWS Lambda client for CockroachDB Cloud Managed MCP is deployed
-with minimum IAM, budget alerts, bounded execution, and seven-day logs. Live
-smoke tests proved two Managed MCP read tools, a pre-secret write-tool denial,
-all eight participant-cluster migrations, and the scoped 512-dimensional vector
-path. The authenticated public application boundary remains an explicit gap;
-the operational evidence worker is not presented as a live application.
+The current milestone is **P2B: authenticated managed-cloud competition
+slice**. In addition to the transactional promotion and retrieval boundary, a
+private, cost-bounded AWS Lambda client for CockroachDB Cloud Managed MCP and a
+public TLS repository MCP service are deployed. Live smoke tests proved two
+Managed MCP read tools, a pre-secret write-tool denial, all eight
+participant-cluster migrations, separate least-privilege migrator/runtime SQL
+roles, fixed AWS SQL egress, and an authenticated cross-scope vector flow. The
+public endpoint is a fixed-scope synthetic competition service, not a claim of
+production multi-tenant identity or semantic retrieval quality.
 
 For the authoritative project state and evidence, see
 [Project Status](docs/PROJECT_STATUS.md). For implementation order and exit
@@ -107,6 +108,7 @@ accepted memory:
 export CONTINUUM_DATABASE_URL='postgresql://...?...&sslmode=verify-full'
 export CONTINUUM_TENANT_ID='00000000-0000-0000-0000-000000000000'
 export CONTINUUM_INCIDENT_ID='00000000-0000-0000-0000-000000000000'
+export CONTINUUM_MCP_BEARER_TOKEN='generate-at-least-32-random-characters'
 export CONTINUUM_PUBLIC_BASE_URL='https://your-public-memory-view.example/'
 continuum-mcp
 ```
@@ -134,6 +136,9 @@ The redacted private-worker deployment proof is recorded in
 [Live AWS and Managed MCP evidence](docs/evidence/2026-07-31-cloud-live-smoke.md).
 The redacted participant-cluster migration and vector proof is recorded in
 [Live CockroachDB SQL and vector evidence](docs/evidence/2026-08-01-live-sql-vector-smoke.md).
+The least-privilege SQL, fixed-egress, authenticated HTTPS, and remote
+cross-scope proof is recorded in
+[Authenticated remote MCP evidence](docs/evidence/2026-08-01-authenticated-remote-mcp-smoke.md).
 
 ## Safety boundary
 

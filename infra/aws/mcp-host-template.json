@@ -1,0 +1,176 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Authenticated Continuum MCP host with one fixed egress IP",
+  "Parameters": {
+    "VpcId": {
+      "Type": "AWS::EC2::VPC::Id"
+    },
+    "SubnetId": {
+      "Type": "AWS::EC2::Subnet::Id"
+    },
+    "AmiId": {
+      "Type": "AWS::EC2::Image::Id"
+    },
+    "InstanceType": {
+      "Type": "String",
+      "Default": "t3.micro",
+      "AllowedValues": ["t3.micro"]
+    },
+    "PackageBucket": {
+      "Type": "String",
+      "Description": "S3 bucket containing the private deployment artifact"
+    },
+    "PackageKey": {
+      "Type": "String",
+      "Description": "Exact S3 key readable by the MCP instance"
+    },
+    "ArtifactSha256": {
+      "Type": "String",
+      "AllowedPattern": "^[a-f0-9]{64}$",
+      "Description": "Expected SHA-256 of the deployed source package"
+    },
+    "RuntimeSecretArn": {
+      "Type": "String",
+      "Description": "Existing runtime secret ARN; the value is never passed to CloudFormation"
+    }
+  },
+  "Resources": {
+    "McpSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Public HTTPS only; no SSH",
+        "VpcId": {"Ref": "VpcId"},
+        "SecurityGroupIngress": [
+          {"IpProtocol": "tcp", "FromPort": 80, "ToPort": 80, "CidrIp": "0.0.0.0/0"},
+          {"IpProtocol": "tcp", "FromPort": 443, "ToPort": 443, "CidrIp": "0.0.0.0/0"}
+        ],
+        "SecurityGroupEgress": [
+          {"IpProtocol": "-1", "CidrIp": "0.0.0.0/0"}
+        ],
+        "Tags": [
+          {"Key": "Project", "Value": "continuum-memory-firewall"},
+          {"Key": "Environment", "Value": "hackathon"}
+        ]
+      }
+    },
+    "McpInstanceRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {"Service": "ec2.amazonaws.com"},
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+        ],
+        "Policies": [
+          {
+            "PolicyName": "ReadOnlyOneContinuumRuntimeSecret",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "secretsmanager:GetSecretValue",
+                  "Resource": {"Ref": "RuntimeSecretArn"}
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "ReadOnlyOneMcpArtifact",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "s3:GetObject",
+                  "Resource": {
+                    "Fn::Sub": "arn:${AWS::Partition}:s3:::${PackageBucket}/${PackageKey}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "Tags": [
+          {"Key": "Project", "Value": "continuum-memory-firewall"},
+          {"Key": "Environment", "Value": "hackathon"}
+        ]
+      }
+    },
+    "McpInstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Roles": [{"Ref": "McpInstanceRole"}]
+      }
+    },
+    "McpEip": {
+      "Type": "AWS::EC2::EIP",
+      "Properties": {
+        "Domain": "vpc",
+        "Tags": [
+          {"Key": "Project", "Value": "continuum-memory-firewall"},
+          {"Key": "Environment", "Value": "hackathon"}
+        ]
+      }
+    },
+    "McpInstance": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "ImageId": {"Ref": "AmiId"},
+        "InstanceType": {"Ref": "InstanceType"},
+        "IamInstanceProfile": {"Ref": "McpInstanceProfile"},
+        "SubnetId": {"Ref": "SubnetId"},
+        "SecurityGroupIds": [{"Ref": "McpSecurityGroup"}],
+        "MetadataOptions": {
+          "HttpEndpoint": "enabled",
+          "HttpTokens": "required",
+          "HttpPutResponseHopLimit": 1,
+          "InstanceMetadataTags": "disabled"
+        },
+        "BlockDeviceMappings": [
+          {
+            "DeviceName": "/dev/sda1",
+            "Ebs": {
+              "DeleteOnTermination": true,
+              "Encrypted": true,
+              "VolumeSize": 8,
+              "VolumeType": "gp3"
+            }
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Sub": "#!/usr/bin/env bash\nset -euo pipefail\nexport DEBIAN_FRONTEND=noninteractive\napt-get update -y\napt-get install -y ca-certificates curl unzip\nif ! command -v aws >/dev/null 2>&1; then\n  work_dir=$(mktemp -d)\n  curl --fail --silent --show-error --location 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip' --output \"$work_dir/awscliv2.zip\"\n  unzip -q \"$work_dir/awscliv2.zip\" -d \"$work_dir\"\n  \"$work_dir/aws/install\"\n  rm -rf -- \"$work_dir\"\nfi\nmkdir -p /opt/continuum\naws s3 cp 's3://${PackageBucket}/${PackageKey}' /tmp/continuum-mcp-host.zip --only-show-errors\nunzip -q /tmp/continuum-mcp-host.zip -d /opt/continuum\nchmod 0755 /opt/continuum/scripts/bootstrap_mcp_host.sh\n/opt/continuum/scripts/bootstrap_mcp_host.sh '${AWS::Region}' '${RuntimeSecretArn}' '${McpEip}'\nrm -f /tmp/continuum-mcp-host.zip\n"
+          }
+        },
+        "Tags": [
+          {"Key": "Name", "Value": "continuum-authenticated-mcp"},
+          {"Key": "Project", "Value": "continuum-memory-firewall"},
+          {"Key": "Environment", "Value": "hackathon"},
+          {"Key": "continuum:artifact-sha256", "Value": {"Ref": "ArtifactSha256"}}
+        ]
+      }
+    },
+    "McpEipAssociation": {
+      "Type": "AWS::EC2::EIPAssociation",
+      "Properties": {
+        "AllocationId": {"Fn::GetAtt": ["McpEip", "AllocationId"]},
+        "InstanceId": {"Ref": "McpInstance"}
+      }
+    }
+  },
+  "Outputs": {
+    "InstanceId": {"Value": {"Ref": "McpInstance"}},
+    "StaticIp": {"Value": {"Ref": "McpEip"}},
+    "RuntimeRoleArn": {"Value": {"Fn::GetAtt": ["McpInstanceRole", "Arn"]}},
+    "ArtifactSha256": {"Value": {"Ref": "ArtifactSha256"}}
+  }
+}

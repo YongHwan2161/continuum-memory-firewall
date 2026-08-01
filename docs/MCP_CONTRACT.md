@@ -26,10 +26,12 @@ Every database read and write includes both identifiers, and composite database
 constraints preserve their relationship. Rejected candidates are not queried by
 the retrieval store and are not exposed by MCP.
 
-This fixed-scope design is safe for a synthetic single-scenario demo. It is not
-a substitute for production caller authentication. A public deployment must add
-OAuth or an equivalent server-side identity boundary and derive permitted scope
-from authenticated identity.
+The competition deployment wraps this fixed scope in a server-side bearer
+boundary. That is sufficient to deny unauthenticated access and demonstrate
+cross-scope exclusion for one synthetic scenario. It is not a substitute for
+production caller authentication. A multi-user deployment must add short-lived
+OAuth/JWT identity and derive permitted scope from authenticated claims rather
+than one process-wide scope.
 
 ## Runtime configuration
 
@@ -38,6 +40,7 @@ Required variables:
 - `CONTINUUM_DATABASE_URL`
 - `CONTINUUM_TENANT_ID`
 - `CONTINUUM_INCIDENT_ID`
+- `CONTINUUM_MCP_BEARER_TOKEN` — at least 32 random characters
 
 Optional variables:
 
@@ -48,6 +51,8 @@ Optional variables:
 Remote database URLs fail closed unless `sslmode=verify-full` is present.
 Credentials must be injected through the deployment platform's secret mechanism
 and must not appear in source, browser code, command history, or logs.
+FastMCP DNS-rebinding protection stays enabled; the server accepts only the
+configured public HTTPS host and origin.
 
 ## Embedding boundary
 
@@ -73,3 +78,8 @@ A production or competition deployment is not complete until:
 5. database TLS, secrets, timeouts, pooling, logs, and budget controls are
    verified;
 6. citation URLs resolve to durable reviewer-visible content.
+
+The 2026-08-01 competition deployment closes gates 1–4 and verifies database
+TLS, secret injection, bounded HTTP handling, budget alerts, and fixed SQL
+egress. Production pooling and durable reviewer-visible live-memory pages remain
+separate hardening work rather than implied by that deployment.

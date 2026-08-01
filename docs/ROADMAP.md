@@ -15,14 +15,15 @@ Implement:
    [CLOUD_DEPLOYMENT_RUNBOOK.md](CLOUD_DEPLOYMENT_RUNBOOK.md), then capture one
    successful and one denied Managed MCP Lambda invocation; two successful read
    tools and one pre-secret write denial are now recorded;
-2. **Live-data path completed 2026-08-01:** run the implemented versioned
+2. **Live-data and least-privilege path completed 2026-08-01:** run the implemented versioned
    migrator and synthetic smoke path against the participant database; all
-   eight migrations and the scoped vector flow passed, generated rows were
-   cleaned up, and the temporary network rule was removed. Remaining hardening:
-   separate least-privilege migrator/runtime identities and capture vector
-   query-plan evidence;
-3. deploy the repository MCP server behind authenticated stable HTTPS and add a
-   reproducible remote smoke test;
+   eight migrations and the scoped vector flow passed; separate migrator and
+   runtime roles now enforce negative DDL/write tests; the allowlist contains
+   only the AWS Elastic IP `/32` and a workstation retry was blocked. Remaining
+   data-plane hardening: query-plan evidence and database-native tenant policy;
+3. **Authenticated remote MCP completed 2026-08-01:** the repository server is
+   deployed behind valid TLS and bearer authentication; deterministic,
+   hash-verified SSM deployment and a remote allowed/denied-scope smoke passed;
 4. replace deterministic demo embeddings with a bounded semantic embedder and
    add connection pooling, deadlines, and application identity metadata;
 5. expose promotion, retrieval, audit, and negative-scope evidence in the
@@ -45,10 +46,11 @@ Exit criteria:
 
 **Why this is first:** P2A already proves the application contract locally.
 The cost-bounded Managed MCP/AWS path now has participant-owned live evidence.
-P2B's shortest remaining gate is now an authenticated application surface,
-followed by least-privilege SQL-role and query-plan evidence. The participant
-cluster application data-plane proof is complete without retaining synthetic
-smoke rows.
+P2B's authenticated application and least-privilege SQL gates are now closed.
+The shortest remaining submission path is reviewer packaging and measured
+evidence. The most important product hardening is short-lived identity-derived
+scope plus a semantic embedder evaluation; query-plan evidence follows before a
+production-performance claim.
 
 ## Priority 2 — P3 reliable external-action delivery
 

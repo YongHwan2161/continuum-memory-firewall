@@ -60,6 +60,14 @@ class MCPProtocolTests(IsolatedAsyncioTestCase):
             self.assertFalse(tool.annotations.openWorldHint)
             self.assertIsNotNone(tool.outputSchema)
 
+    def test_transport_security_allows_only_the_configured_public_host(self):
+        settings = self.server.settings.transport_security
+
+        self.assertTrue(settings.enable_dns_rebinding_protection)
+        self.assertEqual(settings.allowed_hosts, ["example.test"])
+        self.assertEqual(settings.allowed_origins, ["https://example.test"])
+        self.assertNotIn("*", settings.allowed_hosts)
+
     async def test_search_returns_structured_content_and_json_text_fallback(self):
         from mcp.shared.memory import create_connected_server_and_client_session
         from mcp.types import TextContent
@@ -110,6 +118,7 @@ class MCPSettingsTests(TestCase):
             ),
             "CONTINUUM_TENANT_ID": "tenant",
             "CONTINUUM_INCIDENT_ID": "incident",
+            "CONTINUUM_MCP_BEARER_TOKEN": "x" * 32,
         }
         with patch.dict(os.environ, environment, clear=True):
             with self.assertRaisesRegex(RuntimeError, "sslmode=verify-full"):
@@ -124,6 +133,7 @@ class MCPSettingsTests(TestCase):
             ),
             "CONTINUUM_TENANT_ID": "tenant",
             "CONTINUUM_INCIDENT_ID": "incident",
+            "CONTINUUM_MCP_BEARER_TOKEN": "x" * 32,
             "CONTINUUM_PUBLIC_BASE_URL": "https://example.test/memories",
             "CONTINUUM_MCP_PORT": "9000",
         }
@@ -132,6 +142,68 @@ class MCPSettingsTests(TestCase):
 
         self.assertEqual(settings.port, 9000)
         self.assertEqual(settings.host, "0.0.0.0")
+
+
+@skipUnless(MCP_AVAILABLE, "install the MCP extra to run HTTP boundary tests")
+class BearerAuthTests(IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        from continuum.mcp_server import BearerAuthMiddleware
+
+        async def accepted(scope, receive, send):
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 204,
+                    "headers": [],
+                }
+            )
+            await send({"type": "http.response.body", "body": b""})
+
+        self.token = "a" * 32
+        self.app = BearerAuthMiddleware(accepted, bearer_token=self.token)
+
+    async def request(self, path="/mcp", authorization=None):
+        headers = []
+        if authorization is not None:
+            headers.append((b"authorization", authorization.encode("utf-8")))
+        messages = []
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def send(message):
+            messages.append(message)
+
+        await self.app(
+            {"type": "http", "method": "POST", "path": path, "headers": headers},
+            receive,
+            send,
+        )
+        return messages
+
+    async def test_missing_and_wrong_tokens_fail_closed(self):
+        for value in (None, "Basic abc", "Bearer wrong"):
+            with self.subTest(value=value):
+                messages = await self.request(authorization=value)
+                self.assertEqual(messages[0]["status"], 401)
+                self.assertIn(
+                    (b"cache-control", b"no-store"),
+                    messages[0]["headers"],
+                )
+
+    async def test_correct_token_reaches_mcp(self):
+        messages = await self.request(authorization=f"Bearer {self.token}")
+        self.assertEqual(messages[0]["status"], 204)
+
+    async def test_health_is_available_without_credentials(self):
+        messages = await self.request(path="/healthz")
+        self.assertEqual(messages[0]["status"], 204)
+
+    def test_short_token_is_rejected_at_startup(self):
+        from continuum.mcp_server import BearerAuthMiddleware
+
+        with self.assertRaisesRegex(RuntimeError, "at least 32"):
+            BearerAuthMiddleware(self.app, bearer_token="short")
 
 
 if __name__ == "__main__":

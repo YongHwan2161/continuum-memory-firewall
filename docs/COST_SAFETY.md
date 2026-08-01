@@ -35,7 +35,8 @@ and [CockroachDB Cloud trial](https://www.cockroachlabs.com/docs/cockroachcloud/
 ## Hard constraints
 
 - CockroachDB Cloud Basic only
-- AWS on-demand and serverless services only
+- AWS on-demand services only; one `t3.micro` host is the bounded exception
+  required for fixed SQL egress
 - no EKS
 - no NAT Gateway
 - no provisioned Bedrock throughput
@@ -72,7 +73,7 @@ USD 30 remains the absolute project planning ceiling if optional paid AWS work
 is explicitly approved. These alerts are internal planning controls, not
 guaranteed free-tier eligibility or automatic shutdown.
 
-## Live controls observed on 2026-07-31
+## Live controls observed on 2026-08-01
 
 - the USD 5 Budget stack is `CREATE_COMPLETE`, with forecast-at-80% and
   actual-at-100% notifications;
@@ -80,10 +81,20 @@ guaranteed free-tier eligibility or automatic shutdown.
   encryption, and expires `lambda/` objects after seven days;
 - the Lambda has no public URL, retains logs for seven days, and can read only
   the one Managed MCP secret;
+- the authenticated MCP host is one `t3.micro` with one Elastic IP, no SSH,
+  IMDSv2 required, and an instance role limited to one runtime secret and one
+  S3 artifact object;
+- the recurring USD 5 budget reported USD 2.043 actual and USD 2.053 forecast at
+  the verification time. Budget data can lag new EC2 and public-IPv4 usage, so
+  these values are evidence of the alert state, not a final monthly cost;
 - no NAT Gateway, VPC, API Gateway, EKS, or provisioned model service was
   deployed;
 - the Secrets Manager key does not yet rotate automatically, so teardown or
   rotation remains a cost and security gate after judging.
+
+The EC2 instance and public IPv4 address accrue time-based charges while left
+running. Stop or delete the authenticated-MCP stack after judging; releasing
+the stack also releases its Elastic IP. The alert does not enforce a hard stop.
 
 Before provisioning any managed service:
 

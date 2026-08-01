@@ -1,15 +1,16 @@
 # Project status
 
 **Status date:** 2026-08-01
-**Current milestone:** P2B — live managed-cloud and SQL data-plane evidence; public application pending
+**Current milestone:** P2B — authenticated managed-cloud slice deployed; submission packaging pending
 **Overall state:** the local promotion-to-retrieval vertical slice and repository
 MCP contract are implemented and tested. A private, cost-bounded AWS Lambda
 worker is deployed and has completed two live read-only CockroachDB Cloud
 Managed MCP calls while rejecting a write tool before credential access. The
 participant cluster now has all eight versioned migrations, and its synthetic
-promotion, 512-dimensional vector retrieval, retrieval audit, fetch, and cleanup
-path passed live. A public authenticated application endpoint and final
-submission materials remain.
+promotion, 512-dimensional vector retrieval, and audit path passed live. A
+separate least-privilege runtime identity now serves the authenticated public
+`/mcp` endpoint through fixed AWS egress, and a remote client proved allowed
+search/fetch plus cross-scope denial. Final submission materials remain.
 
 This document is the single source of truth for current capability, verification
 evidence, and explicit non-claims.
@@ -30,19 +31,20 @@ evidence, and explicit non-claims.
 | Tenant and incident integrity | Implemented | Composite foreign keys and query predicates bind candidates, canonical memory, actions, and retrieval audit to the same scope |
 | Vector write and retrieval | Implemented and participant-cluster live-smoked | Deterministic 512-dimensional test/demo embeddings were persisted and retrieved with mandatory tenant and incident prefixes |
 | Retrieval audit | Implemented | Search transaction records model, query digest, policy digest, evaluated IDs, and accepted IDs |
-| Standard MCP boundary | Implemented and protocol-tested | Official Python MCP SDK exposes only read-only `search` and `fetch`; in-memory client tests validate schemas and structured responses |
-| Secure configuration guard | Implemented | Public citation base URL must be HTTPS; remote database URLs must use `sslmode=verify-full`; tenant and incident scope are server configuration, not tool input |
+| Standard MCP boundary | Implemented, deployed, and remotely smoked | Official Python MCP SDK exposes only read-only `search` and `fetch`; a TLS client initialized protocol `2025-11-25`, listed exactly those tools, and completed allowed/denied scope calls |
+| Secure configuration guard | Implemented and live-verified | HTTPS, `sslmode=verify-full`, a minimum-length bearer token, exact-host DNS-rebinding protection, and server-configured tenant/incident scope fail closed |
+| SQL workload separation | Implemented and live-verified | The migrator owns DDL objects; runtime has only required reads and retrieval-audit insert. Runtime schema creation and canonical update both failed with `42501`, including after inherited `public` privileges were removed |
 | Cloud deployment runbook | Implemented | One SSOT procedure separates automated checks from participant-owned account, credit, MFA, key-copy, evidence, and teardown steps |
 | CockroachDB Basic provisioning | Provisioned through the Cloud Console; CLI guard not executed | Participant console verification on 2026-07-30 shows the cluster available on Basic in AWS Singapore, with usage below the displayed 50M RU and 10 GiB monthly limits |
 | AWS Managed MCP worker | Deployed and live-smoked | Private direct-invoke Lambda returned `ok: true` for `list_databases` and `list_tables`; `insert_rows` returned `INVALID_REQUEST` before secret access |
-| AWS infrastructure and package | Deployed and verified | Separate Budget and worker stacks are `CREATE_COMPLETE`; the worker has minimum secret/log IAM, 256 MiB memory, 30-second timeout, seven-day logs, no public endpoint/VPC/NAT, and an account-compatible optional concurrency reservation |
+| AWS infrastructure and package | Deployed and verified | Budget, private Lambda, and authenticated-MCP stacks are complete. The EC2 host has no SSH, requires IMDSv2, reads one runtime secret and one exact S3 object, verifies a deterministic artifact hash, and is managed through SSM |
 | Reviewer experience | Deployed public simulation | GitHub Pages opens without login and Browser verification exercised policy rejection plus one-owner failover; it remains explicitly separate from live cloud evidence |
-| Live CockroachDB Cloud | Migrated and vector-smoked | Eight migrations reached current version 8 without adoption; the promotion/retrieval/audit/fetch path passed, synthetic rows were removed, and the IP allowlist was reduced to zero entries on 2026-08-01 |
-| Public MCP endpoint | Not deployed | The server contract exists, but no authenticated, stable HTTPS MCP deployment has been verified |
+| Live CockroachDB Cloud | Migrated, vector-smoked, and egress-restricted | Eight migrations reached version 8; retained allowed/denied demo scopes support the remote smoke; the allowlist now contains only the AWS Elastic IP `/32`, and a workstation retry was blocked |
+| Public MCP endpoint | Deployed and cross-scope-smoked | `https://47-131-98-12.sslip.io/mcp` has valid TLS, health `200`, missing/wrong auth `401`, allowed search/fetch PASS, denied-scope search hidden, and cross-scope fetch denied |
 | CockroachDB Managed MCP | Live read-only evidence complete | A cluster-scoped `Cluster Operator` service account initialized the managed server, advertised 12 tools, listed the `continuum` database, and returned zero tables in the historical pre-migration snapshot through the deployed Lambda |
-| AWS service use | Live deployment evidenced | Lambda, Secrets Manager, S3, CloudWatch Logs, CloudFormation, and AWS Budgets are active in Singapore; the private package object is encrypted and expires after seven days, and the USD 5 monthly budget has forecast-at-80% and actual-at-100% email alerts |
+| AWS service use | Live deployment evidenced | Lambda, EC2, Elastic IP, SSM, Secrets Manager, S3, CloudWatch Logs, CloudFormation, and AWS Budgets are active in Singapore; the USD 5 budget retains forecast-at-80% and actual-at-100% email alerts |
 | Exactly-once external effect | Not guaranteed | The database claim is idempotent; an external provider call and acknowledgement are not yet coordinated |
-| Production security and resilience | Partial | Lambda uses a generated minimum-IAM workload role and one-secret scope, but API-key rotation, a least-privilege application/migrator SQL identity, RLS, multi-region testing, and worker-crash reconciliation are not complete |
+| Production security and resilience | Partial | Minimum IAM, separate SQL identities, exact-host protection, TLS, fixed egress, and negative-capability tests are live; short-lived identity, RLS, semantic embeddings, pooling, rotation, multi-region testing, and worker-crash reconciliation are not complete |
 
 ## Evidence
 
@@ -75,7 +77,9 @@ evidence, and explicit non-claims.
   [2026-07-31-cloud-live-smoke.md](evidence/2026-07-31-cloud-live-smoke.md)
 - Redacted live SQL migration and vector evidence:
   [2026-08-01-live-sql-vector-smoke.md](evidence/2026-08-01-live-sql-vector-smoke.md)
-- Current live-evidence Draft PR:
+- Authenticated remote MCP and least-privilege SQL evidence:
+  [2026-08-01-authenticated-remote-mcp-smoke.md](evidence/2026-08-01-authenticated-remote-mcp-smoke.md)
+- Merged live-evidence PR:
   <https://github.com/YongHwan2161/continuum-memory-firewall/pull/11>
 
 `main` is the authoritative code. The linked workflows cover the reviewed P2B
@@ -112,20 +116,20 @@ do not extend to an unimplemented external API call.
 
 ## Immediate participant focus
 
-The AWS, Managed MCP, and participant-cluster SQL evidence gates are closed. The
-shortest remaining path to a competition submission is:
+The AWS, Managed MCP, participant-cluster SQL, least-privilege runtime, fixed
+egress, and authenticated remote MCP gates are closed. The shortest remaining
+path to a competition submission is:
 
-1. **Expose the application boundary:** deploy the repository `search`/`fetch`
-   MCP service behind authenticated HTTPS with fixed tenant/incident scope, or
-   keep the submission claim explicitly limited to the private operational
-   evidence worker.
-2. **Harden SQL identities:** separate schema migration from runtime access,
-   grant only the required database privileges, and capture vector query-plan
-   evidence without reopening a broad network rule.
-3. **Package the judge flow:** record a two-to-three minute video showing one
+1. **Package the judge flow:** record a two-to-three minute video showing one
    accepted path, one rejected path, live Managed MCP evidence, and the explicit
-   local-versus-live boundary; then complete the participant attestations and
-   final Devpost submission.
+   simulation-versus-live boundary.
+2. **Complete submission evidence:** add screenshots, measured retrieval and
+   policy results, final technology list, participant attestations, and the
+   Devpost confirmation receipt.
+3. **Harden beyond the competition slice:** replace the deterministic hashing
+   embedder with a bounded semantic model, capture query-plan/latency evidence,
+   and replace the static bearer/fixed scope with short-lived identity-derived
+   authorization.
 
 The exact commands and stop conditions are in
 [CLOUD_DEPLOYMENT_RUNBOOK.md](CLOUD_DEPLOYMENT_RUNBOOK.md).
@@ -136,15 +140,17 @@ The exact commands and stop conditions are in
   remain participant-owned.
 - The deployed long-lived service-account API key has no automatic rotation.
   Rotate or delete it and tear down the worker resources after judging.
-- The live SQL smoke used the participant-created console identity. Separate
-  least-privilege migrator and runtime roles, then rotate the bootstrap
-  credential before any persistent application deployment.
-- The private Lambda proves AWS-to-Managed-MCP integration but is intentionally
-  not a functional public application URL. The repository MCP service is not
-  deployed behind authenticated HTTPS.
+- The public MCP uses one static bearer and one fixed synthetic scope. It is not
+  production multi-tenant authorization; add short-lived OAuth/JWT identity and
+  database-native policy before expanding access.
+- The deterministic hashing embedder proved vector mechanics but missed the
+  natural-language smoke query at the default similarity threshold. A semantic
+  model and measured relevance evaluation remain required for quality claims.
+- Live memory citation URLs do not yet provide durable reviewer-visible detail
+  pages, and connection pooling/query-plan evidence remains incomplete.
 - The Devpost submission still needs a short public video, screenshots, the
   final narrative, participant attestations, and submission confirmation. See
   [DEVPOST_CHECKLIST.md](DEVPOST_CHECKLIST.md).
-- The AWS console session is live, but the local AWS CLI session was expired at
-  the last check. Refresh it before any further CLI-based deployment, rotation,
-  or teardown verification.
+- AWS CLI authentication was refreshed and used for the verified deployment.
+  Replace root-driven operations with a dedicated deployment role before the
+  next long-lived environment change.
