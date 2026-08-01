@@ -82,9 +82,10 @@ authorized AWS direct invoke
 
 remote MCP client
     -> valid TLS + five-minute Cognito token
-    -> EC2/Nginx repository MCP
+   -> EC2/Nginx repository MCP
        - exact public Host/Origin allowlist
-       - verified caller -> server-owned tenant/incident scope
+       - verified caller -> audited active tenant/incident binding
+       - deterministic binding -> matching scope SQL identity
        - read-only search/fetch tools
        - deterministic NOBYPASSRLS SQL role without DDL/canonical writes
     -> CockroachDB SQL through one Elastic IP /32
@@ -92,9 +93,12 @@ remote MCP client
 
 The Lambda intentionally has no Function URL, API Gateway, VPC, or NAT Gateway.
 It remains an operational evidence client. The separate EC2 endpoint is the
-competition application boundary. Its short-lived caller binding plus RLS close
-the tested cross-scope path; its static server-owned caller registry is not yet
-a production tenant lifecycle.
+competition application boundary. The repository implementation now resolves
+each verified caller through a versioned CockroachDB binding, selects only the
+matching deterministic SQL identity, and relies on that identity's RLS policy
+for the same scope. The control-plane SQL identity can read binding metadata but
+is explicitly denied canonical memory. Live status remains evidence-bound in
+`PROJECT_STATUS.md` until the deployment workflow proves this exact path.
 
 The live-versus-planned boundary is:
 
@@ -126,22 +130,26 @@ flowchart LR
     policy --> store
   end
 
-  subgraph planned["Production hardening not yet implemented"]
-    auth["Tenant control plane<br/>registry lifecycle"]
+  subgraph implemented["Implemented; live status evidence-bound"]
+    auth["Audited tenant control plane<br/>bind / rebind / disable"]
+  end
+
+  subgraph planned["Planned"]
     outbox["Outbox delivery + reconciliation"]
-    auth --> outbox
   end
 
   reviewer -->|"AWS direct invoke"| lambda
   reviewer -->|"HTTPS + 5-minute JWT"| repoMcp
   store --> repoMcp
-  auth -. "future replacement" .-> repoMcp
+  auth --> repoMcp
+  auth -. "future delivery authority" .-> outbox
 ```
 
 The private AWS worker, its minimum-IAM role, its one-secret boundary, the
 Managed MCP connection, two read calls, application schema, Titan semantic
 query execution, short-lived identity-derived scope, and database RLS are live.
-The audited tenant-control-plane lifecycle and outbox remain planned as shown.
+The audited tenant-control-plane lifecycle is implemented; outbox delivery and
+reconciliation remain planned.
 The current SQL allowlist contains only the AWS Elastic IP `/32`.
 
 ## Component ownership
