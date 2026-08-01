@@ -361,7 +361,13 @@ async def _healthz(_request: Any):
 
     return JSONResponse(
         {"ok": True, "service": "continuum-memory-firewall"},
-        headers={"Cache-Control": "no-store"},
+        headers={
+            "Cache-Control": "no-store",
+            "Access-Control-Allow-Origin": (
+                "https://yonghwan2161.github.io"
+            ),
+            "Vary": "Origin",
+        },
     )
 
 
