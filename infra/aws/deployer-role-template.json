@@ -55,6 +55,12 @@
                   "Resource": {"Fn::Sub": "arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/continuum-*/*"}
                 },
                 {
+                  "Sid": "CloudFormationTemplateValidation",
+                  "Effect": "Allow",
+                  "Action": ["cloudformation:ValidateTemplate", "cloudformation:GetTemplateSummary"],
+                  "Resource": "*"
+                },
+                {
                   "Sid": "ProjectArtifacts",
                   "Effect": "Allow",
                   "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket", "s3:GetBucketLocation"],
