@@ -35,6 +35,7 @@ from continuum.tenant_control import (
     disable_caller,
     provision_control_plane_role,
     verify_control_plane_role,
+    _revoke_bootstrap_role_options,
 )
 
 
@@ -483,6 +484,46 @@ class CockroachIntegrationTests(unittest.TestCase):
                 """
             ).fetchall()
         self.assertEqual(events, [("bound", 1), ("disabled", 2)])
+
+    def test_control_plane_bootstrap_options_are_self_revoked(self):
+        bootstrap_user = "continuum_control_plane_bootstrap_test"
+        password = "bootstrap-test-password-that-is-long-enough"
+        from psycopg import sql
+
+        with self.connect() as connection:
+            database_name = connection.execute(
+                "SELECT current_database()"
+            ).fetchone()[0]
+            connection.execute(
+                sql.SQL("CREATE USER IF NOT EXISTS {}").format(
+                    sql.Identifier(bootstrap_user)
+                )
+            )
+            connection.execute(
+                sql.SQL(
+                    "ALTER USER {} WITH PASSWORD {} CREATEROLE CREATELOGIN"
+                ).format(sql.Identifier(bootstrap_user), sql.Literal(password))
+            )
+            connection.execute(
+                sql.SQL("GRANT CONNECT ON DATABASE {} TO {}").format(
+                    sql.Identifier(database_name), sql.Identifier(bootstrap_user)
+                )
+            )
+        bootstrap_url = database_url_with_login(
+            DATABASE_URL,
+            user=bootstrap_user,
+            password=password,
+        )
+        _revoke_bootstrap_role_options(
+            psycopg_connection_factory(bootstrap_url), bootstrap_user
+        )
+        with self.connect() as connection:
+            options = connection.execute(
+                "SELECT options FROM [SHOW ROLES] WHERE username = %s",
+                (bootstrap_user,),
+            ).fetchone()[0]
+        self.assertNotIn("CREATEROLE", options)
+        self.assertNotIn("CREATELOGIN", options)
 
     def test_stale_candidate_is_rejected_and_auditable(self):
         self._insert_candidate(STALE_CANDIDATE_ID, "f" * 64)

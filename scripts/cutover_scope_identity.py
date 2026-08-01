@@ -127,15 +127,20 @@ def main() -> None:
         isinstance(control_plane_url, str)
         and database_url_user(control_plane_url) == CONTROL_PLANE_USER
     )
+    control_plane_bootstrap_options_revoked = False
     if control_plane_reused:
         control_plane_url = pin_database_tls_root(control_plane_url, args.ca_cert)
         provision_control_plane_role(migrator_url)
     else:
         control_plane_password = secrets.token_urlsafe(48)
-        provision_control_plane_role(
+        control_plane_provisioned = provision_control_plane_role(
             migrator_url,
             password=control_plane_password,
+            revoke_bootstrap_user=database_url_user(migrator_url),
         )
+        control_plane_bootstrap_options_revoked = control_plane_provisioned[
+            "bootstrap_options_revoked"
+        ]
         control_plane_url = _replace_login(
             migrator_url,
             user=CONTROL_PLANE_USER,
@@ -207,6 +212,9 @@ def main() -> None:
                 "control_plane_memory_denied": control_verified[
                     "canonical_memory_denied"
                 ],
+                "control_plane_bootstrap_options_revoked": (
+                    control_plane_bootstrap_options_revoked
+                ),
                 "binding_version": binding["binding_version"],
                 "binding_event": binding["event_type"],
                 "legacy_runtime_privileges_revoked": True,
