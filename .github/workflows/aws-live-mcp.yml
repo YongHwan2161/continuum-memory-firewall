@@ -76,6 +76,14 @@ jobs:
           test -x ./scripts/deploy_mcp_host.sh
           test -x ./scripts/build_mcp_host_package.sh
           ./scripts/deploy_mcp_host.sh
+      - name: Report CloudFormation failure without secret values
+        if: failure()
+        run: |
+          aws cloudformation describe-stack-events \
+            --region ap-southeast-1 \
+            --stack-name continuum-authenticated-mcp \
+            --query 'StackEvents[0:8].{Time:Timestamp,Resource:LogicalResourceId,Type:ResourceType,Status:ResourceStatus,Reason:ResourceStatusReason}' \
+            --output table
       - name: Grant one-command migration capability
         shell: bash
         run: |
