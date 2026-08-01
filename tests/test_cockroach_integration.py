@@ -410,6 +410,7 @@ class CockroachIntegrationTests(unittest.TestCase):
             set(report["denied"]), {"row_security_off", "canonical_update"}
         )
         self.assertTrue(report["all_visible_incidents_in_scope"])
+        self.assertTrue(report["all_visible_audits_in_scope"])
         self.assertEqual(report["visible_incidents"], 1)
 
         runtime_retrieval = MemoryRetrievalStore(

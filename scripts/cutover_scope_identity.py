@@ -11,7 +11,7 @@ import boto3
 
 from continuum.migrate import Migrator
 from continuum.scope_roles import (
-    configure_incident_scope_policy,
+    configure_scope_read_policies,
     provision_scope_role,
     scope_role_name,
     verify_scope_role,
@@ -122,7 +122,7 @@ def main() -> None:
                 sort_keys=True,
             ),
         )
-    configure_incident_scope_policy(
+    configure_scope_read_policies(
         migrator_url,
         tenant_id=tenant_id,
         incident_id=incident_id,
@@ -146,11 +146,15 @@ def main() -> None:
                 "legacy_runtime_privileges_revoked": True,
                 "visible_rows": verified["visible_rows"],
                 "visible_incidents": verified["visible_incidents"],
+                "visible_audits": verified["visible_audits"],
                 "all_visible_rows_in_scope": verified[
                     "all_visible_rows_in_scope"
                 ],
                 "all_visible_incidents_in_scope": verified[
                     "all_visible_incidents_in_scope"
+                ],
+                "all_visible_audits_in_scope": verified[
+                    "all_visible_audits_in_scope"
                 ],
                 "forbidden_memory_visible": verified["forbidden_memory_visible"],
                 "negative_checks": verified["denied"],

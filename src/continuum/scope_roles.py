@@ -33,17 +33,18 @@ def _password_statement(user: str, password: str):
     )
 
 
-def configure_incident_scope_policy(
+def configure_scope_read_policies(
     migrator_database_url: str,
     *,
     tenant_id: str,
     incident_id: str,
 ) -> dict[str, Any]:
-    """Give an existing scope login FK-safe access to only its incident."""
+    """Give an existing scope login FK-safe and RETURNING-safe reads."""
 
     role_name = scope_role_name(tenant_id, incident_id)
     suffix = role_name.removeprefix("continuum_scope_")
-    policy_name = f"continuum_incident_select_{suffix}"
+    incident_policy = f"continuum_incident_select_{suffix}"
+    audit_policy = f"continuum_audit_select_{suffix}"
     connect = psycopg_connection_factory(migrator_database_url)
     from psycopg import sql
 
@@ -56,7 +57,7 @@ def configure_incident_scope_policy(
         connection.execute("ALTER TABLE public.incidents ENABLE ROW LEVEL SECURITY")
         connection.execute(
             sql.SQL("DROP POLICY IF EXISTS {} ON public.incidents").format(
-                sql.Identifier(policy_name)
+                sql.Identifier(incident_policy)
             )
         )
         connection.execute(
@@ -65,13 +66,38 @@ def configure_incident_scope_policy(
                 "FOR SELECT TO {} USING "
                 "(tenant_id = {}::UUID AND incident_id = {}::UUID)"
             ).format(
-                sql.Identifier(policy_name),
+                sql.Identifier(incident_policy),
                 sql.Identifier(role_name),
                 sql.Literal(tenant_id),
                 sql.Literal(incident_id),
             )
         )
-    return {"scope_role": role_name, "policy": policy_name}
+        connection.execute(
+            sql.SQL("GRANT SELECT ON TABLE public.retrieval_audit TO {}").format(
+                sql.Identifier(role_name)
+            )
+        )
+        connection.execute(
+            sql.SQL("DROP POLICY IF EXISTS {} ON public.retrieval_audit").format(
+                sql.Identifier(audit_policy)
+            )
+        )
+        connection.execute(
+            sql.SQL(
+                "CREATE POLICY {} ON public.retrieval_audit "
+                "FOR SELECT TO {} USING "
+                "(tenant_id = {}::UUID AND incident_id = {}::UUID)"
+            ).format(
+                sql.Identifier(audit_policy),
+                sql.Identifier(role_name),
+                sql.Literal(tenant_id),
+                sql.Literal(incident_id),
+            )
+        )
+    return {
+        "scope_role": role_name,
+        "policies": [incident_policy, audit_policy],
+    }
 
 
 def provision_scope_role(
@@ -184,11 +210,11 @@ def provision_scope_role(
             )
         )
 
-    incident_policy = configure_incident_scope_policy(
+    read_policies = configure_scope_read_policies(
         migrator_database_url,
         tenant_id=tenant_id,
         incident_id=incident_id,
-    )["policy"]
+    )["policies"]
     return {
         "ok": True,
         "database": database_name,
@@ -197,7 +223,7 @@ def provision_scope_role(
         "tenant_id": tenant_id,
         "incident_id": incident_id,
         "legacy_runtime_privileges_revoked": True,
-        "policies": [canonical_policy, audit_policy, incident_policy],
+        "policies": [canonical_policy, audit_policy, *read_policies],
     }
 
 
@@ -247,6 +273,17 @@ def verify_scope_role(
         ).fetchone()
         if not all_incidents_in_scope:
             raise RuntimeError("incident row isolation failed")
+        visible_audits, all_audits_in_scope = connection.execute(
+            """
+            SELECT
+                count(*),
+                coalesce(bool_and(tenant_id = %s AND incident_id = %s), true)
+            FROM retrieval_audit
+            """,
+            (tenant_id, incident_id),
+        ).fetchone()
+        if not all_audits_in_scope:
+            raise RuntimeError("retrieval audit row isolation failed")
 
     denied: list[str] = []
     negative_checks: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -278,8 +315,10 @@ def verify_scope_role(
         "current_user": current_user,
         "visible_rows": visible_count,
         "visible_incidents": visible_incidents,
+        "visible_audits": visible_audits,
         "all_visible_rows_in_scope": bool(all_rows_in_scope),
         "all_visible_incidents_in_scope": bool(all_incidents_in_scope),
+        "all_visible_audits_in_scope": bool(all_audits_in_scope),
         "forbidden_memory_visible": forbidden_visible,
         "denied": denied,
     }

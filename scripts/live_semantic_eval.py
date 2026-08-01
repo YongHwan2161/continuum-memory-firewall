@@ -247,6 +247,7 @@ def main() -> None:
         "all_visible_incidents_in_scope": rls[
             "all_visible_incidents_in_scope"
         ],
+        "all_visible_audits_in_scope": rls["all_visible_audits_in_scope"],
         "forbidden_memory_visible": rls["forbidden_memory_visible"],
         "negative_checks": rls["denied"],
     }
