@@ -39,7 +39,7 @@ complete attestations and organizer agreements.
 - [x] Read-only standard MCP `search`/`fetch` contract and protocol tests included
 - [x] Participant-owned CockroachDB Basic cluster provisioned on AWS Singapore
       with the free-resource monthly limits and a fixed AWS egress `/32`
-- [x] Live cluster state rechecked on 2026-08-01: migration version 11,
+- [x] Live cluster state rechecked on 2026-08-02: migration version 15,
       CockroachDB RLS on three scope-bearing tables, least-privilege negative
       tests, and exactly one AWS Elastic IP `/32` SQL rule
 - [x] Functional cloud-backed application demo URL:
@@ -50,10 +50,15 @@ complete attestations and organizer agreements.
 - [x] Authenticated public repository MCP endpoint and reproducible remote smoke
       test; see
       [2026-08-01-authenticated-remote-mcp-smoke.md](evidence/2026-08-01-authenticated-remote-mcp-smoke.md)
-- [x] Five-minute Cognito caller identity, caller-derived SQL role, Titan v2
-      semantic evaluation, RLS, and remote cross-scope denial; Recall@3 = 1.0
-      across four queries with zero leaked documents; see
-      [2026-08-01-oidc-titan-rls-live-smoke.md](evidence/2026-08-01-oidc-titan-rls-live-smoke.md)
+- [x] Five-minute Cognito caller identity, audited caller binding, matching SQL
+      role, Titan v2 semantic evaluation, RLS, and remote cross-scope denial;
+      60 queries measured Recall@1/3/5 = 0.8667/0.9833/1.0 with zero leaked
+      documents and p50/p95 = 250.306/282.87 ms; see
+      [2026-08-02-control-plane-eval-pooling-live.md](evidence/2026-08-02-control-plane-eval-pooling-live.md)
+- [x] One-click read-only judge verifier checks exact workflow/head, live MCP
+      health, Devpost Submitted, control-plane denial, bounded pools, RLS, and
+      vector-index metadata:
+      <https://yonghwan2161.github.io/continuum-memory-firewall/verify.html>
 - [x] CockroachDB Cloud Managed MCP evidenced on 2026-07-31 through the private
       AWS worker: `list_databases` returned the `continuum` database
 - [x] Second CockroachDB Managed MCP read tool evidenced: `list_tables` returned
@@ -70,6 +75,10 @@ complete attestations and organizer agreements.
       and `list_tables`, old key was revoked, and the temporary GitHub secret
       was deleted; run
       <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30695651609>
+- [x] Guarded v3 rotation repeated on 2026-08-02; the AWS secret replacement,
+      cache-bound wait, two-tool validation, and pre-secret write denial passed,
+      then the v2 provider key and temporary GitHub secret were deleted; run
+      <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30709230016>
 - [x] Cost-bounded AWS deployment and negative boundary evidenced:
       `insert_rows` was rejected before secret resolution; see
       [2026-07-31-cloud-live-smoke.md](evidence/2026-07-31-cloud-live-smoke.md)

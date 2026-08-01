@@ -6,12 +6,14 @@
 MCP contract are implemented and tested. A private, cost-bounded AWS Lambda
 worker is deployed and has completed two live read-only CockroachDB Cloud
 Managed MCP calls while rejecting a write tool before credential access. The
-participant cluster is at migration version 11. Database-native row-level
-security now confines canonical memories, incidents, and retrieval audit to a
-caller-derived scope SQL identity. The public `/mcp` endpoint accepts only
-five-minute Cognito client-credentials tokens and uses Bedrock Titan Text
-Embeddings v2. A four-query live evaluation measured Recall@3 = 1.0 and zero
-cross-scope leakage; remote search/fetch and direct cross-scope denial passed.
+participant cluster is at migration version 15. A verified caller resolves
+through an audited, versioned database binding to a matching NOBYPASSRLS SQL
+identity; database-native row policies enforce the same tenant and incident
+scope. The public `/mcp` endpoint accepts only five-minute Cognito
+client-credentials tokens and uses Bedrock Titan Text Embeddings v2. A
+60-query, six-variant live evaluation measured Recall@1/3/5 =
+0.8667/0.9833/1.0, zero cross-scope leakage, and p50/p95 =
+250.306/282.87 ms. Remote search/fetch and direct cross-scope denial passed.
 The Devpost entry is submitted to the CockroachDB x AWS hackathon as submission
 `1121568`. The submission remains editable while submissions are open; the
 current deadline is 2026-08-19 06:00 KST.
@@ -28,28 +30,29 @@ evidence, and explicit non-claims.
 | Idempotent replay | Implemented | Replaying the same source event returns the existing canonical record without duplication |
 | Serializable retry handling | Implemented | SQLSTATE `40001` is retried at the transaction boundary; unit tests exercise retry and exhaustion |
 | Concurrent action claim | Implemented | Two concurrent workers produce one `CLAIMED` result and one `DUPLICATE` result |
-| CockroachDB schema migrations | Implemented and integration-tested | Eleven packaged single-statement migrations apply `VECTOR(512)`, vector-index DDL, and RLS on three scope-bearing tables; CI verifies initial apply and replay |
+| CockroachDB schema migrations | Implemented and integration-tested | Fifteen packaged single-statement migrations apply `VECTOR(512)`, vector-index DDL, RLS on three scope-bearing tables, and versioned/audited caller bindings; CI verifies initial apply and replay |
 | Migration integrity and recovery | Implemented and integration-tested | SHA-256 history rejects drift and gaps; durable pre-DDL intent resumes the DDL/history crash gap; a renewable lease excludes a second owner; `XXA00` fails closed |
 | Existing-schema adoption | Implemented and fail-closed | Unmanaged tables are refused by default; explicit adoption validates required columns, indexes, and composite scope foreign keys |
-| Semantic live-DB evaluation | Live-smoked on participant CockroachDB Cloud | Titan v2 produced 512-dimensional embeddings for four evaluation queries; Recall@3 was 1.0 for every query and no forbidden-scope document appeared |
+| Semantic live-DB evaluation | Live-smoked on participant CockroachDB Cloud | Titan v2 ran 60 adversarial and similar-meaning queries across six variant classes; Recall@1/3/5 = 0.8667/0.9833/1.0, zero forbidden-scope rows, p50 = 250.306 ms, p95 = 282.87 ms |
 | Tenant and incident integrity | Implemented | Composite foreign keys and query predicates bind candidates, canonical memory, actions, and retrieval audit to the same scope |
 | Vector write and retrieval | Implemented and participant-cluster live-smoked | Deterministic local embeddings remain for tests; the live deployment uses `amazon.titan-embed-text-v2:0` with 512 dimensions and mandatory tenant/incident scope |
 | Retrieval audit | Implemented | Search transaction records model, query digest, policy digest, evaluated IDs, and accepted IDs |
 | Standard MCP boundary | Implemented, deployed, and remotely smoked | Official Python MCP SDK exposes only read-only `search` and `fetch`; a TLS client initialized protocol `2025-11-25`, listed exactly those tools, and completed allowed/denied scope calls |
-| Caller authentication and scope binding | Implemented and live-verified | Cognito client credentials issue 300-second RS256 JWTs; issuer, audience, scope, lifetime, and JWKS signature are verified, then a server-owned registry selects the caller's deterministic SQL role and scope |
+| Caller authentication and scope binding | Implemented and live-verified | Cognito client credentials issue 300-second RS256 JWTs; after issuer, audience, scope, lifetime, and JWKS verification, an active versioned database binding selects the server-owned tenant, incident, and deterministic SQL role; bind/rebind/disable events are audited |
 | SQL workload separation and RLS | Implemented and live-verified | Each deterministic scope login is `NOBYPASSRLS`; RLS policies confine canonical memory, incidents, and retrieval audit. Attempts to disable row security or update canonical memory fail, and the temporary migrator role options were restored to `[]` |
 | Cloud deployment runbook | Implemented | One SSOT procedure separates automated checks from participant-owned account, credit, MFA, key-copy, evidence, and teardown steps |
 | CockroachDB Basic provisioning | Provisioned through the Cloud Console; CLI guard not executed | Participant console verification on 2026-07-30 shows the cluster available on Basic in AWS Singapore, with usage below the displayed 50M RU and 10 GiB monthly limits |
 | AWS Managed MCP worker | Deployed and live-smoked | Private direct-invoke Lambda returned `ok: true` for `list_databases` and `list_tables`; `insert_rows` returned `INVALID_REQUEST` before secret access |
 | AWS infrastructure and package | Deployed and verified | Budget, private Lambda, and authenticated-MCP stacks are complete. The EC2 host has no SSH, requires IMDSv2, reads one runtime secret and one exact S3 object, verifies a deterministic artifact hash, and is managed through SSM |
-| Reviewer experience | Deployed public simulation | GitHub Pages opens without login and Browser verification exercised policy rejection plus one-owner failover; it remains explicitly separate from live cloud evidence |
-| Live CockroachDB Cloud | Migrated, semantically evaluated, RLS-confined, and egress-restricted | Migration version 11 is current; all visible rows in each protected table matched the caller scope; the allowlist contains only the AWS Elastic IP `/32` |
+| Reviewer experience | Deployed public simulation and read-only verifier | GitHub Pages opens without login; `verify.html` checks the public exact-head workflow, 60-query metrics, MCP health, Devpost receipt, RLS, control plane, bounded pools, and vector-index contract using HTTP GET only |
+| Live CockroachDB Cloud | Migrated, semantically evaluated, RLS-confined, and egress-restricted | Migration version 15 is current; all visible rows in each protected table matched the caller scope; the allowlist contains only the AWS Elastic IP `/32` |
 | Public MCP endpoint | Deployed and cross-scope-smoked | `https://47-131-98-12.sslip.io/mcp` has valid TLS, health `200`, missing auth `401`, five-minute OIDC, allowed search/fetch PASS, hidden forbidden memory, and cross-scope fetch denial |
-| CockroachDB Managed MCP | Live read-only evidence and manual rotation complete | The cluster-scoped minimum-role service account passed `list_databases` and `list_tables` after a guarded key rotation; the old key and temporary GitHub secret were deleted, while `insert_rows` remained pre-secret denied |
+| CockroachDB Managed MCP | Live read-only evidence and guarded v3 rotation complete | Run `30709230016` replaced the AWS secret, waited beyond the five-minute cache bound, passed `list_databases` and `list_tables`, and retained pre-secret write denial; the v2 provider key and temporary GitHub secret were then deleted |
 | AWS service use | Live deployment evidenced | Lambda, EC2, Elastic IP, SSM, Secrets Manager, S3, CloudWatch Logs, CloudFormation, Cognito, Bedrock, IAM OIDC, and AWS Budgets are active; the USD 10 budget retains forecast-at-80% and actual-at-100% email alerts |
 | AWS deployment authority | Keyless dedicated role | GitHub Actions assumes `continuum-hackathon-deployer` through an immutable numeric OIDC subject for this repository branch. Sessions last at most one hour; explicit denies block self-modification and bootstrap-stack mutation; the AWS Root console session is logged out |
 | Exactly-once external effect | Not guaranteed | The database claim is idempotent; an external provider call and acknowledgement are not yet coordinated |
-| Production security and resilience | Partial | Minimum IAM, caller-derived SQL identities, RLS, TLS, fixed egress, short-lived JWTs, semantic embeddings, and negative-capability tests are live; connection pooling, automated key rotation, multi-region failover, and worker-crash reconciliation are not complete |
+| Database connection and plan evidence | Implemented and live-verified | Lazy bounded pools use min 1/max 4 separately for the control-plane and scope SQL identities; health exposes numeric configuration only. Redacted EXPLAIN and SHOW INDEXES prove the scoped prefix contract without emitting vectors or SQL data |
+| Production security and resilience | Partial | Minimum IAM, audited caller-derived SQL identities, RLS, TLS, fixed egress, short-lived JWTs, bounded pools, semantic embeddings, and negative-capability tests are live; multi-region failover and worker-crash reconciliation are not complete |
 
 ## Evidence
 
@@ -100,8 +103,17 @@ evidence, and explicit non-claims.
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30695164473>
 - Managed MCP rotation and current two-tool proof:
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30695651609>
+- Latest guarded v3 rotation and rollback-capable two-tool proof:
+  <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30709230016>
 - Redacted OIDC, Titan, RLS, and remote-smoke evidence:
   [2026-08-01-oidc-titan-rls-live-smoke.md](evidence/2026-08-01-oidc-titan-rls-live-smoke.md)
+- Exact-head audited control-plane, 60-query, pooling, query-plan, and remote MCP
+  proof:
+  <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30708752765/attempts/2>
+- Redacted evidence summary:
+  [2026-08-02-control-plane-eval-pooling-live.md](evidence/2026-08-02-control-plane-eval-pooling-live.md)
+- One-click public judge verifier:
+  <https://yonghwan2161.github.io/continuum-memory-firewall/verify.html>
 
 `main` is the authoritative code. The linked workflows cover the reviewed P2B
 and migration implementation commits; the pull request records final-head
@@ -146,28 +158,30 @@ highest-value work before the submission deadline is:
 1. **Protect the judge path:** keep the demo, authenticated MCP, fixed egress,
    OIDC branch subject, and public video live; recheck them before material
    submission edits.
-2. **Broaden falsification evidence:** expand semantic evaluation beyond four
-   synthetic queries, add latency/query-plan measurements, and retain explicit
-   cross-scope leakage gates.
-3. **Harden beyond the competition slice:** add connection pooling, an audited
-   tenant-control-plane lifecycle, scheduled managed-key rotation, and durable
-   reviewer-visible memory pages.
+2. **Add representative-scale ANN evidence:** retain the 60-query relevance and
+   leakage suite, but load enough non-sensitive vectors for CockroachDB's
+   cost-based optimizer to select the vector index naturally and compare plans.
+3. **Harden beyond the competition slice:** add durable reviewer-visible
+   per-memory pages, scheduled provider-key retirement, multi-region failover,
+   and outbox reconciliation.
 
 The exact commands and stop conditions are in
 [CLOUD_DEPLOYMENT_RUNBOOK.md](CLOUD_DEPLOYMENT_RUNBOOK.md).
 
 ## Remaining blockers
 
-- The Managed MCP service-account key is still long-lived even though the
-  guarded manual rotation passed. Scheduled dual-key rotation with automatic
-  rollback and stale-key retirement remains future work.
-- Cognito caller identity and CockroachDB RLS close the cross-scope demo path,
-  but the server-owned caller registry is still static configuration rather
-  than a tenant-control-plane lifecycle.
-- Recall@3 = 1.0 is based on four synthetic evaluation queries. It supports the
-  demo claim but is not a statistically broad production-quality benchmark.
-- Live memory citation URLs do not yet provide durable reviewer-visible detail
-  pages, and connection pooling/query-plan evidence remains incomplete.
+- The guarded workflow automatically replaces the AWS secret, waits out the
+  Lambda cache, proves both read tools, and restores the prior AWS secret on
+  failure. Cockroach Cloud still requires a user-authenticated Console/ccloud
+  session to mint and retire provider API keys, so fully unattended provider
+  rotation is not claimed.
+- The 60-query suite is meaningfully adversarial but still synthetic and small;
+  it is competition evidence, not a statistically broad production benchmark.
+- The vector index exists with the correct tenant/incident prefix contract, but
+  the natural redacted plan did not select ANN for the intentionally tiny
+  20-document corpus. Representative-scale plan and load evidence remains.
+- Live memory citation URLs do not yet provide durable reviewer-visible
+  per-memory detail pages.
 - The Devpost entry is submitted and editable while submissions remain open.
   Material edits must be followed by a fresh judge-path check and confirmation
   that the submission card still reports `Submitted`.

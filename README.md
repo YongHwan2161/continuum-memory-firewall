@@ -9,12 +9,14 @@ The current milestone is **P2B: authenticated managed-cloud competition
 slice**. In addition to the transactional promotion and retrieval boundary, a
 private, cost-bounded AWS Lambda client for CockroachDB Cloud Managed MCP and a
 public TLS repository MCP service are deployed. Live smoke tests proved two
-Managed MCP read tools, a pre-secret write-tool denial, all eleven
-participant-cluster migrations, deterministic per-scope RLS-confined SQL
-roles, fixed AWS SQL egress, five-minute Cognito caller tokens, Bedrock Titan
-embeddings, and an authenticated cross-scope vector flow. The four-query live
-evaluation measured Recall@3 = 1.0 with zero cross-scope leakage; it remains a
-bounded competition result rather than a broad production-quality claim.
+Managed MCP read tools, a pre-secret write-tool denial, all fifteen
+participant-cluster migrations, audited caller-to-scope bindings, matching
+RLS-confined SQL identities, bounded per-identity connection pools, fixed AWS
+SQL egress, five-minute Cognito caller tokens, Bedrock Titan embeddings, and an
+authenticated cross-scope vector flow. The 60-query adversarial live evaluation
+measured Recall@1 = 0.8667, Recall@3 = 0.9833, Recall@5 = 1.0, zero cross-scope
+leakage, p50 = 250.306 ms, and p95 = 282.87 ms. It remains a bounded
+competition result rather than a broad production-quality claim.
 
 For the authoritative project state and evidence, see
 [Project Status](docs/PROJECT_STATUS.md). For implementation order and exit
