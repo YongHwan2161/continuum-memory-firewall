@@ -1,7 +1,7 @@
 # Project status
 
-**Status date:** 2026-08-01
-**Current milestone:** P2B — authenticated managed-cloud slice deployed; submission packaging pending
+**Status date:** 2026-08-02
+**Current milestone:** P2C — authenticated managed-cloud slice submitted; iterative hardening open
 **Overall state:** the local promotion-to-retrieval vertical slice and repository
 MCP contract are implemented and tested. A private, cost-bounded AWS Lambda
 worker is deployed and has completed two live read-only CockroachDB Cloud
@@ -12,7 +12,9 @@ caller-derived scope SQL identity. The public `/mcp` endpoint accepts only
 five-minute Cognito client-credentials tokens and uses Bedrock Titan Text
 Embeddings v2. A four-query live evaluation measured Recall@3 = 1.0 and zero
 cross-scope leakage; remote search/fetch and direct cross-scope denial passed.
-Final submission materials remain.
+The Devpost entry is submitted to the CockroachDB x AWS hackathon as submission
+`1121568`. The submission remains editable while submissions are open; the
+current deadline is 2026-08-19 06:00 KST.
 
 This document is the single source of truth for current capability, verification
 evidence, and explicit non-claims.
@@ -74,8 +76,11 @@ evidence, and explicit non-claims.
   <https://yonghwan2161.github.io/continuum-memory-firewall/>
 - Passing public-demo deployment:
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30464165943>
-- Published Devpost project page (not submitted to the hackathon):
+- Submitted Devpost project page; submission `1121568` returned `Submitted` at
+  2026-08-02 00:22 KST:
   <https://devpost.com/software/continuum-memory-firewall>
+- Public 72-second demonstration video embedded by Devpost:
+  <https://youtu.be/raad44nJj5I>
 - Redacted live AWS and CockroachDB evidence:
   [2026-07-31-cloud-live-smoke.md](evidence/2026-07-31-cloud-live-smoke.md)
 - Redacted live SQL migration and vector evidence:
@@ -135,17 +140,17 @@ do not extend to an unimplemented external API call.
 ## Immediate participant focus
 
 The AWS, Managed MCP, participant-cluster SQL, least-privilege runtime, fixed
-egress, and authenticated remote MCP gates are closed. The shortest remaining
-path to a competition submission is:
+egress, authenticated remote MCP, and Devpost submission gates are closed. The
+highest-value work before the submission deadline is:
 
-1. **Package the judge flow:** record a two-to-three minute video showing one
-   accepted path, one rejected path, live Managed MCP evidence, and the explicit
-   simulation-versus-live boundary.
-2. **Complete submission evidence:** add screenshots, the measured retrieval and
-   isolation results, final technology list, participant attestations, and the
-   Devpost confirmation receipt.
-3. **Harden beyond the competition slice:** add latency/query-plan evidence,
-   pool database connections, automate managed-key rotation, and add durable
+1. **Protect the judge path:** keep the demo, authenticated MCP, fixed egress,
+   OIDC branch subject, and public video live; recheck them before material
+   submission edits.
+2. **Broaden falsification evidence:** expand semantic evaluation beyond four
+   synthetic queries, add latency/query-plan measurements, and retain explicit
+   cross-scope leakage gates.
+3. **Harden beyond the competition slice:** add connection pooling, an audited
+   tenant-control-plane lifecycle, scheduled managed-key rotation, and durable
    reviewer-visible memory pages.
 
 The exact commands and stop conditions are in
@@ -153,8 +158,6 @@ The exact commands and stop conditions are in
 
 ## Remaining blockers
 
-- Organizer eligibility attestations beyond the confirmed Devpost registration
-  remain participant-owned.
 - The Managed MCP service-account key is still long-lived even though the
   guarded manual rotation passed. Scheduled dual-key rotation with automatic
   rollback and stale-key retirement remains future work.
@@ -165,9 +168,9 @@ The exact commands and stop conditions are in
   demo claim but is not a statistically broad production-quality benchmark.
 - Live memory citation URLs do not yet provide durable reviewer-visible detail
   pages, and connection pooling/query-plan evidence remains incomplete.
-- The Devpost submission still needs a short public video, screenshots, the
-  final narrative, participant attestations, and submission confirmation. See
-  [DEVPOST_CHECKLIST.md](DEVPOST_CHECKLIST.md).
+- The Devpost entry is submitted and editable while submissions remain open.
+  Material edits must be followed by a fresh judge-path check and confirmation
+  that the submission card still reports `Submitted`.
 - The OIDC trust is deliberately restricted to the current feature branch.
   Preserve that branch through judging or bootstrap a separately reviewed
   immutable `main` subject before deleting it.
