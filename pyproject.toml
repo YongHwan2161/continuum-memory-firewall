@@ -29,7 +29,8 @@ continuum = ["migrations/*.sql"]
 
 [project.optional-dependencies]
 cockroach = [
-  "psycopg[binary]>=3.2,<4"
+  "psycopg[binary]>=3.2,<4",
+  "psycopg-pool>=3.2,<4"
 ]
 mcp = [
   "boto3>=1.40,<2",
@@ -42,7 +43,8 @@ dev = [
   "mcp>=1.27,<2",
   "PyJWT[crypto]>=2.10,<3",
   "pydantic>=2.11,<3",
-  "psycopg[binary]>=3.2,<4"
+  "psycopg[binary]>=3.2,<4",
+  "psycopg-pool>=3.2,<4"
 ]
 
 [project.scripts]

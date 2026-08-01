@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 import json
+from threading import Lock
 import time
 from typing import Any, Protocol, TypeVar
 from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
@@ -52,6 +53,72 @@ class IncidentNotFoundError(LookupError):
 
 class TransactionRetryExhaustedError(RuntimeError):
     """Raised after all SERIALIZABLE transaction retry attempts are consumed."""
+
+
+class PsycopgConnectionPool:
+    """Lazily opened, bounded pool that satisfies ``ConnectionFactory``.
+
+    Construction never contacts the database. The first borrower opens the
+    minimum number of connections and fails within the configured timeout.
+    Password-bearing connection information is never exposed by diagnostics.
+    """
+
+    def __init__(
+        self,
+        database_url: str,
+        *,
+        min_size: int = 1,
+        max_size: int = 4,
+        timeout_seconds: float = 5.0,
+        pool_factory: Callable[..., Any] | None = None,
+    ) -> None:
+        if not database_url:
+            raise ValueError("database URL is required")
+        if min_size < 1 or max_size < min_size:
+            raise ValueError("pool sizes must satisfy 1 <= min_size <= max_size")
+        if timeout_seconds <= 0:
+            raise ValueError("pool timeout must be positive")
+        if pool_factory is None:
+            try:
+                from psycopg_pool import ConnectionPool
+            except ImportError as exc:  # pragma: no cover - optional dependency
+                raise RuntimeError(
+                    "install the CockroachDB extra: pip install '.[cockroach]'"
+                ) from exc
+            pool_factory = ConnectionPool
+        self._timeout_seconds = timeout_seconds
+        self._pool = pool_factory(
+            conninfo=database_url,
+            min_size=min_size,
+            max_size=max_size,
+            timeout=timeout_seconds,
+            open=False,
+        )
+        self._open_lock = Lock()
+        self._opened = False
+
+    def __call__(self) -> Any:
+        if not self._opened:
+            with self._open_lock:
+                if not self._opened:
+                    self._pool.open(wait=True, timeout=self._timeout_seconds)
+                    self._opened = True
+        return self._pool.connection(timeout=self._timeout_seconds)
+
+    def close(self) -> None:
+        with self._open_lock:
+            if self._opened:
+                self._pool.close(timeout=self._timeout_seconds)
+                self._opened = False
+
+    def metrics(self) -> dict[str, int]:
+        """Return numeric pool counters without returning connection info."""
+
+        return {
+            str(name): int(value)
+            for name, value in self._pool.get_stats().items()
+            if isinstance(value, int)
+        }
 
 
 class ActionClaimCode(StrEnum):

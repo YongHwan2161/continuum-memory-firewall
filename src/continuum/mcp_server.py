@@ -26,7 +26,7 @@ from continuum.retrieval import (
     MemoryRetrievalStore,
     canonical_payload_text,
 )
-from continuum.store import database_url_user, psycopg_connection_factory
+from continuum.store import PsycopgConnectionPool, database_url_user
 from continuum.tenant_control import DatabaseTenantControlPlane
 
 
@@ -116,7 +116,7 @@ class MCPSettings:
             )
         if control_plane_database_url:
             _validate_database_transport(control_plane_database_url)
-            ScopeStoreRegistry.from_json(scope_database_urls_json)
+            ScopeStoreRegistry.validate_json(scope_database_urls_json)
 
         port_text = os.environ.get("PORT", os.environ.get("CONTINUUM_MCP_PORT", "8000"))
         try:
@@ -179,13 +179,18 @@ def _memory_title(payload: dict[str, Any], memory_id: str) -> str:
 class ScopeStoreRegistry:
     """Select only a database URL whose login matches the audited SQL role."""
 
-    def __init__(self, stores: dict[str, MemoryRetrievalStore]) -> None:
+    def __init__(
+        self,
+        stores: dict[str, MemoryRetrievalStore],
+        pools: tuple[PsycopgConnectionPool, ...] = (),
+    ) -> None:
         if not stores:
             raise ValueError("at least one scope database store is required")
         self._stores = dict(stores)
+        self._pools = pools
 
-    @classmethod
-    def from_json(cls, value: str) -> "ScopeStoreRegistry":
+    @staticmethod
+    def _parse_config(value: str) -> dict[str, str]:
         try:
             payload = json.loads(value)
         except json.JSONDecodeError as exc:
@@ -196,7 +201,7 @@ class ScopeStoreRegistry:
             raise RuntimeError(
                 "CONTINUUM_SCOPE_DATABASE_URLS_JSON must be a non-empty object"
             )
-        stores: dict[str, MemoryRetrievalStore] = {}
+        config: dict[str, str] = {}
         for sql_role, database_url in payload.items():
             if not isinstance(sql_role, str) or not sql_role.startswith(
                 "continuum_scope_"
@@ -207,12 +212,22 @@ class ScopeStoreRegistry:
             _validate_database_transport(database_url)
             if database_url_user(database_url) != sql_role:
                 raise RuntimeError("scope database URL login does not match its SQL role")
-            stores[sql_role] = MemoryRetrievalStore(
-                lambda database_url=database_url: psycopg_connection_factory(
-                    database_url
-                )()
-            )
-        return cls(stores)
+            config[sql_role] = database_url
+        return config
+
+    @classmethod
+    def validate_json(cls, value: str) -> None:
+        cls._parse_config(value)
+
+    @classmethod
+    def from_json(cls, value: str) -> "ScopeStoreRegistry":
+        stores: dict[str, MemoryRetrievalStore] = {}
+        pools: list[PsycopgConnectionPool] = []
+        for sql_role, database_url in cls._parse_config(value).items():
+            pool = PsycopgConnectionPool(database_url)
+            pools.append(pool)
+            stores[sql_role] = MemoryRetrievalStore(pool)
+        return cls(stores, tuple(pools))
 
     def store_for(self, identity: CallerIdentity) -> MemoryRetrievalStore:
         if identity.sql_role is None:
@@ -442,6 +457,7 @@ def _healthz_handler(authorization_mode: str):
                 "ok": True,
                 "service": "continuum-memory-firewall",
                 "authorization_mode": authorization_mode,
+                "database_connections": "bounded-pools-1-4",
             },
             headers={
                 "Cache-Control": "no-store",
@@ -480,7 +496,7 @@ def _service_and_scope_resolver(settings: MCPSettings):
     embedder = BedrockTitanEmbedder(region=settings.bedrock_region)
     if settings.control_plane_database_url:
         resolver = DatabaseTenantControlPlane(
-            psycopg_connection_factory(settings.control_plane_database_url)
+            PsycopgConnectionPool(settings.control_plane_database_url)
         )
         stores = ScopeStoreRegistry.from_json(settings.scope_database_urls_json)
         service = ContinuumKnowledgeService(
@@ -490,7 +506,7 @@ def _service_and_scope_resolver(settings: MCPSettings):
         )
         return service, resolver, "audited-tenant-control-plane"
     service = ContinuumKnowledgeService(
-        MemoryRetrievalStore(psycopg_connection_factory(settings.database_url)),
+        MemoryRetrievalStore(PsycopgConnectionPool(settings.database_url)),
         embedder=embedder,
         public_base_url=settings.public_base_url,
     )
