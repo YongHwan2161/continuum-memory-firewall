@@ -62,9 +62,9 @@ claims, vector persistence, retrieval audit, cross-tenant exclusion, and a
 synthetic end-to-end database smoke path. The MCP protocol is tested with an
 in-memory client/server transport. The same migration and synthetic vector path
 was subsequently live-smoked on the participant CockroachDB Cloud cluster. The
-repository MCP service is now deployed on AWS with a fixed synthetic scope,
-bearer authentication, exact-host DNS-rebinding protection, and a
-least-privilege runtime SQL identity.
+repository MCP service is now deployed on AWS with five-minute Cognito caller
+authentication, a server-owned caller-to-scope registry, exact-host
+DNS-rebinding protection, and deterministic RLS-confined SQL identities.
 
 ## Live evidence boundary
 
@@ -81,19 +81,20 @@ authorized AWS direct invoke
        -> CockroachDB Cloud Managed MCP over HTTPS
 
 remote MCP client
-    -> valid TLS + bearer boundary
+    -> valid TLS + five-minute Cognito token
     -> EC2/Nginx repository MCP
        - exact public Host/Origin allowlist
-       - fixed tenant and incident scope
+       - verified caller -> server-owned tenant/incident scope
        - read-only search/fetch tools
-       - runtime SQL role without DDL or canonical writes
+       - deterministic NOBYPASSRLS SQL role without DDL/canonical writes
     -> CockroachDB SQL through one Elastic IP /32
 ```
 
 The Lambda intentionally has no Function URL, API Gateway, VPC, or NAT Gateway.
 It remains an operational evidence client. The separate EC2 endpoint is the
-competition application boundary; its static bearer and process-wide scope are
-not presented as production multi-tenant authorization.
+competition application boundary. Its short-lived caller binding plus RLS close
+the tested cross-scope path; its static server-owned caller registry is not yet
+a production tenant lifecycle.
 
 The live-versus-planned boundary is:
 
@@ -106,8 +107,8 @@ flowchart LR
     secret["AWS Secrets Manager<br/>one API key"]
     managed["CockroachDB Cloud<br/>Managed MCP"]
     basic["CockroachDB Basic<br/>migrated schema + live vector smoke"]
-    repoMcp["Authenticated repository MCP<br/>search / fetch"]
-    runtimeSecret["Runtime secret<br/>one fixed synthetic scope"]
+    repoMcp["OIDC-authenticated repository MCP<br/>search / fetch"]
+    runtimeSecret["Runtime secret<br/>caller registry, no static bearer"]
     eip["AWS Elastic IP<br/>only SQL allowlist /32"]
     budget["AWS Budget + 7-day logs<br/>private S3 package"]
     lambda --> secret
@@ -126,24 +127,22 @@ flowchart LR
   end
 
   subgraph planned["Production hardening not yet implemented"]
-    auth["Short-lived identity<br/>derived tenant scope"]
+    auth["Tenant control plane<br/>registry lifecycle"]
     outbox["Outbox delivery + reconciliation"]
     auth --> outbox
   end
 
   reviewer -->|"AWS direct invoke"| lambda
-  reviewer -->|"HTTPS + bearer"| repoMcp
+  reviewer -->|"HTTPS + 5-minute JWT"| repoMcp
   store --> repoMcp
   auth -. "future replacement" .-> repoMcp
 ```
 
 The private AWS worker, its minimum-IAM role, its one-secret boundary, the
-Managed MCP connection, two read calls, application schema, and synthetic
-vector query execution are live. The authenticated repository MCP service is
-also live; short-lived identity-derived scope and the outbox remain planned as
-shown. The temporary workstation network rule was removed after the remote
-smoke; the current allowlist contains only the AWS Elastic IP `/32`, and a new
-workstation connection attempt was blocked.
+Managed MCP connection, two read calls, application schema, Titan semantic
+query execution, short-lived identity-derived scope, and database RLS are live.
+The audited tenant-control-plane lifecycle and outbox remain planned as shown.
+The current SQL allowlist contains only the AWS Elastic IP `/32`.
 
 ## Component ownership
 
@@ -172,7 +171,7 @@ workstation connection attempt was blocked.
    outbox-style delivery boundary.
 7. Secrets must remain server-side and be injected through an approved secret
    channel.
-8. A bearer-token destination must be pinned to the official HTTPS host; a
+8. Any bearer or short-lived-token destination must be pinned to the official HTTPS host; a
    configurable endpoint must not become a credential-exfiltration path.
 9. Managed MCP write tools must be denied before the worker reads its secret.
 10. Applied migration bytes are immutable; checksum drift and uncertain schema
@@ -180,6 +179,9 @@ workstation connection attempt was blocked.
 11. Runtime authorization must be tested through the exact runtime identity with
     negative DDL/write operations; reviewing direct grants alone is insufficient
     because inherited roles can restore authority.
+12. Verified caller identity must select a server-owned scope and a matching
+    database role; tool arguments and self-asserted tenant claims cannot choose
+    authorization scope.
 
 ## Failure semantics
 

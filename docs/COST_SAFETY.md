@@ -68,14 +68,14 @@ and [CockroachDB Cloud trial](https://www.cockroachlabs.com/docs/cockroachcloud/
 ## Planning target
 
 The desired out-of-pocket cost is USD 0. The initial infrastructure default is a
-USD 5 account-level monthly AWS alert budget. The template accepts USD 1–30, and
+USD 10 account-level monthly AWS alert budget. The template accepts USD 1–30, and
 USD 30 remains the absolute project planning ceiling if optional paid AWS work
 is explicitly approved. These alerts are internal planning controls, not
 guaranteed free-tier eligibility or automatic shutdown.
 
 ## Live controls observed on 2026-08-01
 
-- the USD 5 Budget stack is `CREATE_COMPLETE`, with forecast-at-80% and
+- the USD 10 Budget stack is `CREATE_COMPLETE`, with forecast-at-80% and
   actual-at-100% notifications;
 - the private package bucket blocks public access, uses AES256 server-side
   encryption, and expires `lambda/` objects after seven days;
@@ -84,9 +84,10 @@ guaranteed free-tier eligibility or automatic shutdown.
 - the authenticated MCP host is one `t3.micro` with one Elastic IP, no SSH,
   IMDSv2 required, and an instance role limited to one runtime secret and one
   S3 artifact object;
-- the recurring USD 5 budget reported USD 2.043 actual and USD 2.053 forecast at
-  the verification time. Budget data can lag new EC2 and public-IPv4 usage, so
-  these values are evidence of the alert state, not a final monthly cost;
+- before the increase, the recurring USD 5 budget reported USD 2.043 actual and
+  USD 2.053 forecast; the current alert ceiling is USD 10. Budget data can lag
+  new EC2 and public-IPv4 usage, so these values are historical evidence of the
+  alert state, not a final monthly cost;
 - no NAT Gateway, VPC, API Gateway, EKS, or provisioned model service was
   deployed;
 - the Secrets Manager key does not yet rotate automatically, so teardown or

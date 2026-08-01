@@ -21,17 +21,18 @@ annotations. Protocol tests assert the advertised schemas and verify both
 
 ## Authorization and scope
 
-Tenant and incident identifiers are process configuration, never tool inputs.
-Every database read and write includes both identifiers, and composite database
-constraints preserve their relationship. Rejected candidates are not queried by
-the retrieval store and are not exposed by MCP.
+Tenant and incident identifiers are never tool inputs. The competition
+deployment verifies a five-minute Cognito client-credentials JWT, maps the
+verified caller identity through a server-owned registry, and connects through
+a deterministic `NOBYPASSRLS` SQL login for that scope. Every database read and
+write includes both identifiers; composite constraints and CockroachDB RLS on
+canonical memory, incidents, and retrieval audit enforce the relationship.
+Rejected candidates are not queried or exposed by MCP.
 
-The competition deployment wraps this fixed scope in a server-side bearer
-boundary. That is sufficient to deny unauthenticated access and demonstrate
-cross-scope exclusion for one synthetic scenario. It is not a substitute for
-production caller authentication. A multi-user deployment must add short-lived
-OAuth/JWT identity and derive permitted scope from authenticated claims rather
-than one process-wide scope.
+The registry is intentionally server-owned, so a caller cannot mint arbitrary
+scope through token claims. A production multi-user system must add an audited
+tenant lifecycle and registry-management control plane; accepting tenant IDs as
+tool inputs or trusting self-asserted scope claims remains forbidden.
 
 ## Runtime configuration
 
@@ -41,6 +42,12 @@ Required variables:
 - `CONTINUUM_TENANT_ID`
 - `CONTINUUM_INCIDENT_ID`
 - `CONTINUUM_MCP_BEARER_TOKEN` — at least 32 random characters
+
+The bearer variables above describe the legacy local compatibility path. The
+live deployment instead injects Cognito issuer, audience, required scope, JWKS
+configuration, and a caller registry through one AWS Secrets Manager object.
+It rejects tokens longer than ten minutes; the deployed client is configured
+for 300 seconds.
 
 Optional variables:
 
@@ -56,16 +63,17 @@ configured public HTTPS host and origin.
 
 ## Embedding boundary
 
-`HashingEmbedder` is deterministic, local, and zero-cost. It exists to prove:
+`HashingEmbedder` remains deterministic local CI machinery. It proves:
 
 - embedding persistence with model identity;
 - CockroachDB `VECTOR(512)` cosine ranking;
 - mandatory tenant and incident prefix filters;
 - accepted-result thresholds and durable retrieval evidence.
 
-It is lexical test/demo machinery, not a semantic-quality claim. The managed
-cloud slice must replace it with a bounded semantic embedder and a measured
-retrieval evaluation while retaining explicit model versioning.
+The live managed-cloud slice uses Bedrock Titan Text Embeddings v2 at 512
+dimensions and retains explicit model identity. Its versioned four-query
+evaluation measured Recall@3 = 1.0 and zero cross-scope leakage. That bounded
+result supports the competition demo but is not a broad production benchmark.
 
 ## Deployment acceptance gate
 

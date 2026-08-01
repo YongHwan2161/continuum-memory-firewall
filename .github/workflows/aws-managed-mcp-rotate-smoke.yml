@@ -1,0 +1,109 @@
+name: aws-managed-mcp-rotate-smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: continuum-managed-mcp-rotation
+  cancel-in-progress: false
+
+jobs:
+  rotate-and-prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          role-session-name: continuum-managed-mcp-rotation
+      - name: Prove dedicated deployment role
+        run: ./scripts/assert_deployer_identity.sh
+      - name: Rotate secret and prove two managed tools
+        shell: bash
+        env:
+          ROTATED_API_KEY: ${{ secrets.CONTINUUM_ROTATED_MCP_API_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          secret_id=continuum/cockroach/managed-mcp-api-key
+          function_name=continuum-hackathon-managed-mcp-worker
+          old_secret=/tmp/continuum-managed-mcp-old
+          list_databases_response=/tmp/continuum-list-databases.json
+          list_tables_response=/tmp/continuum-list-tables.json
+          denied_response=/tmp/continuum-managed-mcp-denied.json
+          rotated=0
+
+          cleanup() {
+            status=$?
+            if [[ "$status" -ne 0 && "$rotated" -eq 1 && -s "$old_secret" ]]; then
+              aws secretsmanager put-secret-value \
+                --region ap-southeast-1 \
+                --secret-id "$secret_id" \
+                --secret-string file://"$old_secret" >/dev/null
+              echo "managed_mcp_secret_rollback=true"
+            fi
+            rm -f -- "$old_secret" "$list_databases_response" \
+              "$list_tables_response" "$denied_response"
+            exit "$status"
+          }
+          trap cleanup EXIT
+
+          test -n "$ROTATED_API_KEY"
+          if [[ "$ROTATED_API_KEY" =~ [[:space:]] ]]; then
+            echo "rotated API key has invalid whitespace" >&2
+            exit 2
+          fi
+          aws secretsmanager get-secret-value \
+            --region ap-southeast-1 \
+            --secret-id "$secret_id" \
+            --query SecretString --output text >"$old_secret"
+          test -s "$old_secret"
+          printf '%s' "$ROTATED_API_KEY" | aws secretsmanager put-secret-value \
+            --region ap-southeast-1 \
+            --secret-id "$secret_id" \
+            --secret-string file:///dev/stdin >/dev/null
+          rotated=1
+          unset ROTATED_API_KEY
+
+          # Warm Lambda containers cache this one secret for at most five minutes.
+          # Wait for that bounded cache rather than broadening Lambda IAM merely to
+          # force a configuration update.
+          sleep 310
+
+          aws lambda invoke \
+            --region ap-southeast-1 \
+            --function-name "$function_name" \
+            --cli-binary-format raw-in-base64-out \
+            --payload '{"tool":"list_databases","arguments":{}}' \
+            "$list_databases_response" >/dev/null
+          jq -e '.ok == true and .tool == "list_databases"' \
+            "$list_databases_response" >/dev/null
+
+          aws lambda invoke \
+            --region ap-southeast-1 \
+            --function-name "$function_name" \
+            --cli-binary-format raw-in-base64-out \
+            --payload '{"tool":"list_tables","arguments":{"database":"continuum"}}' \
+            "$list_tables_response" >/dev/null
+          jq -e '.ok == true and .tool == "list_tables"' \
+            "$list_tables_response" >/dev/null
+
+          aws lambda invoke \
+            --region ap-southeast-1 \
+            --function-name "$function_name" \
+            --cli-binary-format raw-in-base64-out \
+            --payload '{"tool":"insert_rows","arguments":{}}' \
+            "$denied_response" >/dev/null
+          jq -e '.ok == false and .error.code == "INVALID_REQUEST"' \
+            "$denied_response" >/dev/null
+
+          rotated=0
+          echo "managed_mcp_secret_rotated=true"
+          echo "managed_mcp_tools=list_databases,list_tables"
+          echo "managed_mcp_write_denied_pre_secret=true"

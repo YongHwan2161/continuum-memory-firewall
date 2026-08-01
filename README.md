@@ -9,11 +9,12 @@ The current milestone is **P2B: authenticated managed-cloud competition
 slice**. In addition to the transactional promotion and retrieval boundary, a
 private, cost-bounded AWS Lambda client for CockroachDB Cloud Managed MCP and a
 public TLS repository MCP service are deployed. Live smoke tests proved two
-Managed MCP read tools, a pre-secret write-tool denial, all eight
-participant-cluster migrations, separate least-privilege migrator/runtime SQL
-roles, fixed AWS SQL egress, and an authenticated cross-scope vector flow. The
-public endpoint is a fixed-scope synthetic competition service, not a claim of
-production multi-tenant identity or semantic retrieval quality.
+Managed MCP read tools, a pre-secret write-tool denial, all eleven
+participant-cluster migrations, deterministic per-scope RLS-confined SQL
+roles, fixed AWS SQL egress, five-minute Cognito caller tokens, Bedrock Titan
+embeddings, and an authenticated cross-scope vector flow. The four-query live
+evaluation measured Recall@3 = 1.0 with zero cross-scope leakage; it remains a
+bounded competition result rather than a broad production-quality claim.
 
 For the authoritative project state and evidence, see
 [Project Status](docs/PROJECT_STATUS.md). For implementation order and exit
@@ -102,7 +103,9 @@ make cloud-package
 ```
 
 Run the tool-only MCP server at `/mcp` after applying the migrations and seeding
-accepted memory:
+accepted memory. The following legacy bearer configuration is retained for
+local compatibility tests; the live AWS deployment uses Cognito OIDC and a
+server-owned caller registry:
 
 ```bash
 export CONTINUUM_DATABASE_URL='postgresql://...?...&sslmode=verify-full'
@@ -115,9 +118,9 @@ continuum-mcp
 
 The GitHub Actions workflow starts an ephemeral CockroachDB node and runs the
 unit, MCP-contract, and database-integration suites. This verification path does
-not require a paid cloud account. The deterministic hashing embedder proves
-storage, filtering, ranking, and audit semantics; it is not presented as a
-production semantic embedding model.
+not require a paid cloud account. Deterministic hashing embeddings keep CI
+repeatable; the participant deployment separately evaluates Bedrock Titan Text
+Embeddings v2 against a versioned semantic dataset.
 
 ## Public proof console
 
@@ -139,6 +142,8 @@ The redacted participant-cluster migration and vector proof is recorded in
 The least-privilege SQL, fixed-egress, authenticated HTTPS, and remote
 cross-scope proof is recorded in
 [Authenticated remote MCP evidence](docs/evidence/2026-08-01-authenticated-remote-mcp-smoke.md).
+The exact-head Cognito, Titan, RLS, and cross-scope evaluation is recorded in
+[OIDC, Titan, and RLS live evidence](docs/evidence/2026-08-01-oidc-titan-rls-live-smoke.md).
 
 ## Safety boundary
 
