@@ -68,6 +68,9 @@ creator temporarily needs only `CREATEROLE` and `CREATELOGIN`; those options
 must be removed immediately after the first successful cutover. Later deploys
 recognize the deterministic scope login in the runtime secret and verify its
 RLS negative tests without recreating the login or requiring either option.
+The control-plane bootstrap uses the same bounded rule: its creation path
+removes both options in a `finally` guard, so a failed grant or verification
+cannot leave the migrator as a standing role administrator.
 
 Migrations `0012` through `0015` add the tenant control plane as four separate
 online schema changes: the current caller binding, its scope index, the

@@ -220,70 +220,108 @@ def provision_control_plane_role(
     migrator_database_url: str,
     *,
     password: str | None = None,
+    revoke_bootstrap_user: str | None = None,
 ) -> dict[str, Any]:
     if password is not None and len(password) < 32:
         raise ValueError("control-plane SQL password must be at least 32 characters")
     connect = psycopg_connection_factory(migrator_database_url)
     from psycopg import sql
 
-    with connect() as connection:
-        database_name = connection.execute("SELECT current_database()").fetchone()[0]
-        connection.execute(
-            sql.SQL("CREATE ROLE IF NOT EXISTS {} NOLOGIN").format(
-                sql.Identifier(CONTROL_PLANE_ROLE)
-            )
-        )
-        connection.execute(
-            sql.SQL("CREATE USER IF NOT EXISTS {}").format(
-                sql.Identifier(CONTROL_PLANE_USER)
-            )
-        )
-        connection.execute(
-            sql.SQL("REVOKE admin FROM {}").format(sql.Identifier(CONTROL_PLANE_USER))
-        )
-        connection.execute(
-            sql.SQL("ALTER ROLE {} WITH NOBYPASSRLS").format(
-                sql.Identifier(CONTROL_PLANE_USER)
-            )
-        )
-        if password is not None:
+    try:
+        with connect() as connection:
+            database_name, current_user = connection.execute(
+                "SELECT current_database(), current_user"
+            ).fetchone()
+            if (
+                revoke_bootstrap_user is not None
+                and current_user != revoke_bootstrap_user
+            ):
+                raise RuntimeError("control-plane bootstrap SQL identity mismatch")
             connection.execute(
-                sql.SQL("ALTER USER {} WITH PASSWORD {}").format(
-                    sql.Identifier(CONTROL_PLANE_USER),
-                    sql.Literal(password),
+                sql.SQL("CREATE ROLE IF NOT EXISTS {} NOLOGIN").format(
+                    sql.Identifier(CONTROL_PLANE_ROLE)
                 )
             )
+            connection.execute(
+                sql.SQL("CREATE USER IF NOT EXISTS {}").format(
+                    sql.Identifier(CONTROL_PLANE_USER)
+                )
+            )
+            connection.execute(
+                sql.SQL("REVOKE admin FROM {}").format(
+                    sql.Identifier(CONTROL_PLANE_USER)
+                )
+            )
+            connection.execute(
+                sql.SQL("ALTER ROLE {} WITH NOBYPASSRLS").format(
+                    sql.Identifier(CONTROL_PLANE_USER)
+                )
+            )
+            if password is not None:
+                connection.execute(
+                    sql.SQL("ALTER USER {} WITH PASSWORD {}").format(
+                        sql.Identifier(CONTROL_PLANE_USER),
+                        sql.Literal(password),
+                    )
+                )
+            connection.execute(
+                sql.SQL("GRANT {} TO {}").format(
+                    sql.Identifier(CONTROL_PLANE_ROLE),
+                    sql.Identifier(CONTROL_PLANE_USER),
+                )
+            )
+            connection.execute(
+                sql.SQL("GRANT CONNECT ON DATABASE {} TO {}").format(
+                    sql.Identifier(database_name),
+                    sql.Identifier(CONTROL_PLANE_ROLE),
+                )
+            )
+            connection.execute(
+                sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(
+                    sql.Identifier(CONTROL_PLANE_ROLE)
+                )
+            )
+            connection.execute(
+                sql.SQL(
+                    "GRANT SELECT ON TABLE public.tenant_scope_bindings, "
+                    "public.tenant_scope_binding_audit TO {}"
+                ).format(sql.Identifier(CONTROL_PLANE_ROLE))
+            )
+            connection.execute(
+                sql.SQL(
+                    "REVOKE ALL ON TABLE public.incidents, public.memory_candidates, "
+                    "public.canonical_memories, public.action_attempts, "
+                    "public.retrieval_audit FROM {}"
+                ).format(sql.Identifier(CONTROL_PLANE_ROLE))
+            )
+    finally:
+        if revoke_bootstrap_user is not None:
+            _revoke_bootstrap_role_options(connect, revoke_bootstrap_user)
+    return {
+        "ok": True,
+        "database": database_name,
+        "user": CONTROL_PLANE_USER,
+        "bootstrap_options_revoked": revoke_bootstrap_user is not None,
+    }
+
+
+def _revoke_bootstrap_role_options(
+    connect: Callable[[], Any], expected_user: str
+) -> None:
+    """Remove the one-time role/login creation options, even after failure."""
+
+    expected_user = _required_text("bootstrap user", expected_user, maximum=128)
+    from psycopg import sql
+
+    with connect() as connection:
+        current_user = connection.execute("SELECT current_user").fetchone()[0]
+        if current_user != expected_user:
+            raise RuntimeError("refusing to revoke options from an unexpected SQL user")
         connection.execute(
-            sql.SQL("GRANT {} TO {}").format(
-                sql.Identifier(CONTROL_PLANE_ROLE),
-                sql.Identifier(CONTROL_PLANE_USER),
+            sql.SQL("ALTER USER {} WITH NOCREATEROLE NOCREATELOGIN").format(
+                sql.Identifier(expected_user)
             )
         )
-        connection.execute(
-            sql.SQL("GRANT CONNECT ON DATABASE {} TO {}").format(
-                sql.Identifier(database_name),
-                sql.Identifier(CONTROL_PLANE_ROLE),
-            )
-        )
-        connection.execute(
-            sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(
-                sql.Identifier(CONTROL_PLANE_ROLE)
-            )
-        )
-        connection.execute(
-            sql.SQL(
-                "GRANT SELECT ON TABLE public.tenant_scope_bindings, "
-                "public.tenant_scope_binding_audit TO {}"
-            ).format(sql.Identifier(CONTROL_PLANE_ROLE))
-        )
-        connection.execute(
-            sql.SQL(
-                "REVOKE ALL ON TABLE public.incidents, public.memory_candidates, "
-                "public.canonical_memories, public.action_attempts, "
-                "public.retrieval_audit FROM {}"
-            ).format(sql.Identifier(CONTROL_PLANE_ROLE))
-        )
-    return {"ok": True, "database": database_name, "user": CONTROL_PLANE_USER}
 
 
 def verify_control_plane_role(database_url: str) -> dict[str, Any]:
