@@ -24,6 +24,8 @@ OWNED_TABLES = (
     "canonical_memories",
     "action_attempts",
     "retrieval_audit",
+    "tenant_scope_bindings",
+    "tenant_scope_binding_audit",
 )
 
 

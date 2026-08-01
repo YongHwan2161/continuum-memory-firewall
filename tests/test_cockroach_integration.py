@@ -7,6 +7,7 @@ from urllib.parse import quote, urlsplit, urlunsplit
 from uuid import uuid4
 
 from continuum.db_smoke import run_smoke
+from continuum.identity import IdentityVerificationError
 from continuum.migrate import (
     MigrationDriftError,
     MigrationLockError,
@@ -25,6 +26,15 @@ from continuum.store import (
     ActionClaimCode,
     CockroachMemoryStore,
     psycopg_connection_factory,
+)
+from continuum.tenant_control import (
+    CONTROL_PLANE_USER,
+    DatabaseTenantControlPlane,
+    bind_caller_scope,
+    database_url_with_login,
+    disable_caller,
+    provision_control_plane_role,
+    verify_control_plane_role,
 )
 
 
@@ -425,6 +435,54 @@ class CockroachIntegrationTests(unittest.TestCase):
         )
         self.assertIn(allowed.memory_id, search.evaluated_memory_ids)
         self.assertNotIn(forbidden.memory_id, search.evaluated_memory_ids)
+
+    def test_audited_tenant_control_plane_binds_and_revokes_caller(self):
+        password = "control-plane-test-password-that-is-long-enough"
+        provision_control_plane_role(DATABASE_URL, password=password)
+        control_url = database_url_with_login(
+            DATABASE_URL,
+            user=CONTROL_PLANE_USER,
+            password=password,
+        )
+        bound = bind_caller_scope(
+            DATABASE_URL,
+            caller_id="integration-client",
+            tenant_id=TENANT_ID,
+            incident_id=INCIDENT_ID,
+            actor="integration-test",
+            reason="prove audited caller binding",
+        )
+        self.assertEqual(bound["binding_version"], 1)
+        self.assertEqual(bound["event_type"], "bound")
+        identity = DatabaseTenantControlPlane(
+            psycopg_connection_factory(control_url)
+        ).resolve("integration-client")
+        self.assertEqual(identity.sql_role, scope_role_name(TENANT_ID, INCIDENT_ID))
+        self.assertEqual(identity.binding_version, 1)
+        privilege = verify_control_plane_role(control_url)
+        self.assertTrue(privilege["canonical_memory_denied"])
+
+        disabled = disable_caller(
+            DATABASE_URL,
+            caller_id="integration-client",
+            actor="integration-test",
+            reason="prove immediate revocation",
+        )
+        self.assertEqual(disabled["binding_version"], 2)
+        with self.assertRaises(IdentityVerificationError):
+            DatabaseTenantControlPlane(
+                psycopg_connection_factory(control_url)
+            ).resolve("integration-client")
+        with self.connect() as connection:
+            events = connection.execute(
+                """
+                SELECT event_type, binding_version
+                FROM tenant_scope_binding_audit
+                WHERE caller_id = 'integration-client'
+                ORDER BY binding_version
+                """
+            ).fetchall()
+        self.assertEqual(events, [("bound", 1), ("disabled", 2)])
 
     def test_stale_candidate_is_rejected_and_auditable(self):
         self._insert_candidate(STALE_CANDIDATE_ID, "f" * 64)

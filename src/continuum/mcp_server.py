@@ -26,7 +26,8 @@ from continuum.retrieval import (
     MemoryRetrievalStore,
     canonical_payload_text,
 )
-from continuum.store import psycopg_connection_factory
+from continuum.store import database_url_user, psycopg_connection_factory
+from continuum.tenant_control import DatabaseTenantControlPlane
 
 
 DEFAULT_PUBLIC_BASE_URL = (
@@ -65,6 +66,8 @@ class MCPSettings:
     oidc_issuer: str
     oidc_required_scope: str
     bedrock_region: str
+    control_plane_database_url: str = ""
+    scope_database_urls_json: str = ""
     public_base_url: str = DEFAULT_PUBLIC_BASE_URL
     host: str = "127.0.0.1"
     port: int = 8000
@@ -101,6 +104,19 @@ class MCPSettings:
         _validate_public_base_url(public_base_url)
         _validate_database_transport(required["database_url"])
         ScopeRegistry.from_json(required["caller_scopes_json"])
+        control_plane_database_url = os.environ.get(
+            "CONTINUUM_CONTROL_PLANE_DATABASE_URL", ""
+        )
+        scope_database_urls_json = os.environ.get(
+            "CONTINUUM_SCOPE_DATABASE_URLS_JSON", ""
+        )
+        if bool(control_plane_database_url) != bool(scope_database_urls_json):
+            raise RuntimeError(
+                "tenant control-plane URL and scope database URLs must be configured together"
+            )
+        if control_plane_database_url:
+            _validate_database_transport(control_plane_database_url)
+            ScopeStoreRegistry.from_json(scope_database_urls_json)
 
         port_text = os.environ.get("PORT", os.environ.get("CONTINUUM_MCP_PORT", "8000"))
         try:
@@ -116,6 +132,8 @@ class MCPSettings:
             oidc_issuer=required["oidc_issuer"],
             oidc_required_scope=required["oidc_required_scope"],
             bedrock_region=required["bedrock_region"],
+            control_plane_database_url=control_plane_database_url,
+            scope_database_urls_json=scope_database_urls_json,
             public_base_url=public_base_url,
             host=os.environ.get("CONTINUUM_MCP_HOST", "0.0.0.0"),
             port=port,
@@ -158,26 +176,85 @@ def _memory_title(payload: dict[str, Any], memory_id: str) -> str:
     return f"Canonical memory {memory_id[:8]}"
 
 
+class ScopeStoreRegistry:
+    """Select only a database URL whose login matches the audited SQL role."""
+
+    def __init__(self, stores: dict[str, MemoryRetrievalStore]) -> None:
+        if not stores:
+            raise ValueError("at least one scope database store is required")
+        self._stores = dict(stores)
+
+    @classmethod
+    def from_json(cls, value: str) -> "ScopeStoreRegistry":
+        try:
+            payload = json.loads(value)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                "CONTINUUM_SCOPE_DATABASE_URLS_JSON must be valid JSON"
+            ) from exc
+        if not isinstance(payload, dict) or not payload:
+            raise RuntimeError(
+                "CONTINUUM_SCOPE_DATABASE_URLS_JSON must be a non-empty object"
+            )
+        stores: dict[str, MemoryRetrievalStore] = {}
+        for sql_role, database_url in payload.items():
+            if not isinstance(sql_role, str) or not sql_role.startswith(
+                "continuum_scope_"
+            ):
+                raise RuntimeError("scope database URL keys must be scope SQL roles")
+            if not isinstance(database_url, str) or not database_url:
+                raise RuntimeError("scope database URLs must be non-empty strings")
+            _validate_database_transport(database_url)
+            if database_url_user(database_url) != sql_role:
+                raise RuntimeError("scope database URL login does not match its SQL role")
+            stores[sql_role] = MemoryRetrievalStore(
+                lambda database_url=database_url: psycopg_connection_factory(
+                    database_url
+                )()
+            )
+        return cls(stores)
+
+    def store_for(self, identity: CallerIdentity) -> MemoryRetrievalStore:
+        if identity.sql_role is None:
+            raise IdentityVerificationError("audited SQL role is required")
+        try:
+            return self._stores[identity.sql_role]
+        except KeyError as exc:
+            raise IdentityVerificationError(
+                "no database connection is registered for the audited SQL role"
+            ) from exc
+
+
 class ContinuumKnowledgeService:
     """Resolve the authenticated caller before every read-only MCP tool call."""
 
     def __init__(
         self,
-        store: MemoryRetrievalStore,
+        store: MemoryRetrievalStore | None = None,
         *,
         embedder: Embedder,
         public_base_url: str,
         identity_provider: Callable[[], CallerIdentity] = current_caller,
+        store_provider: Callable[[CallerIdentity], MemoryRetrievalStore] | None = None,
     ) -> None:
         _validate_public_base_url(public_base_url)
+        if (store is None) == (store_provider is None):
+            raise ValueError("configure exactly one retrieval store source")
         self._store = store
+        self._store_provider = store_provider
         self._embedder = embedder
         self._public_base_url = public_base_url
         self._identity_provider = identity_provider
 
+    def _store_for(self, identity: CallerIdentity) -> MemoryRetrievalStore:
+        if self._store_provider is not None:
+            return self._store_provider(identity)
+        assert self._store is not None
+        return self._store
+
     def search(self, query: str) -> SearchOutput:
         identity = self._identity_provider()
-        result = self._store.search(
+        result = self._store_for(identity).search(
             tenant_id=identity.tenant_id,
             incident_id=identity.incident_id,
             query=query,
@@ -196,7 +273,7 @@ class ContinuumKnowledgeService:
 
     def fetch(self, memory_id: str) -> FetchOutput:
         identity = self._identity_provider()
-        document = self._store.fetch_memory(
+        document = self._store_for(identity).fetch_memory(
             tenant_id=identity.tenant_id,
             incident_id=identity.incident_id,
             memory_id=memory_id,
@@ -356,34 +433,76 @@ class OIDCAuthMiddleware:
             await self._app(scope, receive, send)
 
 
-async def _healthz(_request: Any):
-    from starlette.responses import JSONResponse
+def _healthz_handler(authorization_mode: str):
+    async def healthz(_request: Any):
+        from starlette.responses import JSONResponse
 
-    return JSONResponse(
-        {"ok": True, "service": "continuum-memory-firewall"},
-        headers={"Cache-Control": "no-store"},
-    )
+        return JSONResponse(
+            {
+                "ok": True,
+                "service": "continuum-memory-firewall",
+                "authorization_mode": authorization_mode,
+            },
+            headers={
+                "Cache-Control": "no-store",
+                "Access-Control-Allow-Origin": (
+                    "https://yonghwan2161.github.io"
+                ),
+                "Vary": "Origin",
+            },
+        )
+
+    return healthz
 
 
-def create_authenticated_app(server: Any, *, verifier: TokenVerifier):
+def create_authenticated_app(
+    server: Any,
+    *,
+    verifier: TokenVerifier,
+    authorization_mode: str = "static-registry",
+):
     """Create the public ASGI boundary with health and OIDC authentication."""
 
     from starlette.routing import Route
 
     app = server.streamable_http_app()
-    app.routes.append(Route("/healthz", _healthz, methods=["GET"]))
+    app.routes.append(
+        Route(
+            "/healthz",
+            _healthz_handler(authorization_mode),
+            methods=["GET"],
+        )
+    )
     return OIDCAuthMiddleware(app, verifier=verifier)
 
 
-def build_server_from_settings(settings: MCPSettings):
-    store = MemoryRetrievalStore(
-        psycopg_connection_factory(settings.database_url)
-    )
+def _service_and_scope_resolver(settings: MCPSettings):
+    embedder = BedrockTitanEmbedder(region=settings.bedrock_region)
+    if settings.control_plane_database_url:
+        resolver = DatabaseTenantControlPlane(
+            psycopg_connection_factory(settings.control_plane_database_url)
+        )
+        stores = ScopeStoreRegistry.from_json(settings.scope_database_urls_json)
+        service = ContinuumKnowledgeService(
+            embedder=embedder,
+            public_base_url=settings.public_base_url,
+            store_provider=stores.store_for,
+        )
+        return service, resolver, "audited-tenant-control-plane"
     service = ContinuumKnowledgeService(
-        store,
-        embedder=BedrockTitanEmbedder(region=settings.bedrock_region),
+        MemoryRetrievalStore(psycopg_connection_factory(settings.database_url)),
+        embedder=embedder,
         public_base_url=settings.public_base_url,
     )
+    return (
+        service,
+        ScopeRegistry.from_json(settings.caller_scopes_json),
+        "static-registry",
+    )
+
+
+def build_server_from_settings(settings: MCPSettings):
+    service, _resolver, _mode = _service_and_scope_resolver(settings)
     return create_mcp_server(
         service,
         host=settings.host,
@@ -398,28 +517,43 @@ def build_server_from_env():
 
 def build_authenticated_app_from_env():
     settings = MCPSettings.from_env()
-    server = build_server_from_settings(settings)
-    registry = ScopeRegistry.from_json(settings.caller_scopes_json)
+    service, resolver, mode = _service_and_scope_resolver(settings)
+    server = create_mcp_server(
+        service,
+        host=settings.host,
+        port=settings.port,
+        website_url=settings.public_base_url,
+    )
     verifier = CognitoTokenVerifier(
         issuer=settings.oidc_issuer,
         required_scope=settings.oidc_required_scope,
-        registry=registry,
+        registry=resolver,
     )
-    return create_authenticated_app(server, verifier=verifier)
+    return create_authenticated_app(
+        server,
+        verifier=verifier,
+        authorization_mode=mode,
+    )
 
 
 def main() -> None:
     import uvicorn
 
     settings = MCPSettings.from_env()
-    registry = ScopeRegistry.from_json(settings.caller_scopes_json)
+    service, resolver, mode = _service_and_scope_resolver(settings)
     app = create_authenticated_app(
-        build_server_from_settings(settings),
+        create_mcp_server(
+            service,
+            host=settings.host,
+            port=settings.port,
+            website_url=settings.public_base_url,
+        ),
         verifier=CognitoTokenVerifier(
             issuer=settings.oidc_issuer,
             required_scope=settings.oidc_required_scope,
-            registry=registry,
+            registry=resolver,
         ),
+        authorization_mode=mode,
     )
     uvicorn.run(
         app,

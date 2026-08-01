@@ -87,17 +87,44 @@ EXPECTED_COLUMNS = {
         "policy_digest",
         "created_at",
     },
+    "tenant_scope_bindings": {
+        "caller_id",
+        "tenant_id",
+        "incident_id",
+        "sql_role",
+        "binding_version",
+        "status",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "reason",
+    },
+    "tenant_scope_binding_audit": {
+        "audit_id",
+        "caller_id",
+        "tenant_id",
+        "incident_id",
+        "sql_role",
+        "binding_version",
+        "event_type",
+        "actor",
+        "reason",
+        "recorded_at",
+    },
 }
 EXPECTED_INDEXES = {
     "memory_candidates_incident_created_idx",
     "canonical_memories_embedding_idx",
     "retrieval_audit_incident_created_idx",
+    "tenant_scope_bindings_scope_idx",
+    "tenant_scope_binding_audit_caller_idx",
 }
 EXPECTED_SCOPE_FOREIGN_KEYS = {
     "memory_candidates",
     "canonical_memories",
     "action_attempts",
     "retrieval_audit",
+    "tenant_scope_bindings",
 }
 
 
