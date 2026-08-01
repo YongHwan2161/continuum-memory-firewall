@@ -65,8 +65,10 @@ complete attestations and organizer agreements.
       repository/branch-bound `continuum-hackathon-deployer` role
 - [x] AWS monthly alert budget raised to USD 10 with forecast-at-80% and
       actual-at-100% notifications
-- [ ] Managed MCP API key rotation completed; new key passes `list_databases`
-      and `list_tables`, old key revoked, temporary GitHub secret deleted
+- [x] Managed MCP API key rotation completed; new key passed `list_databases`
+      and `list_tables`, old key was revoked, and the temporary GitHub secret
+      was deleted; run
+      <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30695651609>
 - [x] Cost-bounded AWS deployment and negative boundary evidenced:
       `insert_rows` was rejected before secret resolution; see
       [2026-07-31-cloud-live-smoke.md](evidence/2026-07-31-cloud-live-smoke.md)
@@ -78,8 +80,11 @@ complete attestations and organizer agreements.
 - [ ] Project submitted to the CockroachDB x AWS hackathon
 - [x] Architecture diagram distinguishes locally implemented, live deployed,
       and planned application components
-- [ ] Two-to-three minute demo video
-- [ ] Screenshots or GIFs for promotion, rejection, replay, and retrieval
+- [x] Secret-free 58-second narrated demo video generated at
+      [docs/demo/continuum-memory-firewall-demo.mp4](demo/continuum-memory-firewall-demo.mp4)
+- [x] Secret-free screenshots captured for the live overview, policy rejection,
+      and one-owner failover in [docs/demo/](demo/)
+- [ ] Demo video uploaded to a Devpost-supported public host and tested logged out
 - [x] Problem, approach, architecture, and technical challenge narrative in the
       repository documentation; concise Devpost field copy still needs a final
       logged-out rendering check

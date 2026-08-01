@@ -90,8 +90,9 @@ guaranteed free-tier eligibility or automatic shutdown.
   alert state, not a final monthly cost;
 - no NAT Gateway, VPC, API Gateway, EKS, or provisioned model service was
   deployed;
-- the Secrets Manager key does not yet rotate automatically, so teardown or
-  rotation remains a cost and security gate after judging.
+- a guarded manual Secrets Manager/API-key rotation passed both managed read
+  tools on 2026-08-01; automatic rotation remains future hardening, and the key
+  must still be revoked during final teardown.
 
 The EC2 instance and public IPv4 address accrue time-based charges while left
 running. Stop or delete the authenticated-MCP stack after judging; releasing

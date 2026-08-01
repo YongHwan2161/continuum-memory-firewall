@@ -43,7 +43,7 @@ evidence, and explicit non-claims.
 | Reviewer experience | Deployed public simulation | GitHub Pages opens without login and Browser verification exercised policy rejection plus one-owner failover; it remains explicitly separate from live cloud evidence |
 | Live CockroachDB Cloud | Migrated, semantically evaluated, RLS-confined, and egress-restricted | Migration version 11 is current; all visible rows in each protected table matched the caller scope; the allowlist contains only the AWS Elastic IP `/32` |
 | Public MCP endpoint | Deployed and cross-scope-smoked | `https://47-131-98-12.sslip.io/mcp` has valid TLS, health `200`, missing auth `401`, five-minute OIDC, allowed search/fetch PASS, hidden forbidden memory, and cross-scope fetch denial |
-| CockroachDB Managed MCP | Live read-only evidence complete | A cluster-scoped `Cluster Operator` service account initialized the managed server, advertised 12 tools, listed the `continuum` database, and returned zero tables in the historical pre-migration snapshot through the deployed Lambda |
+| CockroachDB Managed MCP | Live read-only evidence and manual rotation complete | The cluster-scoped minimum-role service account passed `list_databases` and `list_tables` after a guarded key rotation; the old key and temporary GitHub secret were deleted, while `insert_rows` remained pre-secret denied |
 | AWS service use | Live deployment evidenced | Lambda, EC2, Elastic IP, SSM, Secrets Manager, S3, CloudWatch Logs, CloudFormation, Cognito, Bedrock, IAM OIDC, and AWS Budgets are active; the USD 10 budget retains forecast-at-80% and actual-at-100% email alerts |
 | AWS deployment authority | Keyless dedicated role | GitHub Actions assumes `continuum-hackathon-deployer` through an immutable numeric OIDC subject for this repository branch. Sessions last at most one hour; explicit denies block self-modification and bootstrap-stack mutation; the AWS Root console session is logged out |
 | Exactly-once external effect | Not guaranteed | The database claim is idempotent; an external provider call and acknowledgement are not yet coordinated |
@@ -93,6 +93,8 @@ evidence, and explicit non-claims.
   and <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30695164485>
 - Dedicated AWS identity proof:
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30695164473>
+- Managed MCP rotation and current two-tool proof:
+  <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30695651609>
 - Redacted OIDC, Titan, RLS, and remote-smoke evidence:
   [2026-08-01-oidc-titan-rls-live-smoke.md](evidence/2026-08-01-oidc-titan-rls-live-smoke.md)
 
@@ -153,9 +155,9 @@ The exact commands and stop conditions are in
 
 - Organizer eligibility attestations beyond the confirmed Devpost registration
   remain participant-owned.
-- The deployed Managed MCP service-account API key is long-lived. The guarded
-  rotation workflow must pass against both read tools before the old key is
-  revoked; automatic rotation remains future work.
+- The Managed MCP service-account key is still long-lived even though the
+  guarded manual rotation passed. Scheduled dual-key rotation with automatic
+  rollback and stale-key retirement remains future work.
 - Cognito caller identity and CockroachDB RLS close the cross-scope demo path,
   but the server-owned caller registry is still static configuration rather
   than a tenant-control-plane lifecycle.

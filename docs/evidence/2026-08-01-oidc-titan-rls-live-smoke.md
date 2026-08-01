@@ -14,6 +14,8 @@ AWS account identifier, service-account secret, cookie, or session material.
   and <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30695164485>.
 - Dedicated deployer identity proof:
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30695164473>.
+- Managed MCP key rotation and two-tool proof:
+  <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30695651609>.
 
 All four runs completed successfully against the same commit. The deployment
 run removed its one-command migration policy and independently reported
@@ -95,14 +97,36 @@ stop. The live host remains one SSM-managed `t3.micro` instance with no SSH and
 one Elastic IP; it must remain only through judging and then be deleted with
 the guarded teardown procedure.
 
+## Managed MCP key rotation
+
+The guarded workflow retrieved the prior Secrets Manager version into a
+mode-0600 runner file, updated the secret through standard input, waited out the
+Lambda worker's bounded five-minute cache, and then proved:
+
+| Check after rotation | Result |
+|---|---:|
+| `list_databases` | PASS |
+| `list_tables` for `continuum` | PASS |
+| `insert_rows` | `INVALID_REQUEST` before secret access |
+| rollback path used | no |
+
+Only after that proof, the prior CockroachDB API key was revoked. The console
+then showed only the named 2026-08-01 v2 key. The temporary repository Actions
+secret was deleted and independently listed as absent.
+
+An earlier candidate key was displayed by the provider inside an accessibility
+snapshot during UI inspection. It was treated as compromised and revoked before
+being stored or used; the successful replacement was transferred only through
+the provider Copy control, local clipboard, and `gh secret set` standard input.
+The clipboard was then cleared. No key value entered Git, shell command text, or
+the retained evidence files.
+
 ## Remaining acceptance gates
 
-- Rotate the long-lived Managed MCP API key, prove both read tools using the new
-  version, and revoke the old CockroachDB key.
-- Capture secret-free screenshots and a public video under three minutes.
+- Publish the captured secret-free screenshots and 58-second video through a
+  Devpost-supported public host.
 - Complete participant-owned eligibility and organizer attestations and retain
   the Devpost submission receipt.
 - After judging, run `scripts/teardown_after_judging.sh --after-judging --apply`
   through the dedicated deployer identity and retain the stack/EIP deletion
   receipt.
-
