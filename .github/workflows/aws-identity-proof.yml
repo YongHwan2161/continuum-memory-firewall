@@ -2,6 +2,9 @@ name: aws-identity-proof
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - agent/north-star-security-semantic
 
 permissions:
   id-token: write
