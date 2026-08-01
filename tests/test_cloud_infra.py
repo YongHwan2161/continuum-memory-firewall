@@ -90,6 +90,10 @@ class CloudInfrastructureTests(unittest.TestCase):
             self.budget_template["Parameters"]["MonthlyBudgetUsd"]["MaxValue"],
             30,
         )
+        self.assertEqual(
+            self.budget_template["Parameters"]["MonthlyBudgetUsd"]["Default"],
+            10,
+        )
 
     def test_budget_is_independent_of_workload_resources(self) -> None:
         resource_types = {

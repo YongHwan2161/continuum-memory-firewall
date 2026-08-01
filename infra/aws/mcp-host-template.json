@@ -29,6 +29,12 @@
       "AllowedPattern": "^[a-f0-9]{64}$",
       "Description": "Expected SHA-256 of the deployed source package"
     },
+    "BedrockRegion": {
+      "Type": "String",
+      "Default": "ap-northeast-2",
+      "AllowedPattern": "^[a-z]{2}-[a-z]+-[0-9]+$",
+      "Description": "Region where Titan Text Embeddings V2 is available"
+    },
     "RuntimeSecretArn": {
       "Type": "String",
       "Description": "Existing runtime secret ARN; the value is never passed to CloudFormation"
@@ -93,6 +99,21 @@
                   "Action": "s3:GetObject",
                   "Resource": {
                     "Fn::Sub": "arn:${AWS::Partition}:s3:::${PackageBucket}/${PackageKey}"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "InvokeOneSemanticEmbeddingModel",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "bedrock:InvokeModel",
+                  "Resource": {
+                    "Fn::Sub": "arn:${AWS::Partition}:bedrock:${BedrockRegion}::foundation-model/amazon.titan-embed-text-v2:0"
                   }
                 }
               ]

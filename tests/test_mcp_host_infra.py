@@ -47,6 +47,35 @@ class McpHostInfrastructureTests(unittest.TestCase):
             },
         )
 
+    def test_instance_role_can_invoke_only_titan_embedding_v2(self):
+        role = self.resources["McpInstanceRole"]["Properties"]
+        policy = role["Policies"][2]
+        self.assertEqual(policy["PolicyName"], "InvokeOneSemanticEmbeddingModel")
+        statement = policy["PolicyDocument"]["Statement"][0]
+        self.assertEqual(statement["Action"], "bedrock:InvokeModel")
+        self.assertIn(
+            "foundation-model/amazon.titan-embed-text-v2:0",
+            statement["Resource"]["Fn::Sub"],
+        )
+        self.assertIn("bedrock:${BedrockRegion}", statement["Resource"]["Fn::Sub"])
+        self.assertEqual(
+            self.template["Parameters"]["BedrockRegion"]["Default"],
+            "ap-northeast-2",
+        )
+
+    def test_deployment_fails_closed_outside_assumed_role(self):
+        script = (ROOT / "scripts" / "deploy_mcp_host.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("assert_deployer_identity.sh", script)
+        recovery = (
+            ROOT / "scripts" / "deploy_mcp_host_direct_recovery.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn("assert_deployer_identity.sh", recovery)
+        self.assertIn("UPDATE_ROLLBACK_FAILED", recovery)
+        self.assertIn("--resources-to-skip McpInstance", recovery)
+        self.assertIn("sha256sum --check --strict", recovery)
+
     def test_deployer_verifies_the_artifact_hash_before_install(self):
         script = (ROOT / "scripts" / "deploy_mcp_host.sh").read_text(
             encoding="utf-8"
@@ -58,12 +87,34 @@ class McpHostInfrastructureTests(unittest.TestCase):
             script.index("unzip -oq"),
         )
 
+    def test_private_host_package_contains_live_security_gates(self):
+        script = (ROOT / "scripts" / "build_mcp_host_package.sh").read_text(
+            encoding="utf-8"
+        )
+        for path in (
+            "cutover_scope_identity.py",
+            "live_semantic_eval.py",
+            "remote_oidc_smoke.py",
+            "semantic-retrieval-v1.json",
+        ):
+            self.assertIn(path, script)
+
     def test_bootstrap_waits_for_the_restarted_service(self):
         script = (ROOT / "scripts" / "bootstrap_mcp_host.sh").read_text(
             encoding="utf-8"
         )
         self.assertIn("health_ready=0", script)
         self.assertIn('if [[ "$health_ready" -ne 1 ]]', script)
+
+    def test_live_state_survives_service_runtime_directory_restart(self):
+        workflow = (
+            ROOT / ".github" / "workflows" / "aws-live-mcp.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("state_file=/run/continuum-live-eval-state.json", workflow)
+        self.assertNotIn("/run/continuum-mcp/live-eval-state.json", workflow)
+        self.assertIn('if [ \\"\\$attempt\\" -eq 12 ]', workflow)
+        self.assertIn("aws iam get-role-policy", workflow)
+        self.assertIn("migration_capability_absent=true", workflow)
 
     def test_public_ingress_has_https_bootstrap_but_no_ssh(self):
         ingress = self.resources["McpSecurityGroup"]["Properties"][

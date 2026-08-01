@@ -116,9 +116,12 @@ class MCPSettingsTests(TestCase):
                 "postgresql://user@example.cockroachlabs.cloud:26257/defaultdb"
                 "?sslmode=require"
             ),
-            "CONTINUUM_TENANT_ID": "tenant",
-            "CONTINUUM_INCIDENT_ID": "incident",
-            "CONTINUUM_MCP_BEARER_TOKEN": "x" * 32,
+            "CONTINUUM_CALLER_SCOPES_JSON": json.dumps(
+                {"client": {"tenant_id": "tenant", "incident_id": "incident"}}
+            ),
+            "CONTINUUM_OIDC_ISSUER": "https://issuer.example.test/pool",
+            "CONTINUUM_OIDC_REQUIRED_SCOPE": "continuum/memory.read",
+            "CONTINUUM_BEDROCK_REGION": "ap-southeast-1",
         }
         with patch.dict(os.environ, environment, clear=True):
             with self.assertRaisesRegex(RuntimeError, "sslmode=verify-full"):
@@ -131,9 +134,12 @@ class MCPSettingsTests(TestCase):
             "CONTINUUM_DATABASE_URL": (
                 "postgresql://root@127.0.0.1:26257/defaultdb?sslmode=disable"
             ),
-            "CONTINUUM_TENANT_ID": "tenant",
-            "CONTINUUM_INCIDENT_ID": "incident",
-            "CONTINUUM_MCP_BEARER_TOKEN": "x" * 32,
+            "CONTINUUM_CALLER_SCOPES_JSON": json.dumps(
+                {"client": {"tenant_id": "tenant", "incident_id": "incident"}}
+            ),
+            "CONTINUUM_OIDC_ISSUER": "https://issuer.example.test/pool",
+            "CONTINUUM_OIDC_REQUIRED_SCOPE": "continuum/memory.read",
+            "CONTINUUM_BEDROCK_REGION": "ap-southeast-1",
             "CONTINUUM_PUBLIC_BASE_URL": "https://example.test/memories",
             "CONTINUUM_MCP_PORT": "9000",
         }
@@ -147,7 +153,8 @@ class MCPSettingsTests(TestCase):
 @skipUnless(MCP_AVAILABLE, "install the MCP extra to run HTTP boundary tests")
 class BearerAuthTests(IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        from continuum.mcp_server import BearerAuthMiddleware
+        from continuum.identity import CallerIdentity, IdentityVerificationError
+        from continuum.mcp_server import OIDCAuthMiddleware
 
         async def accepted(scope, receive, send):
             await send(
@@ -159,8 +166,14 @@ class BearerAuthTests(IsolatedAsyncioTestCase):
             )
             await send({"type": "http.response.body", "body": b""})
 
-        self.token = "a" * 32
-        self.app = BearerAuthMiddleware(accepted, bearer_token=self.token)
+        class FakeVerifier:
+            def verify(self, token):
+                if token != "valid-token":
+                    raise IdentityVerificationError("invalid")
+                return CallerIdentity("client", "tenant", "incident")
+
+        self.token = "valid-token"
+        self.app = OIDCAuthMiddleware(accepted, verifier=FakeVerifier())
 
     async def request(self, path="/mcp", authorization=None):
         headers = []
@@ -198,13 +211,6 @@ class BearerAuthTests(IsolatedAsyncioTestCase):
     async def test_health_is_available_without_credentials(self):
         messages = await self.request(path="/healthz")
         self.assertEqual(messages[0]["status"], 204)
-
-    def test_short_token_is_rejected_at_startup(self):
-        from continuum.mcp_server import BearerAuthMiddleware
-
-        with self.assertRaisesRegex(RuntimeError, "at least 32"):
-            BearerAuthMiddleware(self.app, bearer_token="short")
-
 
 if __name__ == "__main__":
     import unittest

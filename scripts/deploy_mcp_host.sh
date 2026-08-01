@@ -14,7 +14,9 @@ for name in "${required[@]}"; do
 done
 
 repo_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+"$repo_root/scripts/assert_deployer_identity.sh"
 region="${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}"
+bedrock_region="${CONTINUUM_BEDROCK_REGION:-ap-northeast-2}"
 stack_name="${CONTINUUM_MCP_STACK_NAME:-continuum-authenticated-mcp}"
 deployment_key="${CONTINUUM_MCP_DEPLOYMENT_KEY:-mcp-host/continuum-mcp-host.zip}"
 package_path="$repo_root/build/aws/continuum-mcp-host.zip"
@@ -46,6 +48,7 @@ aws cloudformation deploy \
     "PackageBucket=$CONTINUUM_DEPLOY_BUCKET" \
     "PackageKey=$deployment_key" \
     "ArtifactSha256=$package_sha256" \
+    "BedrockRegion=$bedrock_region" \
     "RuntimeSecretArn=$CONTINUUM_RUNTIME_SECRET_ARN"
 
 instance_id="$(aws cloudformation describe-stacks --region "$region" \

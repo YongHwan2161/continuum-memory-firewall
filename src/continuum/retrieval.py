@@ -22,6 +22,8 @@ from continuum.store import CockroachMemoryStore, ConnectionFactory
 
 EMBEDDING_DIMENSIONS = 512
 HASH_EMBEDDING_MODEL = "continuum-hash-512-v1"
+TITAN_EMBEDDING_MODEL_ID = "amazon.titan-embed-text-v2:0"
+TITAN_EMBEDDING_MODEL = f"{TITAN_EMBEDDING_MODEL_ID}/512"
 RETRIEVAL_POLICY_VERSION = "continuum-retrieval-policy-v1"
 _TOKEN_PATTERN = re.compile(r"[\w-]+", re.UNICODE)
 
@@ -118,6 +120,65 @@ class HashingEmbedder:
         if norm == 0.0:  # pragma: no cover - defensive collision guard
             raise ValueError("embedding norm must be non-zero")
         return tuple(value / norm for value in vector)
+
+
+class BedrockTitanEmbedder:
+    """Semantic 512-dimensional embeddings through the EC2 workload role.
+
+    The SDK credential chain uses temporary instance-role credentials.  No
+    provider API key is accepted by this class or persisted with an embedding.
+    """
+
+    model_id = TITAN_EMBEDDING_MODEL
+    dimensions = EMBEDDING_DIMENSIONS
+
+    def __init__(self, *, region: str, client: Any | None = None) -> None:
+        if not region or any(character.isspace() for character in region):
+            raise ValueError("Bedrock region must be a non-empty region name")
+        if client is None:
+            try:
+                import boto3
+            except ImportError as exc:  # pragma: no cover - optional package boundary
+                raise RuntimeError("install the MCP extra: pip install '.[mcp]'") from exc
+            client = boto3.client("bedrock-runtime", region_name=region)
+        self._client = client
+
+    def embed(self, text: str) -> tuple[float, ...]:
+        text = text.strip()
+        if not text:
+            raise ValueError("text must not be empty")
+        if len(text) > 50_000:
+            raise ValueError("text exceeds the Titan input character limit")
+
+        response = self._client.invoke_model(
+            modelId=TITAN_EMBEDDING_MODEL_ID,
+            accept="application/json",
+            contentType="application/json",
+            body=json.dumps(
+                {
+                    "inputText": text,
+                    "dimensions": self.dimensions,
+                    "normalize": True,
+                    "embeddingTypes": ["float"],
+                },
+                separators=(",", ":"),
+            ).encode("utf-8"),
+        )
+        body = response.get("body")
+        raw = body.read() if hasattr(body, "read") else body
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        try:
+            payload = json.loads(raw)
+            values = payload["embedding"]
+        except (KeyError, TypeError, json.JSONDecodeError) as exc:
+            raise RuntimeError("Bedrock embedding response is malformed") from exc
+        if not isinstance(values, list) or len(values) != self.dimensions:
+            raise RuntimeError("Bedrock embedding has an unexpected dimension")
+        vector = tuple(float(value) for value in values)
+        if not all(math.isfinite(value) for value in vector):
+            raise RuntimeError("Bedrock embedding contains a non-finite value")
+        return vector
 
 
 def vector_literal(values: Sequence[float], *, dimensions: int) -> str:

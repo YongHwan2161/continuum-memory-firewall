@@ -1,0 +1,66 @@
+name: aws-live-identity
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/north-star-security-semantic
+    paths:
+      - .github/workflows/aws-live-identity.yml
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: continuum-live-identity
+  cancel-in-progress: false
+
+jobs:
+  deploy-budget-and-caller-identity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          role-session-name: continuum-live-identity
+      - name: Prove dedicated deployment role
+        run: ./scripts/assert_deployer_identity.sh
+      - name: Resolve existing project resources
+        shell: bash
+        run: |
+          runtime_secret_arn="$(aws cloudformation describe-stacks \
+            --region ap-southeast-1 \
+            --stack-name continuum-authenticated-mcp \
+            --query "Stacks[0].Parameters[?ParameterKey=='RuntimeSecretArn'].ParameterValue | [0]" \
+            --output text)"
+          budget_name="$(aws cloudformation describe-stacks \
+            --region ap-southeast-1 \
+            --stack-name continuum-hackathon-budget \
+            --query "Stacks[0].Parameters[?ParameterKey=='BudgetName'].ParameterValue | [0]" \
+            --output text)"
+          test -n "$runtime_secret_arn" && test "$runtime_secret_arn" != None
+          test -n "$budget_name" && test "$budget_name" != None
+          echo "CONTINUUM_RUNTIME_SECRET_ARN=$runtime_secret_arn" >>"$GITHUB_ENV"
+          echo "CONTINUUM_AWS_BUDGET_NAME=$budget_name" >>"$GITHUB_ENV"
+      - name: Raise monthly budget guardrail to USD 10
+        env:
+          AWS_REGION: ap-southeast-1
+          CONTINUUM_BUDGET_EMAIL: ${{ vars.CONTINUUM_BUDGET_EMAIL }}
+          CONTINUUM_MONTHLY_BUDGET_USD: "10"
+        run: ./scripts/deploy_aws_budget.sh --apply
+      - name: Deploy five-minute caller tokens
+        env:
+          AWS_REGION: ap-southeast-1
+          CONTINUUM_COGNITO_DOMAIN_PREFIX: ${{ vars.CONTINUUM_COGNITO_DOMAIN_PREFIX }}
+        run: ./scripts/deploy_identity.sh
+      - name: Verify live identity outputs without secret values
+        run: |
+          aws cloudformation describe-stacks \
+            --region ap-southeast-1 \
+            --stack-name continuum-caller-identity \
+            --query "Stacks[0].Outputs[?OutputKey=='RequiredScope' || OutputKey=='Issuer'].{Key:OutputKey,Value:OutputValue}" \
+            --output table

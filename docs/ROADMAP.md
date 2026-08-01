@@ -17,15 +17,19 @@ Implement:
    tools and one pre-secret write denial are now recorded;
 2. **Live-data and least-privilege path completed 2026-08-01:** run the implemented versioned
    migrator and synthetic smoke path against the participant database; all
-   eight migrations and the scoped vector flow passed; separate migrator and
-   runtime roles now enforce negative DDL/write tests; the allowlist contains
-   only the AWS Elastic IP `/32` and a workstation retry was blocked. Remaining
-   data-plane hardening: query-plan evidence and database-native tenant policy;
+   eleven migrations and the scoped vector flow passed; deterministic
+   per-scope SQL roles plus RLS on canonical memory, incidents, and retrieval
+   audit enforce the caller boundary; the allowlist contains only the AWS
+   Elastic IP `/32`. Remaining data-plane hardening: pooling and query-plan
+   evidence;
 3. **Authenticated remote MCP completed 2026-08-01:** the repository server is
-   deployed behind valid TLS and bearer authentication; deterministic,
-   hash-verified SSM deployment and a remote allowed/denied-scope smoke passed;
-4. replace deterministic demo embeddings with a bounded semantic embedder and
-   add connection pooling, deadlines, and application identity metadata;
+   deployed behind valid TLS and five-minute Cognito client-credentials
+   authentication; deterministic, hash-verified SSM deployment and a remote
+   allowed/denied-scope smoke passed;
+4. **Completed 2026-08-01:** replace the live deterministic embedder with
+   Bedrock Titan Text Embeddings v2 and add a four-query Recall@3 plus
+   cross-scope leakage evaluation. Remaining: connection pooling, latency
+   distribution, and query-plan evidence;
 5. expose promotion, retrieval, audit, and negative-scope evidence in the
    reviewer console;
 6. capture a repeatable deployment check and query-plan evidence in CI or a
@@ -46,11 +50,12 @@ Exit criteria:
 
 **Why this is first:** P2A already proves the application contract locally.
 The cost-bounded Managed MCP/AWS path now has participant-owned live evidence.
-P2B's authenticated application and least-privilege SQL gates are now closed.
-The shortest remaining submission path is reviewer packaging and measured
-evidence. The most important product hardening is short-lived identity-derived
-scope plus a semantic embedder evaluation; query-plan evidence follows before a
-production-performance claim.
+P2B's authenticated application, short-lived caller identity, RLS, semantic
+retrieval, and least-privilege SQL gates are now closed. The shortest remaining
+submission path is reviewer packaging, Managed MCP key rotation, participant
+attestations, and final submission. The most important product hardening is a
+real tenant-control-plane lifecycle around the current server-owned identity
+registry; pooling and query-plan evidence follow before a production claim.
 
 ## Priority 2 — P3 reliable external-action delivery
 
@@ -108,8 +113,8 @@ The following items should be pulled into the milestone they block:
 
 - persist policy/evaluator version, candidate digest, and structured decision
   evidence with each audit event;
-- add database-native authorization or separate per-tenant identities for
-  defense beyond the implemented composite keys and application predicates;
+- generalize the implemented database-native authorization and deterministic
+  per-scope identities into an auditable tenant-control-plane lifecycle;
 - separate content identity from commit time in audit hashing, then add
   tamper-evident chain anchoring if the threat model requires it;
 - distinguish invalid/unserializable payloads from oversized payloads;

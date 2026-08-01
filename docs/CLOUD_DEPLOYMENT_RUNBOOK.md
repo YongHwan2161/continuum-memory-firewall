@@ -16,11 +16,11 @@ copying a newly issued API key are participant-owned actions.
 | CockroachDB Basic plan | dry-by-default `ccloud` preflight and provisioning script | create/login to the account, confirm actual free/trial entitlement, approve cluster creation |
 | CockroachDB network | Lambda does not use SQL; the repository MCP host has one fixed Elastic IP | use a temporary operator `/32` only for provisioning, add the host `/32`, then remove and negatively test the operator rule |
 | Managed MCP identity | Lambda reads one secret ARN and accepts read-only tools only | create the CockroachDB service account/API key and copy it once |
-| AWS identity | read-only preflight verifies STS, S3, Secrets Manager, Budgets, and CloudFormation | secure the AWS root user, configure MFA/SSO, and choose the deployment account |
+| AWS identity | GitHub OIDC assumes a one-hour project deployer role whose immutable repository/branch subject and explicit deny boundaries are tested | bootstrap once, secure the AWS root user, then log out Root and use only the dedicated role |
 | AWS budget | a separate, first-deployed CloudFormation stack creates forecast-at-80% and actual-at-100% email alerts | supply the billing-owner email and understand that alerts do not stop spend |
 | AWS worker | tested Lambda package, minimum IAM, optional concurrency reservation, 30-second timeout, 7-day logs | create a private package bucket and secret, then approve deployment |
-| Repository MCP host | deterministic private package, exact-object IAM, SHA-256 verification, SSM update, TLS, bearer middleware, and no SSH | create separate runtime/migrator secrets and retain the fixed Elastic IP only while judging |
-| Public exposure | the Lambda has no public URL; the repository MCP exposes TLS `/mcp` and unauthenticated `/healthz` | keep the Lambda private and distribute the MCP bearer only to authorized reviewers |
+| Repository MCP host | deterministic private package, exact-object IAM, SHA-256 verification, SSM update, TLS, five-minute Cognito OIDC, Titan v2, RLS, and no SSH | create separate runtime/migrator secrets and retain the fixed Elastic IP only while judging |
+| Public exposure | the Lambda has no public URL; the repository MCP exposes OIDC-protected TLS `/mcp` and unauthenticated `/healthz` | keep the Lambda private and issue only bounded demo-client access |
 | Live evidence | deterministic smoke-test commands are documented | run them against the participant's accounts and retain non-secret output |
 
 Merging these files never creates a resource by itself. The current
@@ -50,10 +50,11 @@ CloudFormation
     +-> no VPC, NAT Gateway, Function URL, or API Gateway
 
 remote MCP client
-    -> TLS + bearer
+    -> TLS + five-minute Cognito client token
     -> one EC2 t3.micro, no SSH, SSM managed
     -> exact runtime secret + exact private S3 artifact IAM
-    -> least-privilege runtime SQL role
+    -> server-owned caller scope + deterministic NOBYPASSRLS SQL role
+    -> Bedrock Titan v2 semantic embedding in ap-northeast-2
     -> CockroachDB through one Elastic IP /32
 ```
 
@@ -275,7 +276,7 @@ read -rsp 'CockroachDB service-account API key: ' COCKROACH_MCP_API_KEY
 printf '\n'
 printf '%s' "$COCKROACH_MCP_API_KEY" |
   aws secretsmanager create-secret \
-    --name continuum/cockroach-managed-mcp \
+    --name continuum/cockroach/managed-mcp-api-key \
     --description 'CockroachDB Cloud Managed MCP key for Continuum' \
     --secret-string file:///dev/stdin
 unset COCKROACH_MCP_API_KEY
@@ -357,20 +358,24 @@ before Secrets Manager or Managed MCP is accessed.
 
 ## Phase 6 — deploy the authenticated repository MCP
 
-1. Apply the eight migrations with the temporary bootstrap identity.
-2. Generate separate random migrator and runtime passwords in one process and
-   run `continuum-provision-sql-roles`. Verify migration replay as the migrator;
-   verify that the runtime can read canonical memory and insert retrieval audit
-   but receives SQLSTATE `42501` for schema creation and canonical update.
-3. Store the runtime URL, fixed synthetic scope, public HTTPS base, and a random
-   bearer token in `continuum/cockroach/mcp-runtime`. Store the migrator URL in
-   a separate offline secret. Never put secret values in command arguments,
-   source, deployment logs, or repository files.
+1. Apply or validate the eleven migrations with the temporary migration
+   identity. The final three enable/force RLS for canonical memories, incidents,
+   and retrieval audit.
+2. Create or reuse the deterministic scope SQL login through
+   `scripts/cutover_scope_identity.py`. Verify `NOBYPASSRLS`, matching visible
+   scope in all three protected tables, and negative row-security/canonical
+   update checks. Revoke the temporary role-creation options immediately.
+3. Store the scope-specific runtime URL, server-owned caller registry, Cognito
+   issuer/audience/scope, public HTTPS base, and Bedrock configuration in
+   `continuum/cockroach/mcp-runtime`; ensure the legacy `bearer_token` field is
+   absent. Keep the migrator URL in a separate offline secret. Never put secret
+   values in command arguments, source, deployment logs, or repository files.
 4. Export only non-secret deployment references and run:
 
 ```bash
 export AWS_PROFILE=continuum-hackathon
 export AWS_REGION=ap-southeast-1
+export CONTINUUM_BEDROCK_REGION=ap-northeast-2
 export CONTINUUM_RUNTIME_SECRET_ARN='arn:aws:secretsmanager:...'
 export CONTINUUM_DEPLOY_BUCKET='private-package-bucket'
 export CONTINUUM_CA_CERT_PATH="$APPDATA/postgresql/root.crt"
@@ -382,8 +387,13 @@ SHA-256 to CloudFormation, verifies the full hash on the host, updates through
 SSM, and waits for `/healthz`. The instance role can read only that object and
 the one runtime secret; it cannot read the migrator secret.
 
+The EC2 host and CockroachDB fixed egress remain in Singapore. Titan Text
+Embeddings V2 is not available there, so the workload uses its Seoul
+(`ap-northeast-2`) Bedrock endpoint. IAM remains restricted to that one Region
+and the single `amazon.titan-embed-text-v2:0` foundation-model ARN.
+
 5. Add the stack's `StaticIp` as one CockroachDB `/32`. Run remote checks for
-   TLS, health `200`, missing/wrong auth `401`, exact `search`/`fetch` tool
+   TLS, health `200`, missing auth `401`, 300-second token lifetime, exact `search`/`fetch` tool
    listing, allowed search/fetch, denied-scope search exclusion, and denied
    cross-scope fetch.
 6. Delete the operator `/32`, confirm the console shows only the Elastic IP,
@@ -414,6 +424,8 @@ The redacted 2026-08-01 participant-cluster result is recorded in
 The authenticated endpoint, SQL-role, fixed-egress, and remote negative-scope
 result is recorded in
 [2026-08-01-authenticated-remote-mcp-smoke.md](evidence/2026-08-01-authenticated-remote-mcp-smoke.md).
+The exact-head Cognito, Titan, RLS, and remote evaluation is recorded in
+[2026-08-01-oidc-titan-rls-live-smoke.md](evidence/2026-08-01-oidc-titan-rls-live-smoke.md).
 
 ## Phase 8 — teardown
 
@@ -421,9 +433,7 @@ Before teardown, export non-secret schema/query-plan evidence and confirm the
 judging window has ended.
 
 ```bash
-aws cloudformation delete-stack --stack-name continuum-authenticated-mcp
-aws cloudformation wait stack-delete-complete \
-  --stack-name continuum-authenticated-mcp
+./scripts/teardown_after_judging.sh --after-judging --apply
 aws cloudformation delete-stack --stack-name continuum-hackathon
 aws cloudformation wait stack-delete-complete \
   --stack-name continuum-hackathon

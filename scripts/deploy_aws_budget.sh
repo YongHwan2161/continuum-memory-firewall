@@ -7,6 +7,7 @@ if [[ "${1:-}" != "--apply" ]]; then
 fi
 
 repo_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+"$repo_root/scripts/assert_deployer_identity.sh"
 required=(
   AWS_REGION
   CONTINUUM_BUDGET_EMAIL

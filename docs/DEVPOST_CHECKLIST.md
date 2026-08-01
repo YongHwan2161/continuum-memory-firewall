@@ -38,9 +38,9 @@ complete attestations and organizer agreements.
 - [x] Read-only standard MCP `search`/`fetch` contract and protocol tests included
 - [x] Participant-owned CockroachDB Basic cluster provisioned on AWS Singapore
       with the free-resource monthly limits and a fixed AWS egress `/32`
-- [x] Live cluster state rechecked on 2026-08-01: all eight migrations applied,
-      synthetic vector smoke passed, least-privilege SQL roles passed negative
-      tests, and the workstation SQL rule was removed
+- [x] Live cluster state rechecked on 2026-08-01: migration version 11,
+      CockroachDB RLS on three scope-bearing tables, least-privilege negative
+      tests, and exactly one AWS Elastic IP `/32` SQL rule
 - [x] Functional cloud-backed application demo URL:
       <https://47-131-98-12.sslip.io/healthz> with authenticated MCP at
       <https://47-131-98-12.sslip.io/mcp>
@@ -49,13 +49,26 @@ complete attestations and organizer agreements.
 - [x] Authenticated public repository MCP endpoint and reproducible remote smoke
       test; see
       [2026-08-01-authenticated-remote-mcp-smoke.md](evidence/2026-08-01-authenticated-remote-mcp-smoke.md)
+- [x] Five-minute Cognito caller identity, caller-derived SQL role, Titan v2
+      semantic evaluation, RLS, and remote cross-scope denial; Recall@3 = 1.0
+      across four queries with zero leaked documents; see
+      [2026-08-01-oidc-titan-rls-live-smoke.md](evidence/2026-08-01-oidc-titan-rls-live-smoke.md)
 - [x] CockroachDB Cloud Managed MCP evidenced on 2026-07-31 through the private
       AWS worker: `list_databases` returned the `continuum` database
 - [x] Second CockroachDB Managed MCP read tool evidenced: `list_tables` returned
       the live cluster's historical pre-migration empty application schema
 - [x] AWS services deployed and evidenced: private Lambda, authenticated EC2,
       Elastic IP, SSM, scoped Secrets Manager secrets, encrypted private S3
-      package, CloudWatch Logs, CloudFormation, and AWS Budgets
+      package, CloudWatch Logs, CloudFormation, Cognito, Bedrock, IAM OIDC, and
+      AWS Budgets
+- [x] AWS Root console session ended; exact-head deployment uses the one-hour,
+      repository/branch-bound `continuum-hackathon-deployer` role
+- [x] AWS monthly alert budget raised to USD 10 with forecast-at-80% and
+      actual-at-100% notifications
+- [x] Managed MCP API key rotation completed; new key passed `list_databases`
+      and `list_tables`, old key was revoked, and the temporary GitHub secret
+      was deleted; run
+      <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30695651609>
 - [x] Cost-bounded AWS deployment and negative boundary evidenced:
       `insert_rows` was rejected before secret resolution; see
       [2026-07-31-cloud-live-smoke.md](evidence/2026-07-31-cloud-live-smoke.md)
@@ -67,18 +80,27 @@ complete attestations and organizer agreements.
 - [ ] Project submitted to the CockroachDB x AWS hackathon
 - [x] Architecture diagram distinguishes locally implemented, live deployed,
       and planned application components
-- [ ] Two-to-three minute demo video
-- [ ] Screenshots or GIFs for promotion, rejection, replay, and retrieval
-- [ ] Problem, approach, architecture, and technical challenge narrative
-- [ ] Measured results for policy, idempotency, retrieval, and recovery claims
-- [ ] Final list of technologies limited to technologies actually used
+- [x] Secret-free 72-second narrated demo video generated at
+      [docs/demo/continuum-memory-firewall-demo.mp4](demo/continuum-memory-firewall-demo.mp4)
+- [x] Secret-free screenshots captured for the live overview, policy rejection,
+      and one-owner failover in [docs/demo/](demo/)
+- [ ] Demo video uploaded to a Devpost-supported public host and tested logged out
+- [x] Problem, approach, architecture, and technical challenge narrative in the
+      repository documentation; concise Devpost field copy still needs a final
+      logged-out rendering check
+- [x] Measured retrieval/isolation results recorded; broader latency and
+      production-quality statistics remain explicit non-claims
+- [x] Final technology inventory limited to deployed/tested components in
+      `PROJECT_STATUS.md`; copy into Devpost remains pending
 - [ ] Repository, demo, video, and documentation links tested in a logged-out browser
 
 ## Final integrity review
 
-- [x] `PROJECT_STATUS.md` matches the 2026-08-01 deployed and SQL-smoked state
+- [x] `PROJECT_STATUS.md` matches the 2026-08-01 OIDC/Titan/RLS live-smoked state
 - [x] No secret, token, connection string, or personal credential is committed
       in the deployment evidence commit
 - [x] No planned application component is described as implemented
 - [ ] Pricing, credit, and organizer-support claims are rechecked against current official sources
 - [ ] Participant performs final submission and retains confirmation evidence
+- [ ] After judging, dedicated-role teardown deletes the authenticated MCP EC2
+      stack and confirms the Elastic IP release

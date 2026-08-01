@@ -10,13 +10,14 @@ import subprocess
 from typing import Mapping
 
 
-REQUIRED_FIELDS = (
+REQUIRED_STRING_FIELDS = (
     "database_url",
-    "bearer_token",
-    "tenant_id",
-    "incident_id",
+    "oidc_issuer",
+    "oidc_required_scope",
+    "bedrock_region",
     "public_base_url",
 )
+CALLER_SCOPES_FIELD = "caller_scopes"
 
 
 def _quote_environment_value(value: str) -> str:
@@ -25,39 +26,51 @@ def _quote_environment_value(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def _parse_secret(value: str) -> dict[str, str]:
+def _parse_secret(value: str) -> dict[str, object]:
     try:
         payload = json.loads(value)
     except json.JSONDecodeError as exc:
         raise RuntimeError("runtime secret must be valid JSON") from exc
     if not isinstance(payload, dict):
         raise RuntimeError("runtime secret must be a JSON object")
-    parsed: dict[str, str] = {}
-    for field in REQUIRED_FIELDS:
+    parsed: dict[str, object] = {}
+    for field in REQUIRED_STRING_FIELDS:
         item = payload.get(field)
         if not isinstance(item, str) or not item:
             raise RuntimeError(f"runtime secret field {field!r} is required")
         parsed[field] = item
-    if len(parsed["bearer_token"]) < 32:
-        raise RuntimeError("runtime bearer token must be at least 32 characters")
+    caller_scopes = payload.get(CALLER_SCOPES_FIELD)
+    if not isinstance(caller_scopes, dict) or not caller_scopes:
+        raise RuntimeError("runtime secret caller_scopes must be a non-empty object")
+    parsed[CALLER_SCOPES_FIELD] = caller_scopes
     return parsed
 
 
-def _render_environment(payload: Mapping[str, str]) -> str:
+def _render_environment(payload: Mapping[str, object]) -> str:
     names = {
         "database_url": "CONTINUUM_DATABASE_URL",
-        "bearer_token": "CONTINUUM_MCP_BEARER_TOKEN",
-        "tenant_id": "CONTINUUM_TENANT_ID",
-        "incident_id": "CONTINUUM_INCIDENT_ID",
+        "oidc_issuer": "CONTINUUM_OIDC_ISSUER",
+        "oidc_required_scope": "CONTINUUM_OIDC_REQUIRED_SCOPE",
+        "bedrock_region": "CONTINUUM_BEDROCK_REGION",
         "public_base_url": "CONTINUUM_PUBLIC_BASE_URL",
+        "caller_scopes": "CONTINUUM_CALLER_SCOPES_JSON",
     }
+    values = {
+        field: str(payload[field]) for field in REQUIRED_STRING_FIELDS
+    }
+    values[CALLER_SCOPES_FIELD] = json.dumps(
+        payload[CALLER_SCOPES_FIELD],
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    fields = (*REQUIRED_STRING_FIELDS, CALLER_SCOPES_FIELD)
     return "".join(
-        f"{names[field]}={_quote_environment_value(payload[field])}\n"
-        for field in REQUIRED_FIELDS
+        f"{names[field]}={_quote_environment_value(values[field])}\n"
+        for field in fields
     )
 
 
-def load_secret(*, secret_arn: str, region: str) -> dict[str, str]:
+def load_secret(*, secret_arn: str, region: str) -> dict[str, object]:
     result = subprocess.run(
         [
             "aws",
@@ -80,7 +93,7 @@ def load_secret(*, secret_arn: str, region: str) -> dict[str, str]:
     return _parse_secret(result.stdout)
 
 
-def write_environment(path: Path, payload: Mapping[str, str]) -> None:
+def write_environment(path: Path, payload: Mapping[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
     descriptor = os.open(

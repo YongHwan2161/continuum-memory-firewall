@@ -1,0 +1,1 @@
+ALTER TABLE canonical_memories ENABLE ROW LEVEL SECURITY

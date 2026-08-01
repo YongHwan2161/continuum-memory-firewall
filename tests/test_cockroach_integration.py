@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 import json
 import os
 import unittest
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import quote, urlsplit, urlunsplit
 from uuid import uuid4
 
 from continuum.db_smoke import run_smoke
@@ -20,6 +20,7 @@ from continuum.retrieval import (
     MemoryNotFoundError,
     MemoryRetrievalStore,
 )
+from continuum.scope_roles import provision_scope_role, scope_role_name, verify_scope_role
 from continuum.store import (
     ActionClaimCode,
     CockroachMemoryStore,
@@ -353,6 +354,77 @@ class CockroachIntegrationTests(unittest.TestCase):
                 incident_id=INCIDENT_ID,
                 memory_id=second.memory_id,
             )
+
+    def test_scope_login_cannot_bypass_database_row_policy(self):
+        allowed = self.store.promote_candidate(CANDIDATE_ID, now=NOW)
+        self.retrieval.index_memory(
+            tenant_id=TENANT_ID,
+            incident_id=INCIDENT_ID,
+            memory_id=allowed.memory_id,
+            embedder=self.embedder,
+            now=NOW,
+        )
+        self._insert_incident(
+            tenant_id=SECOND_TENANT_ID,
+            incident_id=SECOND_INCIDENT_ID,
+            service_name="payments",
+        )
+        self._insert_candidate(
+            SECOND_CANDIDATE_ID,
+            INITIAL_HEAD,
+            tenant_id=SECOND_TENANT_ID,
+            incident_id=SECOND_INCIDENT_ID,
+        )
+        forbidden = self.store.promote_candidate(SECOND_CANDIDATE_ID, now=NOW)
+        password = "scope-test-password-that-is-long-enough"
+        provision_scope_role(
+            DATABASE_URL,
+            tenant_id=TENANT_ID,
+            incident_id=INCIDENT_ID,
+            password=password,
+        )
+        parts = urlsplit(DATABASE_URL)
+        host = parts.hostname or "localhost"
+        if ":" in host:
+            host = f"[{host}]"
+        netloc = (
+            f"{quote(scope_role_name(TENANT_ID, INCIDENT_ID), safe='')}:"
+            f"{quote(password, safe='')}@{host}"
+        )
+        if parts.port:
+            netloc += f":{parts.port}"
+        runtime_url = urlunsplit(
+            (parts.scheme, netloc, parts.path, parts.query, "")
+        )
+
+        report = verify_scope_role(
+            runtime_url,
+            tenant_id=TENANT_ID,
+            incident_id=INCIDENT_ID,
+            forbidden_memory_id=forbidden.memory_id,
+        )
+
+        self.assertTrue(report["all_visible_rows_in_scope"])
+        self.assertFalse(report["forbidden_memory_visible"])
+        self.assertEqual(
+            set(report["denied"]), {"row_security_off", "canonical_update"}
+        )
+        self.assertTrue(report["all_visible_incidents_in_scope"])
+        self.assertTrue(report["all_visible_audits_in_scope"])
+        self.assertEqual(report["visible_incidents"], 1)
+
+        runtime_retrieval = MemoryRetrievalStore(
+            psycopg_connection_factory(runtime_url)
+        )
+        search = runtime_retrieval.search(
+            tenant_id=TENANT_ID,
+            incident_id=INCIDENT_ID,
+            query="checkout timeout",
+            embedder=self.embedder,
+            min_similarity=-1.0,
+        )
+        self.assertIn(allowed.memory_id, search.evaluated_memory_ids)
+        self.assertNotIn(forbidden.memory_id, search.evaluated_memory_ids)
 
     def test_stale_candidate_is_rejected_and_auditable(self):
         self._insert_candidate(STALE_CANDIDATE_ID, "f" * 64)

@@ -16,6 +16,7 @@ from enum import StrEnum
 import json
 import time
 from typing import Any, Protocol, TypeVar
+from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 
 from continuum.memory import (
     ActionClass,
@@ -435,3 +436,28 @@ def psycopg_connection_factory(database_url: str) -> ConnectionFactory:
         ) from exc
 
     return lambda: psycopg.connect(database_url)
+
+
+def pin_database_tls_root(database_url: str, ca_cert_path: str) -> str:
+    """Return a verify-full URL pinned to one host-local Cockroach CA file."""
+
+    if not database_url:
+        raise ValueError("database_url must not be empty")
+    if not ca_cert_path.startswith("/"):
+        raise ValueError("ca_cert_path must be an absolute POSIX path")
+    parts = urlsplit(database_url)
+    query = [
+        (name, value)
+        for name, value in parse_qsl(parts.query, keep_blank_values=True)
+        if name not in {"sslmode", "sslrootcert"}
+    ]
+    query.extend(
+        (("sslmode", "verify-full"), ("sslrootcert", ca_cert_path))
+    )
+    return urlunsplit(parts._replace(query=urlencode(query)))
+
+
+def database_url_user(database_url: str) -> str:
+    """Return the decoded login name without exposing other URL material."""
+
+    return unquote(urlsplit(database_url).username or "")

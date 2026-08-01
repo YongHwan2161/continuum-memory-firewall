@@ -14,11 +14,15 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mkdir -p "$stage/src" "$stage/scripts" "$(dirname -- "$output_path")"
+mkdir -p "$stage/src" "$stage/scripts" "$stage/evals" "$(dirname -- "$output_path")"
 cp "$repo_root/pyproject.toml" "$repo_root/README.md" "$stage/"
 cp -R "$repo_root/src/continuum" "$stage/src/"
 cp "$repo_root/scripts/load_mcp_secret.py" "$stage/scripts/"
 cp "$repo_root/scripts/bootstrap_mcp_host.sh" "$stage/scripts/"
+cp "$repo_root/scripts/cutover_scope_identity.py" "$stage/scripts/"
+cp "$repo_root/scripts/live_semantic_eval.py" "$stage/scripts/"
+cp "$repo_root/scripts/remote_oidc_smoke.py" "$stage/scripts/"
+cp "$repo_root/evals/semantic-retrieval-v1.json" "$stage/evals/"
 if [[ -n "${CONTINUUM_CA_CERT_PATH:-}" ]]; then
   if [[ ! -f "$CONTINUUM_CA_CERT_PATH" ]]; then
     printf 'CONTINUUM_CA_CERT_PATH does not exist.\n' >&2

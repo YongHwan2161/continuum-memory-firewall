@@ -1,0 +1,33 @@
+name: aws-managed-mcp-rotate-smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: continuum-managed-mcp-rotation
+  cancel-in-progress: false
+
+jobs:
+  rotate-and-prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          role-session-name: continuum-managed-mcp-rotation
+      - name: Prove dedicated deployment role
+        run: ./scripts/assert_deployer_identity.sh
+      - name: Rotate secret and prove two managed tools
+        shell: bash
+        env:
+          ROTATED_API_KEY: ${{ secrets.CONTINUUM_ROTATED_MCP_API_KEY }}
+          CONTINUUM_ROTATION_REQUIRED: 1
+        run: |
+          ./scripts/rotate_managed_mcp_secret.sh

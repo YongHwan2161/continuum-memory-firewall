@@ -1,0 +1,91 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Five-minute machine identity for Continuum MCP callers",
+  "Parameters": {
+    "DomainPrefix": {
+      "Type": "String",
+      "AllowedPattern": "^[a-z0-9-]{1,63}$",
+      "Description": "Globally unique Cognito domain prefix"
+    }
+  },
+  "Resources": {
+    "CallerPool": {
+      "Type": "AWS::Cognito::UserPool",
+      "Properties": {
+        "UserPoolName": "continuum-mcp-callers",
+        "DeletionProtection": "INACTIVE",
+        "MfaConfiguration": "OFF",
+        "Policies": {
+          "PasswordPolicy": {
+            "MinimumLength": 16,
+            "RequireLowercase": true,
+            "RequireNumbers": true,
+            "RequireSymbols": true,
+            "RequireUppercase": true,
+            "TemporaryPasswordValidityDays": 1
+          }
+        },
+        "UserPoolTags": {
+          "Project": "continuum-memory-firewall",
+          "Environment": "hackathon"
+        }
+      }
+    },
+    "CallerDomain": {
+      "Type": "AWS::Cognito::UserPoolDomain",
+      "Properties": {
+        "Domain": {"Ref": "DomainPrefix"},
+        "UserPoolId": {"Ref": "CallerPool"}
+      }
+    },
+    "MemoryResourceServer": {
+      "Type": "AWS::Cognito::UserPoolResourceServer",
+      "Properties": {
+        "Identifier": "continuum-memory-firewall",
+        "Name": "Continuum Memory Firewall",
+        "UserPoolId": {"Ref": "CallerPool"},
+        "Scopes": [
+          {
+            "ScopeName": "memory.read",
+            "ScopeDescription": "Search and fetch caller-scoped canonical memory"
+          }
+        ]
+      }
+    },
+    "DemoM2MClient": {
+      "Type": "AWS::Cognito::UserPoolClient",
+      "DependsOn": "MemoryResourceServer",
+      "Properties": {
+        "UserPoolId": {"Ref": "CallerPool"},
+        "ClientName": "continuum-hackathon-demo",
+        "GenerateSecret": true,
+        "AllowedOAuthFlowsUserPoolClient": true,
+        "AllowedOAuthFlows": ["client_credentials"],
+        "AllowedOAuthScopes": [
+          "continuum-memory-firewall/memory.read"
+        ],
+        "AccessTokenValidity": 5,
+        "TokenValidityUnits": {
+          "AccessToken": "minutes"
+        },
+        "EnableTokenRevocation": true,
+        "PreventUserExistenceErrors": "ENABLED"
+      }
+    }
+  },
+  "Outputs": {
+    "UserPoolId": {"Value": {"Ref": "CallerPool"}},
+    "ClientId": {"Value": {"Ref": "DemoM2MClient"}},
+    "Issuer": {
+      "Value": {
+        "Fn::Sub": "https://cognito-idp.${AWS::Region}.amazonaws.com/${CallerPool}"
+      }
+    },
+    "TokenEndpoint": {
+      "Value": {
+        "Fn::Sub": "https://${DomainPrefix}.auth.${AWS::Region}.amazoncognito.com/oauth2/token"
+      }
+    },
+    "RequiredScope": {"Value": "continuum-memory-firewall/memory.read"}
+  }
+}

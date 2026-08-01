@@ -10,6 +10,7 @@ from continuum.migrate import (
     MigrationDriftError,
     MigrationError,
     Migrator,
+    canonical_migration_bytes,
     discover_migrations,
     validate_database_transport,
 )
@@ -21,7 +22,7 @@ class MigrationDefinitionTests(unittest.TestCase):
 
         self.assertEqual(
             [migration.version for migration in migrations],
-            list(range(1, 9)),
+            list(range(1, 12)),
         )
         self.assertTrue(
             all(len(migration.checksum) == 64 for migration in migrations)
@@ -57,6 +58,23 @@ class MigrationDefinitionTests(unittest.TestCase):
                 "exactly one",
             ):
                 discover_migrations(root)
+
+    def test_checksum_is_stable_across_checkout_line_endings(self) -> None:
+        sql_lf = b"-- migration\nCREATE TABLE stable (id INT PRIMARY KEY);\n"
+        sql_crlf = sql_lf.replace(b"\n", b"\r\n")
+
+        self.assertEqual(
+            canonical_migration_bytes(sql_lf),
+            sql_crlf,
+        )
+        with tempfile.TemporaryDirectory() as left, tempfile.TemporaryDirectory() as right:
+            Path(left, "0001_stable.sql").write_bytes(sql_lf)
+            Path(right, "0001_stable.sql").write_bytes(sql_crlf)
+
+            self.assertEqual(
+                discover_migrations(Path(left))[0].checksum,
+                discover_migrations(Path(right))[0].checksum,
+            )
 
 
 class MigrationBoundaryTests(unittest.TestCase):
