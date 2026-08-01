@@ -1,3 +1,4 @@
+import importlib.util
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -6,6 +7,9 @@ from continuum.sql_roles import (
     _password_statement,
     verify_runtime_role,
 )
+
+
+PSYCOPG_AVAILABLE = importlib.util.find_spec("psycopg") is not None
 
 
 class SqlRoleProvisioningTests(unittest.TestCase):
@@ -24,6 +28,7 @@ class SqlRoleProvisioningTests(unittest.TestCase):
             },
         )
 
+    @unittest.skipUnless(PSYCOPG_AVAILABLE, "install the CockroachDB extra")
     def test_password_is_a_quoted_literal_not_identifier_text(self):
         statement = _password_statement("runtime-user", "p'assword")
         rendered = statement.as_string(None)
