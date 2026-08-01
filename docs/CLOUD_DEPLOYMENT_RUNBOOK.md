@@ -366,6 +366,8 @@ Save only non-secret evidence:
 
 Never capture the SQL URL, API key, secret value, AWS cookies, or access tokens.
 Update [PROJECT_STATUS.md](PROJECT_STATUS.md) only after this evidence exists.
+The redacted 2026-08-01 participant-cluster result is recorded in
+[2026-08-01-live-sql-vector-smoke.md](evidence/2026-08-01-live-sql-vector-smoke.md).
 
 ## Phase 7 — teardown
 

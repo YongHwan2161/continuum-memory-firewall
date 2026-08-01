@@ -4,6 +4,11 @@ This is the redacted, non-secret evidence record for the participant-owned
 deployment. It intentionally omits AWS account IDs, ARNs, CockroachDB cluster
 and service-account IDs, API keys, SQL credentials, cookies, and request IDs.
 
+This file is a dated pre-migration snapshot. The participant-cluster migrations,
+vector smoke, and temporary-network cleanup completed on 2026-08-01 and are
+recorded separately in
+[2026-08-01-live-sql-vector-smoke.md](2026-08-01-live-sql-vector-smoke.md).
+
 ## Tested lineage
 
 - Repository source before the concurrency compatibility change:

@@ -15,9 +15,12 @@ Implement:
    [CLOUD_DEPLOYMENT_RUNBOOK.md](CLOUD_DEPLOYMENT_RUNBOOK.md), then capture one
    successful and one denied Managed MCP Lambda invocation; two successful read
    tools and one pre-secret write denial are now recorded;
-2. run the implemented versioned migrator and synthetic smoke path against the
-   live database with a least-privilege application identity, then capture
-   vector query-plan evidence;
+2. **Live-data path completed 2026-08-01:** run the implemented versioned
+   migrator and synthetic smoke path against the participant database; all
+   eight migrations and the scoped vector flow passed, generated rows were
+   cleaned up, and the temporary network rule was removed. Remaining hardening:
+   separate least-privilege migrator/runtime identities and capture vector
+   query-plan evidence;
 3. deploy the repository MCP server behind authenticated stable HTTPS and add a
    reproducible remote smoke test;
 4. replace deterministic demo embeddings with a bounded semantic embedder and
@@ -42,9 +45,10 @@ Exit criteria:
 
 **Why this is first:** P2A already proves the application contract locally.
 The cost-bounded Managed MCP/AWS path now has participant-owned live evidence.
-P2B's shortest remaining gate is the participant-cluster migration/vector smoke,
-followed by an authenticated application surface. That closes the application
-data-plane proof gap before broader product features.
+P2B's shortest remaining gate is now an authenticated application surface,
+followed by least-privilege SQL-role and query-plan evidence. The participant
+cluster application data-plane proof is complete without retaining synthetic
+smoke rows.
 
 ## Priority 2 — P3 reliable external-action delivery
 

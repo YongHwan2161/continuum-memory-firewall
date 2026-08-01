@@ -5,14 +5,14 @@ memory promotion in long-running AI agents. It separates untrusted candidate
 memories from canonical memory and makes every promotion decision explicit,
 deterministic, and transactionally durable.
 
-The current milestone is **P2B: live managed-cloud evidence**. In addition to
-the transactional promotion and retrieval boundary, a private, cost-bounded AWS
-Lambda client for CockroachDB Cloud Managed MCP is deployed with minimum IAM,
-budget alerts, bounded execution, and seven-day logs. Live smoke tests proved
-two read tools and a pre-secret write-tool denial. The participant cluster's
-application migrations/vector smoke and the authenticated public application
-boundary remain explicit gaps; the operational evidence worker is not presented
-as a live application.
+The current milestone is **P2B: live managed-cloud and SQL data-plane evidence**.
+In addition to the transactional promotion and retrieval boundary, a private,
+cost-bounded AWS Lambda client for CockroachDB Cloud Managed MCP is deployed
+with minimum IAM, budget alerts, bounded execution, and seven-day logs. Live
+smoke tests proved two Managed MCP read tools, a pre-secret write-tool denial,
+all eight participant-cluster migrations, and the scoped 512-dimensional vector
+path. The authenticated public application boundary remains an explicit gap;
+the operational evidence worker is not presented as a live application.
 
 For the authoritative project state and evidence, see
 [Project Status](docs/PROJECT_STATUS.md). For implementation order and exit
@@ -132,6 +132,8 @@ internet-public Sites access.
 
 The redacted private-worker deployment proof is recorded in
 [Live AWS and Managed MCP evidence](docs/evidence/2026-07-31-cloud-live-smoke.md).
+The redacted participant-cluster migration and vector proof is recorded in
+[Live CockroachDB SQL and vector evidence](docs/evidence/2026-08-01-live-sql-vector-smoke.md).
 
 ## Safety boundary
 

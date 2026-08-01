@@ -60,8 +60,9 @@ packaged versioned migrations, and exercises migration replay, drift detection,
 DDL/history crash recovery, lease exclusion, promotion, rejection, concurrent
 claims, vector persistence, retrieval audit, cross-tenant exclusion, and a
 synthetic end-to-end database smoke path. The MCP protocol is tested with an
-in-memory client/server transport. This is executable evidence, but not a
-CockroachDB Cloud or public MCP deployment.
+in-memory client/server transport. The same migration and synthetic vector path
+was subsequently live-smoked on the participant CockroachDB Cloud cluster; the
+repository MCP service itself is not publicly deployed.
 
 ## Live evidence boundary
 
@@ -92,7 +93,7 @@ flowchart LR
     lambda["Private AWS Lambda<br/>read-only allowlist"]
     secret["AWS Secrets Manager<br/>one API key"]
     managed["CockroachDB Cloud<br/>Managed MCP"]
-    basic["CockroachDB Basic<br/>empty application schema"]
+    basic["CockroachDB Basic<br/>migrated schema + live vector smoke"]
     budget["AWS Budget + 7-day logs<br/>private S3 package"]
     lambda --> secret
     lambda --> managed
@@ -116,13 +117,15 @@ flowchart LR
   reviewer -->|"AWS direct invoke"| lambda
   reviewer -. "future public judge flow" .-> auth
   repoMcp -. "future deployment" .-> auth
-  auth -. "after live migrations" .-> basic
+  auth -. "future application traffic" .-> basic
 ```
 
 The private AWS worker, its minimum-IAM role, its one-secret boundary, the
-Managed MCP connection, and two read calls are live. The application schema,
-vector query execution, authenticated repository MCP service, and outbox remain
-local-only or planned as shown.
+Managed MCP connection, two read calls, application schema, and synthetic
+vector query execution are live. The authenticated repository MCP service and
+outbox remain planned as shown. The live SQL smoke used a temporary workstation
+network rule that was removed immediately afterward; the current allowlist is
+empty.
 
 ## Component ownership
 

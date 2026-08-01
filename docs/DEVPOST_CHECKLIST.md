@@ -38,16 +38,17 @@ complete attestations and organizer agreements.
 - [x] Read-only standard MCP `search`/`fetch` contract and protocol tests included
 - [x] Participant-owned CockroachDB Basic cluster provisioned on AWS Singapore
       with the free-resource monthly limits and a restricted temporary SQL network
-- [x] Live cluster state rechecked on 2026-07-30: cluster available, broad SQL
-      rule absent, one temporary `/32` rule retained, and the `continuum`
-      database `public` schema still empty before migration
+- [x] Live cluster state rechecked on 2026-08-01: all eight migrations applied,
+      synthetic vector smoke passed, generated rows cleaned up, and the SQL IP
+      allowlist reduced to zero entries
 - [ ] Functional cloud-backed application demo URL
-- [ ] Live CockroachDB Cloud promotion and vector retrieval evidence
+- [x] Live CockroachDB Cloud promotion and vector retrieval evidence; see
+      [2026-08-01-live-sql-vector-smoke.md](evidence/2026-08-01-live-sql-vector-smoke.md)
 - [ ] Authenticated public repository MCP endpoint and reproducible remote smoke test
 - [x] CockroachDB Cloud Managed MCP evidenced on 2026-07-31 through the private
       AWS worker: `list_databases` returned the `continuum` database
 - [x] Second CockroachDB Managed MCP read tool evidenced: `list_tables` returned
-      the live cluster's current empty application schema
+      the live cluster's historical pre-migration empty application schema
 - [x] AWS services deployed and evidenced: private Lambda, one scoped Secrets
       Manager secret, encrypted private S3 package, CloudWatch Logs,
       CloudFormation, and AWS Budgets
@@ -71,7 +72,7 @@ complete attestations and organizer agreements.
 
 ## Final integrity review
 
-- [x] `PROJECT_STATUS.md` matches the 2026-07-31 deployed state
+- [x] `PROJECT_STATUS.md` matches the 2026-08-01 deployed and SQL-smoked state
 - [x] No secret, token, connection string, or personal credential is committed
       in the deployment evidence commit
 - [x] No planned application component is described as implemented
