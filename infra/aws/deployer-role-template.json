@@ -2,9 +2,10 @@
   "AWSTemplateFormatVersion": "2010-09-09",
   "Description": "One-hour, project-scoped GitHub OIDC deployment role replacing root CLI operations",
   "Parameters": {
-    "GitHubOwner": {"Type": "String", "Default": "YongHwan2161"},
-    "GitHubRepository": {"Type": "String", "Default": "continuum-memory-firewall"},
-    "DeploymentRef": {"Type": "String", "Default": "refs/heads/agent/north-star-security-semantic"}
+    "GitHubSubject": {
+      "Type": "String",
+      "Default": "repo:YongHwan2161@116191051/continuum-memory-firewall@1311611994:ref:refs/heads/agent/north-star-security-semantic"
+    }
   },
   "Resources": {
     "GitHubOidcProvider": {
@@ -35,7 +36,7 @@
               "Condition": {
                 "StringEquals": {
                   "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-                  "token.actions.githubusercontent.com:sub": {"Fn::Sub": "repo:${GitHubOwner}/${GitHubRepository}:ref:${DeploymentRef}"}
+                  "token.actions.githubusercontent.com:sub": {"Ref": "GitHubSubject"}
                 }
               }
             }

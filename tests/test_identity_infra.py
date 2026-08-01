@@ -56,9 +56,13 @@ class IdentityInfrastructureTests(unittest.TestCase):
             conditions["token.actions.githubusercontent.com:aud"],
             "sts.amazonaws.com",
         )
-        self.assertIn(
-            "refs/heads/agent/north-star-security-semantic",
-            self.deployer["Parameters"]["DeploymentRef"]["Default"],
+        subject = self.deployer["Parameters"]["GitHubSubject"]["Default"]
+        self.assertIn("YongHwan2161@", subject)
+        self.assertIn("continuum-memory-firewall@", subject)
+        self.assertTrue(
+            subject.endswith(
+                ":ref:refs/heads/agent/north-star-security-semantic"
+            )
         )
 
 
