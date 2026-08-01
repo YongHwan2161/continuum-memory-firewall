@@ -161,6 +161,7 @@ The current SQL allowlist contains only the AWS Elastic IP `/32`.
 | Migration runner | ordered single-statement DDL, durable intent, checksums, renewable lease, schema validation, explicit adoption | hiding drift, guessing a partial legacy schema, or claiming DDL/history atomicity |
 | CockroachDB | durable accepted state, uniqueness, audit, concurrent winner | interpreting untrusted prose |
 | Repository MCP boundary | authenticated, least-privilege `search`/`fetch` contract | database credentials or caller-selected tenant scope |
+| Database pools | bounded, lazy TLS connection reuse per control/scope identity | sharing a connection across SQL identities or exposing connection strings in metrics |
 | CockroachDB Managed MCP | managed operational database tools for the competition agent | replacing application retrieval authorization |
 | Private AWS evidence worker | bounded direct invocation of a hard-coded read-only Managed MCP subset | public query access, row-level tenant authorization, or arbitrary Managed MCP writes |
 | Retrieval service | tenant filter, embedding query, retrieval audit | promotion of untrusted candidates |
