@@ -14,6 +14,7 @@ for name in "${required[@]}"; do
 done
 
 repo_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+"$repo_root/scripts/assert_deployer_identity.sh"
 region="${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}"
 stack_name="${CONTINUUM_MCP_STACK_NAME:-continuum-authenticated-mcp}"
 deployment_key="${CONTINUUM_MCP_DEPLOYMENT_KEY:-mcp-host/continuum-mcp-host.zip}"

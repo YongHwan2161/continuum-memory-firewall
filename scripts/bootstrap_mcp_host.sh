@@ -51,7 +51,7 @@ fi
 
 python3 -m venv /opt/continuum/.venv
 /opt/continuum/.venv/bin/python -m pip install --disable-pip-version-check --upgrade pip
-/opt/continuum/.venv/bin/python -m pip install --disable-pip-version-check '/opt/continuum[dev]'
+/opt/continuum/.venv/bin/python -m pip install --disable-pip-version-check '/opt/continuum[mcp,cockroach]'
 
 install -d -o continuum -g continuum -m 0700 /run/continuum-mcp
 install -m 0644 /dev/null /etc/systemd/system/continuum-mcp.service

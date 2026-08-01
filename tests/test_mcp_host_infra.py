@@ -47,6 +47,23 @@ class McpHostInfrastructureTests(unittest.TestCase):
             },
         )
 
+    def test_instance_role_can_invoke_only_titan_embedding_v2(self):
+        role = self.resources["McpInstanceRole"]["Properties"]
+        policy = role["Policies"][2]
+        self.assertEqual(policy["PolicyName"], "InvokeOneSemanticEmbeddingModel")
+        statement = policy["PolicyDocument"]["Statement"][0]
+        self.assertEqual(statement["Action"], "bedrock:InvokeModel")
+        self.assertIn(
+            "foundation-model/amazon.titan-embed-text-v2:0",
+            statement["Resource"]["Fn::Sub"],
+        )
+
+    def test_deployment_fails_closed_outside_assumed_role(self):
+        script = (ROOT / "scripts" / "deploy_mcp_host.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("assert_deployer_identity.sh", script)
+
     def test_deployer_verifies_the_artifact_hash_before_install(self):
         script = (ROOT / "scripts" / "deploy_mcp_host.sh").read_text(
             encoding="utf-8"

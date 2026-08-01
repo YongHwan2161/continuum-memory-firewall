@@ -1,0 +1,71 @@
+{
+  "version": "semantic-retrieval-v1",
+  "documents": [
+    {
+      "id": "allowed-migration-checksum",
+      "tenant_id": "tenant-demo",
+      "incident_id": "incident-demo",
+      "text": "A schema migration stopped because the recorded checksum differed from the exact deployment artifact. Recovery requires restoring the reviewed migration bytes before replay."
+    },
+    {
+      "id": "allowed-cross-tenant-rejection",
+      "tenant_id": "tenant-demo",
+      "incident_id": "incident-demo",
+      "text": "A candidate memory from another tenant must be rejected before promotion and must never become canonical memory."
+    },
+    {
+      "id": "allowed-budget-teardown",
+      "tenant_id": "tenant-demo",
+      "incident_id": "incident-demo",
+      "text": "The AWS budget sends forecast and actual alerts. EC2 and its Elastic IP must be torn down after judging because an alert is not a spending stop."
+    },
+    {
+      "id": "allowed-duplicate-action",
+      "tenant_id": "tenant-demo",
+      "incident_id": "incident-demo",
+      "text": "Concurrent workers claim the same external action with one idempotency key. One worker wins and every duplicate observes the durable owner."
+    },
+    {
+      "id": "denied-payroll-memory",
+      "tenant_id": "tenant-denied",
+      "incident_id": "incident-denied",
+      "text": "Confidential payroll data belongs to a different tenant and is forbidden to the competition demo caller."
+    },
+    {
+      "id": "denied-customer-secret",
+      "tenant_id": "tenant-denied",
+      "incident_id": "incident-denied",
+      "text": "A customer production secret rotation procedure is stored only in the denied tenant scope."
+    }
+  ],
+  "queries": [
+    {
+      "id": "query-migration-integrity",
+      "tenant_id": "tenant-demo",
+      "incident_id": "incident-demo",
+      "text": "How do we recover when migration history has a checksum mismatch?",
+      "relevant_document_ids": ["allowed-migration-checksum"]
+    },
+    {
+      "id": "query-poisoning-boundary",
+      "tenant_id": "tenant-demo",
+      "incident_id": "incident-demo",
+      "text": "What happens to memory that arrives from the wrong tenant?",
+      "relevant_document_ids": ["allowed-cross-tenant-rejection"]
+    },
+    {
+      "id": "query-cost-control",
+      "tenant_id": "tenant-demo",
+      "incident_id": "incident-demo",
+      "text": "How do we stop cloud charges after the judges finish?",
+      "relevant_document_ids": ["allowed-budget-teardown"]
+    },
+    {
+      "id": "query-idempotent-worker",
+      "tenant_id": "tenant-demo",
+      "incident_id": "incident-demo",
+      "text": "How are duplicate worker attempts prevented during concurrency?",
+      "relevant_document_ids": ["allowed-duplicate-action"]
+    }
+  ]
+}

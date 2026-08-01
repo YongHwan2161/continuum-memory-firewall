@@ -3,16 +3,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import hmac
 import json
 import os
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic import BaseModel, Field
 
+from continuum.identity import (
+    CallerIdentity,
+    CognitoTokenVerifier,
+    IdentityVerificationError,
+    ScopeRegistry,
+    TokenVerifier,
+    bind_caller,
+    current_caller,
+)
 from continuum.retrieval import (
-    HashingEmbedder,
+    BedrockTitanEmbedder,
+    Embedder,
     MemoryNotFoundError,
     MemoryRetrievalStore,
     canonical_payload_text,
@@ -52,9 +61,10 @@ class KnowledgeService(Protocol):
 @dataclass(frozen=True, slots=True)
 class MCPSettings:
     database_url: str
-    tenant_id: str
-    incident_id: str
-    bearer_token: str
+    caller_scopes_json: str
+    oidc_issuer: str
+    oidc_required_scope: str
+    bedrock_region: str
     public_base_url: str = DEFAULT_PUBLIC_BASE_URL
     host: str = "127.0.0.1"
     port: int = 8000
@@ -63,17 +73,23 @@ class MCPSettings:
     def from_env(cls) -> "MCPSettings":
         required = {
             "database_url": os.environ.get("CONTINUUM_DATABASE_URL", ""),
-            "tenant_id": os.environ.get("CONTINUUM_TENANT_ID", ""),
-            "incident_id": os.environ.get("CONTINUUM_INCIDENT_ID", ""),
-            "bearer_token": os.environ.get("CONTINUUM_MCP_BEARER_TOKEN", ""),
+            "caller_scopes_json": os.environ.get(
+                "CONTINUUM_CALLER_SCOPES_JSON", ""
+            ),
+            "oidc_issuer": os.environ.get("CONTINUUM_OIDC_ISSUER", ""),
+            "oidc_required_scope": os.environ.get(
+                "CONTINUUM_OIDC_REQUIRED_SCOPE", ""
+            ),
+            "bedrock_region": os.environ.get("CONTINUUM_BEDROCK_REGION", ""),
         }
         missing = [name for name, value in required.items() if not value]
         if missing:
             environment_names = {
                 "database_url": "CONTINUUM_DATABASE_URL",
-                "tenant_id": "CONTINUUM_TENANT_ID",
-                "incident_id": "CONTINUUM_INCIDENT_ID",
-                "bearer_token": "CONTINUUM_MCP_BEARER_TOKEN",
+                "caller_scopes_json": "CONTINUUM_CALLER_SCOPES_JSON",
+                "oidc_issuer": "CONTINUUM_OIDC_ISSUER",
+                "oidc_required_scope": "CONTINUUM_OIDC_REQUIRED_SCOPE",
+                "bedrock_region": "CONTINUUM_BEDROCK_REGION",
             }
             names = ", ".join(environment_names[name] for name in missing)
             raise RuntimeError(f"missing required environment variables: {names}")
@@ -84,6 +100,7 @@ class MCPSettings:
         )
         _validate_public_base_url(public_base_url)
         _validate_database_transport(required["database_url"])
+        ScopeRegistry.from_json(required["caller_scopes_json"])
 
         port_text = os.environ.get("PORT", os.environ.get("CONTINUUM_MCP_PORT", "8000"))
         try:
@@ -95,9 +112,10 @@ class MCPSettings:
 
         return cls(
             database_url=required["database_url"],
-            tenant_id=required["tenant_id"],
-            incident_id=required["incident_id"],
-            bearer_token=required["bearer_token"],
+            caller_scopes_json=required["caller_scopes_json"],
+            oidc_issuer=required["oidc_issuer"],
+            oidc_required_scope=required["oidc_required_scope"],
+            bedrock_region=required["bedrock_region"],
             public_base_url=public_base_url,
             host=os.environ.get("CONTINUUM_MCP_HOST", "0.0.0.0"),
             port=port,
@@ -141,27 +159,27 @@ def _memory_title(payload: dict[str, Any], memory_id: str) -> str:
 
 
 class ContinuumKnowledgeService:
-    """Bind a fixed tenant and incident scope to the read-only MCP tools."""
+    """Resolve the authenticated caller before every read-only MCP tool call."""
 
     def __init__(
         self,
         store: MemoryRetrievalStore,
         *,
-        tenant_id: str,
-        incident_id: str,
+        embedder: Embedder,
         public_base_url: str,
+        identity_provider: Callable[[], CallerIdentity] = current_caller,
     ) -> None:
         _validate_public_base_url(public_base_url)
         self._store = store
-        self._tenant_id = tenant_id
-        self._incident_id = incident_id
+        self._embedder = embedder
         self._public_base_url = public_base_url
-        self._embedder = HashingEmbedder()
+        self._identity_provider = identity_provider
 
     def search(self, query: str) -> SearchOutput:
+        identity = self._identity_provider()
         result = self._store.search(
-            tenant_id=self._tenant_id,
-            incident_id=self._incident_id,
+            tenant_id=identity.tenant_id,
+            incident_id=identity.incident_id,
             query=query,
             embedder=self._embedder,
         )
@@ -177,9 +195,10 @@ class ContinuumKnowledgeService:
         )
 
     def fetch(self, memory_id: str) -> FetchOutput:
+        identity = self._identity_provider()
         document = self._store.fetch_memory(
-            tenant_id=self._tenant_id,
-            incident_id=self._incident_id,
+            tenant_id=identity.tenant_id,
+            incident_id=identity.incident_id,
             memory_id=memory_id,
         )
         payload = dict(document.payload)
@@ -219,8 +238,9 @@ def create_mcp_server(
     server = FastMCP(
         "continuum-memory-firewall",
         instructions=(
-            "Search only accepted canonical memory in the configured synthetic "
-            "tenant and incident. Call search before fetch. Search results have "
+            "Search only accepted canonical memory in the authenticated caller's "
+            "server-owned tenant and incident scope. Call search before fetch. "
+            "Search results have "
             "already passed the retrieval policy; candidate and rejected memory "
             "are never exposed by these tools."
         ),
@@ -286,14 +306,12 @@ def create_mcp_server(
     return server
 
 
-class BearerAuthMiddleware:
-    """Fail closed before an unauthenticated request reaches MCP."""
+class OIDCAuthMiddleware:
+    """Verify a short-lived token and bind its caller for one ASGI request."""
 
-    def __init__(self, app: Any, *, bearer_token: str) -> None:
-        if len(bearer_token) < 32:
-            raise RuntimeError("CONTINUUM_MCP_BEARER_TOKEN must be at least 32 characters")
+    def __init__(self, app: Any, *, verifier: TokenVerifier) -> None:
         self._app = app
-        self._bearer_token = bearer_token.encode("utf-8")
+        self._verifier = verifier
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
         if scope["type"] != "http" or scope.get("path") == "/healthz":
@@ -305,11 +323,16 @@ class BearerAuthMiddleware:
             for name, value in scope.get("headers", [])
             if name.lower() == b"authorization"
         ]
-        valid = False
+        identity: CallerIdentity | None = None
         if len(authorization) == 1 and authorization[0].startswith(b"Bearer "):
-            supplied = authorization[0][len(b"Bearer ") :]
-            valid = hmac.compare_digest(supplied, self._bearer_token)
-        if not valid:
+            try:
+                supplied = authorization[0][len(b"Bearer ") :].decode(
+                    "ascii", errors="strict"
+                )
+                identity = self._verifier.verify(supplied)
+            except (UnicodeDecodeError, IdentityVerificationError):
+                identity = None
+        if identity is None:
             body = json.dumps(
                 {"error": "unauthorized"},
                 separators=(",", ":"),
@@ -329,7 +352,8 @@ class BearerAuthMiddleware:
             await send({"type": "http.response.body", "body": body})
             return
 
-        await self._app(scope, receive, send)
+        with bind_caller(identity):
+            await self._app(scope, receive, send)
 
 
 async def _healthz(_request: Any):
@@ -341,14 +365,14 @@ async def _healthz(_request: Any):
     )
 
 
-def create_authenticated_app(server: Any, *, bearer_token: str):
-    """Create the public ASGI boundary with health and bearer authentication."""
+def create_authenticated_app(server: Any, *, verifier: TokenVerifier):
+    """Create the public ASGI boundary with health and OIDC authentication."""
 
     from starlette.routing import Route
 
     app = server.streamable_http_app()
     app.routes.append(Route("/healthz", _healthz, methods=["GET"]))
-    return BearerAuthMiddleware(app, bearer_token=bearer_token)
+    return OIDCAuthMiddleware(app, verifier=verifier)
 
 
 def build_server_from_settings(settings: MCPSettings):
@@ -357,8 +381,7 @@ def build_server_from_settings(settings: MCPSettings):
     )
     service = ContinuumKnowledgeService(
         store,
-        tenant_id=settings.tenant_id,
-        incident_id=settings.incident_id,
+        embedder=BedrockTitanEmbedder(region=settings.bedrock_region),
         public_base_url=settings.public_base_url,
     )
     return create_mcp_server(
@@ -376,16 +399,27 @@ def build_server_from_env():
 def build_authenticated_app_from_env():
     settings = MCPSettings.from_env()
     server = build_server_from_settings(settings)
-    return create_authenticated_app(server, bearer_token=settings.bearer_token)
+    registry = ScopeRegistry.from_json(settings.caller_scopes_json)
+    verifier = CognitoTokenVerifier(
+        issuer=settings.oidc_issuer,
+        required_scope=settings.oidc_required_scope,
+        registry=registry,
+    )
+    return create_authenticated_app(server, verifier=verifier)
 
 
 def main() -> None:
     import uvicorn
 
     settings = MCPSettings.from_env()
+    registry = ScopeRegistry.from_json(settings.caller_scopes_json)
     app = create_authenticated_app(
         build_server_from_settings(settings),
-        bearer_token=settings.bearer_token,
+        verifier=CognitoTokenVerifier(
+            issuer=settings.oidc_issuer,
+            required_scope=settings.oidc_required_scope,
+            registry=registry,
+        ),
     )
     uvicorn.run(
         app,

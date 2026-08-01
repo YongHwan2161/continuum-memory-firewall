@@ -32,11 +32,15 @@ cockroach = [
   "psycopg[binary]>=3.2,<4"
 ]
 mcp = [
+  "boto3>=1.40,<2",
   "mcp>=1.27,<2",
+  "PyJWT[crypto]>=2.10,<3",
   "pydantic>=2.11,<3"
 ]
 dev = [
+  "boto3>=1.40,<2",
   "mcp>=1.27,<2",
+  "PyJWT[crypto]>=2.10,<3",
   "pydantic>=2.11,<3",
   "psycopg[binary]>=3.2,<4"
 ]
@@ -46,3 +50,5 @@ continuum-mcp = "continuum.mcp_server:main"
 continuum-migrate = "continuum.migrate:main"
 continuum-db-smoke = "continuum.db_smoke:main"
 continuum-provision-sql-roles = "continuum.sql_roles:main"
+continuum-provision-scope-role = "continuum.scope_roles:main"
+continuum-semantic-eval = "continuum.evaluation:main"

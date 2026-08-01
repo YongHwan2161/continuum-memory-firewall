@@ -1,0 +1,78 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "One-hour, project-scoped deployment role replacing root CLI operations",
+  "Resources": {
+    "ContinuumDeployer": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": "continuum-hackathon-deployer",
+        "MaxSessionDuration": 3600,
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {"Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"}
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "ContinuumDeploymentBoundary",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Sid": "CloudFormationProjectStacks",
+                  "Effect": "Allow",
+                  "Action": "cloudformation:*",
+                  "Resource": {"Fn::Sub": "arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/continuum-*/*"}
+                },
+                {
+                  "Sid": "ProjectArtifacts",
+                  "Effect": "Allow",
+                  "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket", "s3:GetBucketLocation"],
+                  "Resource": [
+                    {"Fn::Sub": "arn:${AWS::Partition}:s3:::continuum-*"},
+                    {"Fn::Sub": "arn:${AWS::Partition}:s3:::continuum-*/*"}
+                  ]
+                },
+                {
+                  "Sid": "ProjectSecrets",
+                  "Effect": "Allow",
+                  "Action": ["secretsmanager:CreateSecret", "secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue", "secretsmanager:PutSecretValue", "secretsmanager:UpdateSecret", "secretsmanager:TagResource"],
+                  "Resource": {"Fn::Sub": "arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:continuum/*"}
+                },
+                {
+                  "Sid": "ProjectIam",
+                  "Effect": "Allow",
+                  "Action": ["iam:CreateRole", "iam:DeleteRole", "iam:GetRole", "iam:PassRole", "iam:TagRole", "iam:UntagRole", "iam:PutRolePolicy", "iam:GetRolePolicy", "iam:DeleteRolePolicy", "iam:AttachRolePolicy", "iam:DetachRolePolicy", "iam:CreateInstanceProfile", "iam:DeleteInstanceProfile", "iam:AddRoleToInstanceProfile", "iam:RemoveRoleFromInstanceProfile", "iam:GetInstanceProfile"],
+                  "Resource": [
+                    {"Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/continuum-*"},
+                    {"Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:instance-profile/continuum-*"}
+                  ]
+                },
+                {
+                  "Sid": "RuntimeOperations",
+                  "Effect": "Allow",
+                  "Action": ["ec2:Describe*", "ec2:CreateTags", "ssm:GetParameter", "ssm:SendCommand", "ssm:GetCommandInvocation", "lambda:GetFunction", "lambda:InvokeFunction", "logs:DescribeLogGroups", "logs:FilterLogEvents", "bedrock:ListFoundationModels", "bedrock:InvokeModel", "cognito-idp:*", "budgets:ViewBudget", "budgets:ModifyBudget", "sts:GetCallerIdentity"],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ],
+        "Tags": [
+          {"Key": "Project", "Value": "continuum-memory-firewall"},
+          {"Key": "Environment", "Value": "hackathon"}
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "RoleArn": {"Value": {"Fn::GetAtt": ["ContinuumDeployer", "Arn"]}, "Export": {"Name": "continuum-deployer-role-arn"}}
+  }
+}
