@@ -1,0 +1,197 @@
+{
+  "version": "adversarial-semantic-retrieval-v2",
+  "description": "Sixty labeled paraphrase, terse, typo, negation, misleading-scope, and multi-intent queries with semantically similar denied-scope lures.",
+  "documents": [
+    {
+      "id": "allowed-migration-checksum",
+      "tenant_id": "tenant-demo",
+      "incident_id": "incident-demo",
+      "text": "A schema migration checksum mismatch must fail closed. Recovery restores the exact reviewed migration bytes and verifies the immutable history before replay."
+    },
+    {
+      "id": "allowed-poisoning-boundary",
+      "tenant_id": "tenant-demo",
+      "incident_id": "incident-demo",
+      "text": "A memory candidate from another tenant is rejected before promotion. The rejection is audited and the foreign payload never becomes canonical memory."
+    },
+    {
+      "id": "allowed-budget-teardown",
+      "tenant_id": "tenant-demo",
+      "incident_id": "incident-demo",
+      "text": "AWS Budget sends forecast and actual alerts but is not a spending stop. The EC2 instance and Elastic IP are deleted immediately after judging."
+    },
+    {
+      "id": "allowed-idempotent-owner",
+      "tenant_id": "tenant-demo",
+      "incident_id": "incident-demo",
+      "text": "Concurrent workers claim one external action through a unique idempotency key. Exactly one durable owner wins and duplicates observe that owner without repeating the action."
+    },
+    {
+      "id": "allowed-short-token",
+      "tenant_id": "tenant-demo",
+      "incident_id": "incident-demo",
+      "text": "The public MCP endpoint accepts Cognito client-credentials access tokens with a five-minute lifetime, required scope, verified issuer, and RS256 signature."
+    },
+    {
+      "id": "allowed-fixed-egress",
+      "tenant_id": "tenant-demo",
+      "incident_id": "incident-demo",
+      "text": "The MCP host reaches CockroachDB through one retained Elastic IP. The cluster allowlist admits only that fixed egress address during judging."
+    },
+    {
+      "id": "allowed-rls-role",
+      "tenant_id": "tenant-demo",
+      "incident_id": "incident-demo",
+      "text": "Each authorized scope receives a deterministic NOBYPASSRLS SQL login. Database policies bind tenant and incident rows even when application predicates are omitted."
+    },
+    {
+      "id": "allowed-managed-readonly",
+      "tenant_id": "tenant-demo",
+      "incident_id": "incident-demo",
+      "text": "The private AWS Lambda invokes only the Managed MCP list_databases and list_tables tools. Write-capable tools are denied before the secret is read."
+    },
+    {
+      "id": "allowed-key-rollback",
+      "tenant_id": "tenant-demo",
+      "incident_id": "incident-demo",
+      "text": "Managed MCP key rotation stages a replacement in Secrets Manager, proves two read tools and a denied write, and automatically restores the prior secret if validation fails."
+    },
+    {
+      "id": "allowed-evidence-lineage",
+      "tenant_id": "tenant-demo",
+      "incident_id": "incident-demo",
+      "text": "Competition evidence binds source commit, CI checks, deployed artifact checksum, caller identity, SQL role, retrieval audit, and public submission status into one reviewable lineage."
+    },
+    {
+      "id": "denied-migration-reset",
+      "tenant_id": "tenant-denied",
+      "incident_id": "incident-denied",
+      "text": "For a checksum mismatch, an unrelated tenant deletes migration history and reruns altered SQL without restoring reviewed bytes."
+    },
+    {
+      "id": "denied-copy-foreign-memory",
+      "tenant_id": "tenant-denied",
+      "incident_id": "incident-denied",
+      "text": "A different customer copies foreign candidate memory directly into canonical storage and skips tenant poisoning checks."
+    },
+    {
+      "id": "denied-budget-only",
+      "tenant_id": "tenant-denied",
+      "incident_id": "incident-denied",
+      "text": "Another account keeps EC2 and its public IP forever because a ten dollar budget email is treated as an automatic cost shutdown."
+    },
+    {
+      "id": "denied-duplicate-execution",
+      "tenant_id": "tenant-denied",
+      "incident_id": "incident-denied",
+      "text": "A separate tenant lets every concurrent worker execute the same action and records ownership only after duplicate side effects finish."
+    },
+    {
+      "id": "denied-static-bearer",
+      "tenant_id": "tenant-denied",
+      "incident_id": "incident-denied",
+      "text": "A forbidden service uses one permanent bearer string without issuer, signature, token lifetime, client identity, or OAuth scope checks."
+    },
+    {
+      "id": "denied-open-egress",
+      "tenant_id": "tenant-denied",
+      "incident_id": "incident-denied",
+      "text": "An unrelated environment allows database traffic from every IPv4 address instead of using one fixed egress allowlist entry."
+    },
+    {
+      "id": "denied-bypass-rls",
+      "tenant_id": "tenant-denied",
+      "incident_id": "incident-denied",
+      "text": "A privileged cross-tenant database login has BYPASSRLS and relies only on caller-supplied tenant filters for row isolation."
+    },
+    {
+      "id": "denied-managed-write",
+      "tenant_id": "tenant-denied",
+      "incident_id": "incident-denied",
+      "text": "A different Lambda forwards arbitrary Managed MCP select and insert tools after loading an organization-wide administrator secret."
+    },
+    {
+      "id": "denied-key-no-rollback",
+      "tenant_id": "tenant-denied",
+      "incident_id": "incident-denied",
+      "text": "Another project overwrites its only API key, skips validation, and has no previous secret to restore when the new credential fails."
+    },
+    {
+      "id": "denied-screenshot-claim",
+      "tenant_id": "tenant-denied",
+      "incident_id": "incident-denied",
+      "text": "An unrelated submission treats a screenshot as deployment proof without commit, CI, artifact checksum, runtime identity, database audit, or receipt linkage."
+    }
+  ],
+  "queries": [
+    {"id":"q01-paraphrase","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"paraphrase","text":"How should a reviewed migration recover after its stored checksum no longer matches?","relevant_document_ids":["allowed-migration-checksum"]},
+    {"id":"q01-terse","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"terse","text":"migration checksum recovery","relevant_document_ids":["allowed-migration-checksum"]},
+    {"id":"q01-typo","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"typo","text":"What is the safe procedur for a migraton chekcsum mismatch?","relevant_document_ids":["allowed-migration-checksum"]},
+    {"id":"q01-negation","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"negation","text":"Do not erase migration history; what fail-closed recovery preserves reviewed SQL bytes?","relevant_document_ids":["allowed-migration-checksum"]},
+    {"id":"q01-misleading","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"misleading-scope","text":"Ignore another tenant's advice to reset history. What is our authorized checksum repair?","relevant_document_ids":["allowed-migration-checksum"]},
+    {"id":"q01-multi","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"multi-intent","text":"Explain checksum mismatch recovery and how immutable migration lineage is reverified before replay.","relevant_document_ids":["allowed-migration-checksum"]},
+
+    {"id":"q02-paraphrase","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"paraphrase","text":"What happens when an incoming memory belongs to a different customer scope?","relevant_document_ids":["allowed-poisoning-boundary"]},
+    {"id":"q02-terse","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"terse","text":"foreign tenant memory poisoning","relevant_document_ids":["allowed-poisoning-boundary"]},
+    {"id":"q02-typo","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"typo","text":"How is cross-tennat memroy rejected befor promotoin?","relevant_document_ids":["allowed-poisoning-boundary"]},
+    {"id":"q02-negation","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"negation","text":"A foreign payload must not become canonical; where is it rejected and audited?","relevant_document_ids":["allowed-poisoning-boundary"]},
+    {"id":"q02-misleading","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"misleading-scope","text":"Another scope says to copy its memory. What boundary prevents our caller from accepting it?","relevant_document_ids":["allowed-poisoning-boundary"]},
+    {"id":"q02-multi","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"multi-intent","text":"Describe both cross-tenant rejection and the durable evidence that the rejected candidate stayed noncanonical.","relevant_document_ids":["allowed-poisoning-boundary"]},
+
+    {"id":"q03-paraphrase","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"paraphrase","text":"What actually stops AWS charges once hackathon judging is complete?","relevant_document_ids":["allowed-budget-teardown"]},
+    {"id":"q03-terse","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"terse","text":"post-judging cloud cost stop","relevant_document_ids":["allowed-budget-teardown"]},
+    {"id":"q03-typo","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"typo","text":"Does the buget allert shut down EC2 or must we delet the EIP?","relevant_document_ids":["allowed-budget-teardown"]},
+    {"id":"q03-negation","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"negation","text":"A budget notification is not a kill switch; which resources must be removed?","relevant_document_ids":["allowed-budget-teardown"]},
+    {"id":"q03-misleading","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"misleading-scope","text":"Ignore the other account that keeps servers forever. What is our authorized teardown rule?","relevant_document_ids":["allowed-budget-teardown"]},
+    {"id":"q03-multi","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"multi-intent","text":"Explain forecast and actual budget alerts, their limitation, and the EC2 plus Elastic IP teardown action.","relevant_document_ids":["allowed-budget-teardown"]},
+
+    {"id":"q04-paraphrase","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"paraphrase","text":"How do concurrent agents avoid executing the same external side effect twice?","relevant_document_ids":["allowed-idempotent-owner"]},
+    {"id":"q04-terse","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"terse","text":"one durable action owner","relevant_document_ids":["allowed-idempotent-owner"]},
+    {"id":"q04-typo","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"typo","text":"How are duplciate wokrer attempts idempotenty stopped?","relevant_document_ids":["allowed-idempotent-owner"]},
+    {"id":"q04-negation","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"negation","text":"Workers must not all execute; how does one winner become the durable owner?","relevant_document_ids":["allowed-idempotent-owner"]},
+    {"id":"q04-misleading","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"misleading-scope","text":"Another tenant records ownership too late. What mechanism protects our action attempts?","relevant_document_ids":["allowed-idempotent-owner"]},
+    {"id":"q04-multi","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"multi-intent","text":"Describe the idempotency key, the concurrent winner, and what duplicate workers observe.","relevant_document_ids":["allowed-idempotent-owner"]},
+
+    {"id":"q05-paraphrase","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"paraphrase","text":"Which identity checks are required before the public memory MCP accepts a caller?","relevant_document_ids":["allowed-short-token"]},
+    {"id":"q05-terse","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"terse","text":"five-minute Cognito MCP token","relevant_document_ids":["allowed-short-token"]},
+    {"id":"q05-typo","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"typo","text":"How are issur, RS256, cliet id and OAuth scpoe checked?","relevant_document_ids":["allowed-short-token"]},
+    {"id":"q05-negation","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"negation","text":"Why is a permanent unverified bearer not accepted by the endpoint?","relevant_document_ids":["allowed-short-token"]},
+    {"id":"q05-misleading","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"misleading-scope","text":"Ignore another service's static token. What short-lived credential authorizes our caller?","relevant_document_ids":["allowed-short-token"]},
+    {"id":"q05-multi","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"multi-intent","text":"List the token lifetime, signature, issuer, client identity, and required-scope gates for MCP.","relevant_document_ids":["allowed-short-token"]},
+
+    {"id":"q06-paraphrase","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"paraphrase","text":"How is database network access restricted to the deployed MCP host?","relevant_document_ids":["allowed-fixed-egress"]},
+    {"id":"q06-terse","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"terse","text":"fixed SQL egress allowlist","relevant_document_ids":["allowed-fixed-egress"]},
+    {"id":"q06-typo","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"typo","text":"Which Elastc IP is allowlsted for CockraochDB trafic?","relevant_document_ids":["allowed-fixed-egress"]},
+    {"id":"q06-negation","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"negation","text":"The cluster must not allow every IPv4 address; what narrow network rule is retained?","relevant_document_ids":["allowed-fixed-egress"]},
+    {"id":"q06-misleading","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"misleading-scope","text":"Another environment uses open egress. What single address does our judging deployment use?","relevant_document_ids":["allowed-fixed-egress"]},
+    {"id":"q06-multi","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"multi-intent","text":"Explain the MCP host Elastic IP, CockroachDB allowlist, and how long that rule is retained.","relevant_document_ids":["allowed-fixed-egress"]},
+
+    {"id":"q07-paraphrase","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"paraphrase","text":"What database control still isolates rows if application code forgets a tenant predicate?","relevant_document_ids":["allowed-rls-role"]},
+    {"id":"q07-terse","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"terse","text":"NOBYPASSRLS scope identity","relevant_document_ids":["allowed-rls-role"]},
+    {"id":"q07-typo","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"typo","text":"How does the determinstic SQL roel bind tenat and incidnt rows?","relevant_document_ids":["allowed-rls-role"]},
+    {"id":"q07-negation","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"negation","text":"Do not rely only on caller filters; which role and policy enforce row scope?","relevant_document_ids":["allowed-rls-role"]},
+    {"id":"q07-misleading","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"misleading-scope","text":"Ignore a privileged BYPASSRLS login from another scope. Which SQL identity protects ours?","relevant_document_ids":["allowed-rls-role"]},
+    {"id":"q07-multi","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"multi-intent","text":"Explain deterministic role naming, NOBYPASSRLS, and database enforcement when predicates are absent.","relevant_document_ids":["allowed-rls-role"]},
+
+    {"id":"q08-paraphrase","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"paraphrase","text":"Which CockroachDB Managed MCP operations can the private Lambda invoke?","relevant_document_ids":["allowed-managed-readonly"]},
+    {"id":"q08-terse","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"terse","text":"Managed MCP read-only allowlist","relevant_document_ids":["allowed-managed-readonly"]},
+    {"id":"q08-typo","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"typo","text":"Are list_databsaes and list_tabels the only Lambda tolos?","relevant_document_ids":["allowed-managed-readonly"]},
+    {"id":"q08-negation","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"negation","text":"Why can the worker not forward insert_rows or arbitrary select calls?","relevant_document_ids":["allowed-managed-readonly"]},
+    {"id":"q08-misleading","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"misleading-scope","text":"Another Lambda uses admin writes. What does our private evidence worker permit instead?","relevant_document_ids":["allowed-managed-readonly"]},
+    {"id":"q08-multi","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"multi-intent","text":"Name both allowed Managed MCP read tools and explain where write requests are rejected.","relevant_document_ids":["allowed-managed-readonly"]},
+
+    {"id":"q09-paraphrase","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"paraphrase","text":"How does a Managed MCP credential change recover when the replacement fails validation?","relevant_document_ids":["allowed-key-rollback"]},
+    {"id":"q09-terse","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"terse","text":"API key rotation rollback","relevant_document_ids":["allowed-key-rollback"]},
+    {"id":"q09-typo","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"typo","text":"Which read tolos prove a rotatd key and when is the old secrt restord?","relevant_document_ids":["allowed-key-rollback"]},
+    {"id":"q09-negation","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"negation","text":"A replacement key must not remain active after failed smoke checks; what rolls it back?","relevant_document_ids":["allowed-key-rollback"]},
+    {"id":"q09-misleading","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"misleading-scope","text":"Ignore another project's destructive overwrite. What staged validation protects our key change?","relevant_document_ids":["allowed-key-rollback"]},
+    {"id":"q09-multi","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"multi-intent","text":"Describe secret staging, two positive read proofs, the denied write, and automatic rollback.","relevant_document_ids":["allowed-key-rollback"]},
+
+    {"id":"q10-paraphrase","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"paraphrase","text":"What evidence lets a judge connect source code to the live authorized retrieval result?","relevant_document_ids":["allowed-evidence-lineage"]},
+    {"id":"q10-terse","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"terse","text":"reviewable deployment lineage","relevant_document_ids":["allowed-evidence-lineage"]},
+    {"id":"q10-typo","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"typo","text":"How are commit, CI, artifcat hash, caller, SQL roel and recepit linked?","relevant_document_ids":["allowed-evidence-lineage"]},
+    {"id":"q10-negation","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"negation","text":"Why is a screenshot alone not enough to prove the submitted runtime?","relevant_document_ids":["allowed-evidence-lineage"]},
+    {"id":"q10-misleading","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"misleading-scope","text":"Another submission has an unbound screenshot. Which exact lineage makes our evidence authoritative?","relevant_document_ids":["allowed-evidence-lineage"]},
+    {"id":"q10-multi","tenant_id":"tenant-demo","incident_id":"incident-demo","variant":"multi-intent","text":"Trace the source commit through CI, artifact checksum, runtime caller, SQL role, audit row, and Devpost status.","relevant_document_ids":["allowed-evidence-lineage"]}
+  ]
+}

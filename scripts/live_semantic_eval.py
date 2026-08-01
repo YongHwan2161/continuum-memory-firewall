@@ -7,11 +7,16 @@ from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
+import time
 from uuid import uuid4
 
 import boto3
 
-from continuum.evaluation import assert_competition_gate, load_dataset
+from continuum.evaluation import (
+    assert_competition_gate,
+    load_dataset,
+    summarize_latency_ms,
+)
 from continuum.migrate import Migrator
 from continuum.retrieval import BedrockTitanEmbedder, MemoryRetrievalStore
 from continuum.scope_roles import verify_scope_role
@@ -138,9 +143,10 @@ def main() -> None:
     parser.add_argument(
         "--dataset",
         type=Path,
-        default=Path("evals/semantic-retrieval-v1.json"),
+        default=Path("evals/adversarial-semantic-retrieval-v2.json"),
     )
     parser.add_argument("--k", type=int, default=3)
+    parser.add_argument("--ks", default="1,3,5")
     parser.add_argument("--minimum-recall", type=float, default=0.75)
     parser.add_argument(
         "--ca-cert",
@@ -194,34 +200,52 @@ def main() -> None:
 
     runtime_store = MemoryRetrievalStore(psycopg_connection_factory(runtime_url))
     query_reports: list[dict[str, object]] = []
-    total_recall = 0.0
+    cutoffs = sorted(
+        {args.k, *[int(value) for value in args.ks.split(",") if value]}
+    )
+    if any(cutoff < 1 for cutoff in cutoffs):
+        raise RuntimeError("all Recall@K cutoffs must be positive")
+    total_recall = {cutoff: 0.0 for cutoff in cutoffs}
+    latency_samples: list[float] = []
     leaked = 0
+    returned_documents = 0
     denied_ids = {
         memory_ids[document.document_id]
         for document in documents
         if document.tenant_id != "tenant-demo"
     }
     for query in queries:
+        started = time.perf_counter_ns()
         result = runtime_store.search(
             tenant_id=allowed_tenant,
             incident_id=allowed_incident,
             query=query.text,
             embedder=embedder,
-            limit=args.k,
+            limit=max(cutoffs),
             min_similarity=-1.0,
         )
+        elapsed_ms = (time.perf_counter_ns() - started) / 1_000_000
+        latency_samples.append(elapsed_ms)
         returned = [hit.memory_id for hit in result.hits]
         relevant = {memory_ids[item] for item in query.relevant_document_ids}
-        recall = len(relevant.intersection(returned)) / len(relevant)
-        query_leaks = denied_ids.intersection(returned)
-        total_recall += recall
+        recalls = {
+            str(cutoff): len(relevant.intersection(returned[:cutoff])) / len(relevant)
+            for cutoff in cutoffs
+        }
+        query_leaks = denied_ids.intersection(returned[: args.k])
+        for cutoff in cutoffs:
+            total_recall[cutoff] += recalls[str(cutoff)]
         leaked += len(query_leaks)
+        returned_documents += len(returned[: args.k])
         query_reports.append(
             {
                 "query_id": query.query_id,
-                "recall_at_k": recall,
-                "returned_count": len(returned),
+                "variant": query.variant,
+                "recall_at_k": recalls[str(args.k)],
+                "recall_by_k": recalls,
+                "returned_count": len(returned[: args.k]),
                 "cross_scope_leak_count": len(query_leaks),
+                "latency_ms": round(elapsed_ms, 3),
             }
         )
 
@@ -229,10 +253,22 @@ def main() -> None:
         "model": embedder.model_id,
         "dimensions": embedder.dimensions,
         "k": args.k,
+        "recall_cutoffs": cutoffs,
         "query_count": len(queries),
-        "mean_recall_at_k": total_recall / len(queries),
+        "mean_recall_at_k": total_recall[args.k] / len(queries),
+        "mean_recall_by_k": {
+            str(cutoff): total_recall[cutoff] / len(queries)
+            for cutoff in cutoffs
+        },
         "cross_scope_leaked_documents": leaked,
-        "cross_scope_leakage_rate": 0.0 if leaked == 0 else leaked / len(queries),
+        "cross_scope_leakage_rate": (
+            0.0 if returned_documents == 0 else leaked / returned_documents
+        ),
+        "latency_ms": summarize_latency_ms(latency_samples),
+        "variant_counts": {
+            variant: sum(query.variant == variant for query in queries)
+            for variant in sorted({query.variant for query in queries})
+        },
         "queries": query_reports,
     }
     assert_competition_gate(report, minimum_recall=args.minimum_recall)
