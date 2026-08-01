@@ -43,7 +43,7 @@ def _ensure_denied_incident(connect: object) -> tuple[str, str]:
             SELECT tenant_id::STRING, incident_id::STRING
             FROM incidents
             WHERE service_name = 'continuum-eval-denied'
-            ORDER BY created_at
+            ORDER BY opened_at, incident_id
             LIMIT 1
             """
         ).fetchone()
