@@ -18,6 +18,7 @@ from continuum.evaluation import (
     summarize_latency_ms,
 )
 from continuum.migrate import Migrator
+from continuum.query_plan import collect_query_plan_evidence
 from continuum.retrieval import BedrockTitanEmbedder, MemoryRetrievalStore
 from continuum.scope_roles import verify_scope_role
 from continuum.store import (
@@ -287,6 +288,13 @@ def main() -> None:
         "forbidden_memory_visible": rls["forbidden_memory_visible"],
         "negative_checks": rls["denied"],
     }
+    report["query_plan"] = collect_query_plan_evidence(
+        psycopg_connection_factory(runtime_url),
+        tenant_id=allowed_tenant,
+        incident_id=allowed_incident,
+        embedding_model=embedder.model_id,
+        query_vector=embedder.embed(queries[0].text),
+    )
     if args.state_output is not None:
         args.state_output.parent.mkdir(parents=True, exist_ok=True)
         descriptor = os.open(
