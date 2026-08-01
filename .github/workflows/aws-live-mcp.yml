@@ -126,7 +126,7 @@ jobs:
             --stack-name continuum-authenticated-mcp \
             --query "Stacks[0].Outputs[?OutputKey=='InstanceId'].OutputValue | [0]" \
             --output text)"
-          command_text="set -euo pipefail
+          command_text="set -eu
           cd /opt/continuum
           state_file=/run/continuum-mcp/live-eval-state.json
           trap 'rm -f -- \"\$state_file\"' EXIT
