@@ -75,6 +75,18 @@ class McpHostInfrastructureTests(unittest.TestCase):
             script.index("unzip -oq"),
         )
 
+    def test_private_host_package_contains_live_security_gates(self):
+        script = (ROOT / "scripts" / "build_mcp_host_package.sh").read_text(
+            encoding="utf-8"
+        )
+        for path in (
+            "cutover_scope_identity.py",
+            "live_semantic_eval.py",
+            "remote_oidc_smoke.py",
+            "semantic-retrieval-v1.json",
+        ):
+            self.assertIn(path, script)
+
     def test_bootstrap_waits_for_the_restarted_service(self):
         script = (ROOT / "scripts" / "bootstrap_mcp_host.sh").read_text(
             encoding="utf-8"
