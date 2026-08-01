@@ -15,4 +15,3 @@ worker claims the action while the second returns duplicate, so authority has
 one durable owner.
 
 Similarity is not authority. Database presence is not provenance.
-

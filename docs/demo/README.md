@@ -34,4 +34,3 @@ python scripts/build_demo_video.py `
 ```
 
 The WAV is a disposable build input and is intentionally not committed.
-

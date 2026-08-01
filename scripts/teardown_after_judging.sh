@@ -66,4 +66,3 @@ fi
 
 printf 'authenticated_mcp_stack_deleted=true\n'
 printf 'elastic_ip_released=true\n'
-

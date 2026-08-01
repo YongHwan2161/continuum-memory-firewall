@@ -86,4 +86,3 @@ rotated=0
 printf 'managed_mcp_secret_rotated=true\n'
 printf 'managed_mcp_tools=list_databases,list_tables\n'
 printf 'managed_mcp_write_denied_pre_secret=true\n'
-
