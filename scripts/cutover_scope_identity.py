@@ -11,7 +11,7 @@ import boto3
 
 from continuum.migrate import Migrator
 from continuum.scope_roles import provision_scope_role, verify_scope_role
-from continuum.store import psycopg_connection_factory
+from continuum.store import pin_database_tls_root, psycopg_connection_factory
 
 
 def _secret_payload(client: object, secret_id: str) -> object:
@@ -50,6 +50,10 @@ def main() -> None:
     parser.add_argument("--runtime-secret-id", required=True)
     parser.add_argument("--migrator-secret-id", required=True)
     parser.add_argument("--region", default="ap-southeast-1")
+    parser.add_argument(
+        "--ca-cert",
+        default="/opt/continuum/cockroach-ca.crt",
+    )
     parser.add_argument("--forbidden-memory-id")
     args = parser.parse_args()
 
@@ -68,8 +72,9 @@ def main() -> None:
     if not isinstance(tenant_id, str) or not isinstance(incident_id, str):
         raise RuntimeError("caller scope is incomplete")
 
-    migrator_url = _database_url(
-        _secret_payload(secrets_client, args.migrator_secret_id)
+    migrator_url = pin_database_tls_root(
+        _database_url(_secret_payload(secrets_client, args.migrator_secret_id)),
+        args.ca_cert,
     )
     migration = Migrator(psycopg_connection_factory(migrator_url)).migrate()
     password = secrets.token_urlsafe(48)
@@ -80,7 +85,10 @@ def main() -> None:
         password=password,
     )
     runtime_url = _replace_login(
-        _database_url(runtime_payload),
+        pin_database_tls_root(
+            _database_url(runtime_payload),
+            args.ca_cert,
+        ),
         user=provisioned["scope_role"],
         password=password,
     )

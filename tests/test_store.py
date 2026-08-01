@@ -4,10 +4,25 @@ import unittest
 from continuum.store import (
     CockroachMemoryStore,
     TransactionRetryExhaustedError,
+    pin_database_tls_root,
 )
 
 
 NOW = datetime(2026, 7, 25, tzinfo=timezone.utc)
+
+
+class DatabaseTlsTests(unittest.TestCase):
+    def test_private_ca_replaces_untrusted_query_values(self):
+        result = pin_database_tls_root(
+            "postgresql://user:secret@db.example:26257/app"
+            "?sslmode=require&sslrootcert=%2Fwrong%2Fca.crt&application_name=demo",
+            "/opt/continuum/cockroach-ca.crt",
+        )
+
+        self.assertIn("sslmode=verify-full", result)
+        self.assertIn("sslrootcert=%2Fopt%2Fcontinuum%2Fcockroach-ca.crt", result)
+        self.assertIn("application_name=demo", result)
+        self.assertNotIn("wrong", result)
 
 
 class RetryableError(Exception):

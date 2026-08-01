@@ -15,7 +15,11 @@ from continuum.evaluation import assert_competition_gate, load_dataset
 from continuum.migrate import Migrator
 from continuum.retrieval import BedrockTitanEmbedder, MemoryRetrievalStore
 from continuum.scope_roles import verify_scope_role
-from continuum.store import CockroachMemoryStore, psycopg_connection_factory
+from continuum.store import (
+    CockroachMemoryStore,
+    pin_database_tls_root,
+    psycopg_connection_factory,
+)
 
 
 INITIAL_HEAD = "0" * 64
@@ -138,6 +142,10 @@ def main() -> None:
     parser.add_argument("--k", type=int, default=3)
     parser.add_argument("--minimum-recall", type=float, default=0.75)
     parser.add_argument(
+        "--ca-cert",
+        default="/opt/continuum/cockroach-ca.crt",
+    )
+    parser.add_argument(
         "--state-output",
         type=Path,
         help=(
@@ -150,6 +158,8 @@ def main() -> None:
     secret_client = boto3.client("secretsmanager", region_name=args.region)
     migrator_url, _ = _database_url(secret_client, args.migrator_secret_id)
     runtime_url, runtime_payload = _database_url(secret_client, args.runtime_secret_id)
+    migrator_url = pin_database_tls_root(migrator_url, args.ca_cert)
+    runtime_url = pin_database_tls_root(runtime_url, args.ca_cert)
     if runtime_payload is None:
         raise RuntimeError("runtime secret must be a JSON object")
     caller_scopes = runtime_payload.get("caller_scopes")
