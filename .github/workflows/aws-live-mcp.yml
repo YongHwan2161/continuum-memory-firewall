@@ -72,7 +72,10 @@ jobs:
           AWS_REGION: ap-southeast-1
           CONTINUUM_CA_CERT_PATH: /tmp/cockroach-ca.crt
           CONTINUUM_MCP_STACK_NAME: continuum-authenticated-mcp
-        run: ./scripts/deploy_mcp_host.sh
+        run: |
+          test -x ./scripts/deploy_mcp_host.sh
+          test -x ./scripts/build_mcp_host_package.sh
+          ./scripts/deploy_mcp_host.sh
       - name: Grant one-command migration capability
         shell: bash
         run: |
