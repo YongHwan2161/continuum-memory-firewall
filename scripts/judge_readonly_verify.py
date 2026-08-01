@@ -84,8 +84,23 @@ def verify_evidence(
         ),
         "public_demo_marker_present": public_demo["marker"] in demo_html,
         "cross_scope_fetch_denied": runtime["cross_scope_fetch_denied"] is True,
+        "tenant_control_plane_active": (
+            runtime["tenant_control_plane_active"] is True
+            and runtime["control_plane_memory_denied"] is True
+            and health.get("authorization_mode") == "audited-tenant-control-plane"
+        ),
+        "bounded_database_pools": (
+            runtime["database_connections"] == "bounded-pools-1-4"
+            and health.get("database_connections") == "bounded-pools-1-4"
+        ),
+        "scoped_vector_index_contract": (
+            evaluation["query_plan"]["index_present"] is True
+            and evaluation["query_plan"]["index_visible"] is True
+            and evaluation["query_plan"]["prefix_columns_match"] is True
+        ),
         "migration_capability_absent": (
             runtime["temporary_migration_capability_absent"] is True
+            and runtime["control_plane_and_migrator_role_options_empty"] is True
         ),
     }
     return {

@@ -15,11 +15,20 @@ class JudgeVerificationTests(unittest.TestCase):
                 "query_count": 60,
                 "recall": {"3": 0.98},
                 "cross_scope_leaked_documents": 0,
+                "query_plan": {
+                    "index_present": True,
+                    "index_visible": True,
+                    "prefix_columns_match": True,
+                },
             },
             "runtime": {
                 "health_url": "https://mcp.example.test/healthz",
                 "cross_scope_fetch_denied": True,
                 "temporary_migration_capability_absent": True,
+                "control_plane_and_migrator_role_options_empty": True,
+                "tenant_control_plane_active": True,
+                "control_plane_memory_denied": True,
+                "database_connections": "bounded-pools-1-4",
             },
             "submission": {"status": "Submitted"},
             "public_demo": {
@@ -34,7 +43,12 @@ class JudgeVerificationTests(unittest.TestCase):
             fetch_json=lambda url: (
                 {"conclusion": "success", "head_sha": "abc"}
                 if "run" in url
-                else {"ok": True, "service": "continuum-memory-firewall"}
+                else {
+                    "ok": True,
+                    "service": "continuum-memory-firewall",
+                    "authorization_mode": "audited-tenant-control-plane",
+                    "database_connections": "bounded-pools-1-4",
+                }
             ),
             fetch_text=lambda _url: "Continuum Memory Firewall",
         )
@@ -47,7 +61,12 @@ class JudgeVerificationTests(unittest.TestCase):
             fetch_json=lambda url: (
                 {"conclusion": "success", "head_sha": "different"}
                 if "run" in url
-                else {"ok": True, "service": "continuum-memory-firewall"}
+                else {
+                    "ok": True,
+                    "service": "continuum-memory-firewall",
+                    "authorization_mode": "audited-tenant-control-plane",
+                    "database_connections": "bounded-pools-1-4",
+                }
             ),
             fetch_text=lambda _url: "Continuum Memory Firewall",
         )
