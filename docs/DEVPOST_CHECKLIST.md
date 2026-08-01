@@ -38,21 +38,31 @@ complete attestations and organizer agreements.
 - [x] Read-only standard MCP `search`/`fetch` contract and protocol tests included
 - [x] Participant-owned CockroachDB Basic cluster provisioned on AWS Singapore
       with the free-resource monthly limits and a restricted temporary SQL network
+- [x] Live cluster state rechecked on 2026-08-01: all eight migrations applied,
+      synthetic vector smoke passed, generated rows cleaned up, and the SQL IP
+      allowlist reduced to zero entries
 - [ ] Functional cloud-backed application demo URL
-- [ ] Live CockroachDB Cloud promotion and vector retrieval evidence
+- [x] Live CockroachDB Cloud promotion and vector retrieval evidence; see
+      [2026-08-01-live-sql-vector-smoke.md](evidence/2026-08-01-live-sql-vector-smoke.md)
 - [ ] Authenticated public repository MCP endpoint and reproducible remote smoke test
-- [ ] CockroachDB Cloud Managed MCP evidence
-- [ ] Second qualifying CockroachDB tool evidenced
-- [ ] At least one AWS service deployed and evidenced
-- [x] Cost-bounded AWS Lambda/Secrets Manager/Budgets/Logs deployment package
-      and negative-boundary tests implemented locally
+- [x] CockroachDB Cloud Managed MCP evidenced on 2026-07-31 through the private
+      AWS worker: `list_databases` returned the `continuum` database
+- [x] Second CockroachDB Managed MCP read tool evidenced: `list_tables` returned
+      the live cluster's historical pre-migration empty application schema
+- [x] AWS services deployed and evidenced: private Lambda, one scoped Secrets
+      Manager secret, encrypted private S3 package, CloudWatch Logs,
+      CloudFormation, and AWS Budgets
+- [x] Cost-bounded AWS deployment and negative boundary evidenced:
+      `insert_rows` was rejected before secret resolution; see
+      [2026-07-31-cloud-live-smoke.md](evidence/2026-07-31-cloud-live-smoke.md)
 - [ ] External action delivery/reconciliation evidence, if included in the final claim
 
 ## Submission materials
 
 - [x] Devpost project page published with the current implementation boundary
 - [ ] Project submitted to the CockroachDB x AWS hackathon
-- [ ] Architecture diagram distinguishing implemented and planned components
+- [x] Architecture diagram distinguishes locally implemented, live deployed,
+      and planned application components
 - [ ] Two-to-three minute demo video
 - [ ] Screenshots or GIFs for promotion, rejection, replay, and retrieval
 - [ ] Problem, approach, architecture, and technical challenge narrative
@@ -62,8 +72,9 @@ complete attestations and organizer agreements.
 
 ## Final integrity review
 
-- [ ] `PROJECT_STATUS.md` matches the final deployed state
-- [ ] No secret, token, connection string, or personal credential is committed
-- [ ] No planned component is described as implemented
+- [x] `PROJECT_STATUS.md` matches the 2026-08-01 deployed and SQL-smoked state
+- [x] No secret, token, connection string, or personal credential is committed
+      in the deployment evidence commit
+- [x] No planned application component is described as implemented
 - [ ] Pricing, credit, and organizer-support claims are rechecked against current official sources
 - [ ] Participant performs final submission and retains confirmation evidence

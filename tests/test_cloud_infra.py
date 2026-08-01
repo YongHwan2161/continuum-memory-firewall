@@ -31,7 +31,22 @@ class CloudInfrastructureTests(unittest.TestCase):
     def test_worker_is_bounded(self) -> None:
         worker = self.resources["ManagedMcpWorker"]
         properties = worker["Properties"]
-        self.assertEqual(properties["ReservedConcurrentExecutions"], 1)
+        concurrency = self.template["Parameters"][
+            "ReservedConcurrentExecutions"
+        ]
+        self.assertEqual(concurrency["Default"], 0)
+        self.assertEqual(concurrency["MinValue"], 0)
+        self.assertEqual(concurrency["MaxValue"], 1)
+        self.assertEqual(
+            properties["ReservedConcurrentExecutions"],
+            {
+                "Fn::If": [
+                    "UseReservedConcurrency",
+                    {"Ref": "ReservedConcurrentExecutions"},
+                    {"Ref": "AWS::NoValue"},
+                ]
+            },
+        )
         self.assertEqual(properties["Timeout"], 30)
         self.assertEqual(properties["MemorySize"], 256)
         self.assertEqual(

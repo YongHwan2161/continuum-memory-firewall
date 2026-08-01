@@ -1,11 +1,15 @@
 # Project status
 
-**Status date:** 2026-07-29
-**Current milestone:** P2B — managed-cloud deployment readiness
-**Overall state:** the local promotion-to-retrieval vertical slice, repository
-MCP contract, and cost-bounded AWS-to-CockroachDB Managed MCP deployment package
-are implemented and locally verified. Participant-owned cloud accounts,
-credentials, live provisioning, and final submission evidence remain.
+**Status date:** 2026-08-01
+**Current milestone:** P2B — live managed-cloud and SQL data-plane evidence; public application pending
+**Overall state:** the local promotion-to-retrieval vertical slice and repository
+MCP contract are implemented and tested. A private, cost-bounded AWS Lambda
+worker is deployed and has completed two live read-only CockroachDB Cloud
+Managed MCP calls while rejecting a write tool before credential access. The
+participant cluster now has all eight versioned migrations, and its synthetic
+promotion, 512-dimensional vector retrieval, retrieval audit, fetch, and cleanup
+path passed live. A public authenticated application endpoint and final
+submission materials remain.
 
 This document is the single source of truth for current capability, verification
 evidence, and explicit non-claims.
@@ -22,23 +26,23 @@ evidence, and explicit non-claims.
 | CockroachDB schema migrations | Implemented and integration-tested | Eight packaged single-statement migrations apply `VECTOR(512)` and vector-index DDL; CI verifies initial apply and replay |
 | Migration integrity and recovery | Implemented and integration-tested | SHA-256 history rejects drift and gaps; durable pre-DDL intent resumes the DDL/history crash gap; a renewable lease excludes a second owner; `XXA00` fails closed |
 | Existing-schema adoption | Implemented and fail-closed | Unmanaged tables are refused by default; explicit adoption validates required columns, indexes, and composite scope foreign keys |
-| Synthetic live-DB smoke | Implemented and integration-tested on disposable CockroachDB | The production smoke path migrates, promotes, embeds, retrieves, audits, fetches, and deletes only its generated rows |
+| Synthetic live-DB smoke | Live-smoked on participant CockroachDB Cloud | The production smoke path applied eight migrations, promoted, embedded, retrieved, audited, fetched, and deleted only its generated rows on 2026-08-01 |
 | Tenant and incident integrity | Implemented | Composite foreign keys and query predicates bind candidates, canonical memory, actions, and retrieval audit to the same scope |
-| Vector write and retrieval | Implemented for disposable DB | Deterministic 512-dimensional test/demo embeddings are persisted; CockroachDB cosine search is prefix-scoped by tenant and incident |
+| Vector write and retrieval | Implemented and participant-cluster live-smoked | Deterministic 512-dimensional test/demo embeddings were persisted and retrieved with mandatory tenant and incident prefixes |
 | Retrieval audit | Implemented | Search transaction records model, query digest, policy digest, evaluated IDs, and accepted IDs |
 | Standard MCP boundary | Implemented and protocol-tested | Official Python MCP SDK exposes only read-only `search` and `fetch`; in-memory client tests validate schemas and structured responses |
 | Secure configuration guard | Implemented | Public citation base URL must be HTTPS; remote database URLs must use `sslmode=verify-full`; tenant and incident scope are server configuration, not tool input |
 | Cloud deployment runbook | Implemented | One SSOT procedure separates automated checks from participant-owned account, credit, MFA, key-copy, evidence, and teardown steps |
-| CockroachDB Basic provisioning | Provisioned through the Cloud Console; CLI guard not executed | Participant console verification on 2026-07-29 shows Basic on AWS Singapore, a 50M RU and 10 GiB monthly limit, optional payment method, and zero due at creation |
-| AWS Managed MCP worker | Implemented locally, not deployed | Lambda client pins the official HTTPS endpoint, caps input/output, retrieves one Secrets Manager ARN, and rejects Managed MCP write tools before credential access |
-| AWS infrastructure and package | Implemented and locally verified, not deployed | CloudFormation defines budget alerts, minimum IAM, concurrency 1, 30-second timeout, seven-day logs, and no public endpoint/VPC/NAT; the Python 3.12 manylinux zip builds and passes integrity checks |
+| CockroachDB Basic provisioning | Provisioned through the Cloud Console; CLI guard not executed | Participant console verification on 2026-07-30 shows the cluster available on Basic in AWS Singapore, with usage below the displayed 50M RU and 10 GiB monthly limits |
+| AWS Managed MCP worker | Deployed and live-smoked | Private direct-invoke Lambda returned `ok: true` for `list_databases` and `list_tables`; `insert_rows` returned `INVALID_REQUEST` before secret access |
+| AWS infrastructure and package | Deployed and verified | Separate Budget and worker stacks are `CREATE_COMPLETE`; the worker has minimum secret/log IAM, 256 MiB memory, 30-second timeout, seven-day logs, no public endpoint/VPC/NAT, and an account-compatible optional concurrency reservation |
 | Reviewer experience | Deployed public simulation | GitHub Pages opens without login and Browser verification exercised policy rejection plus one-owner failover; it remains explicitly separate from live cloud evidence |
-| Live CockroachDB Cloud | Provisioned; application schema and smoke pending | The participant-owned `continuum-ai` cluster is available and the `continuum` database exists; the default `0.0.0.0/0` SQL rule was removed and replaced by one temporary workstation rule |
+| Live CockroachDB Cloud | Migrated and vector-smoked | Eight migrations reached current version 8 without adoption; the promotion/retrieval/audit/fetch path passed, synthetic rows were removed, and the IP allowlist was reduced to zero entries on 2026-08-01 |
 | Public MCP endpoint | Not deployed | The server contract exists, but no authenticated, stable HTTPS MCP deployment has been verified |
-| CockroachDB Managed MCP | Client boundary only; no live evidence | The AWS worker is prepared for the managed service, but no participant API key or successful cloud response has been used |
-| AWS service use | Deployment-ready only; no live evidence | Lambda/Secrets Manager/Budgets/Logs/S3 definitions and package exist, but no AWS stack has been created |
+| CockroachDB Managed MCP | Live read-only evidence complete | A cluster-scoped `Cluster Operator` service account initialized the managed server, advertised 12 tools, listed the `continuum` database, and returned zero tables in the historical pre-migration snapshot through the deployed Lambda |
+| AWS service use | Live deployment evidenced | Lambda, Secrets Manager, S3, CloudWatch Logs, CloudFormation, and AWS Budgets are active in Singapore; the private package object is encrypted and expires after seven days, and the USD 5 monthly budget has forecast-at-80% and actual-at-100% email alerts |
 | Exactly-once external effect | Not guaranteed | The database claim is idempotent; an external provider call and acknowledgement are not yet coordinated |
-| Production security and resilience | Not implemented | No workload identity, secret rotation, tenant RLS, multi-region test, or worker-crash reconciliation evidence |
+| Production security and resilience | Partial | Lambda uses a generated minimum-IAM workload role and one-secret scope, but API-key rotation, a least-privilege application/migrator SQL identity, RLS, multi-region testing, and worker-crash reconciliation are not complete |
 
 ## Evidence
 
@@ -67,6 +71,12 @@ evidence, and explicit non-claims.
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30464165943>
 - Published Devpost project page (not submitted to the hackathon):
   <https://devpost.com/software/continuum-memory-firewall>
+- Redacted live AWS and CockroachDB evidence:
+  [2026-07-31-cloud-live-smoke.md](evidence/2026-07-31-cloud-live-smoke.md)
+- Redacted live SQL migration and vector evidence:
+  [2026-08-01-live-sql-vector-smoke.md](evidence/2026-08-01-live-sql-vector-smoke.md)
+- Current live-evidence Draft PR:
+  <https://github.com/YongHwan2161/continuum-memory-firewall/pull/11>
 
 `main` is the authoritative code. The linked workflows cover the reviewed P2B
 and migration implementation commits; the pull request records final-head
@@ -102,19 +112,20 @@ do not extend to an unimplemented external API call.
 
 ## Immediate participant focus
 
-The shortest path to competition evidence is now operational rather than a new
-feature:
+The AWS, Managed MCP, and participant-cluster SQL evidence gates are closed. The
+shortest remaining path to a competition submission is:
 
-1. **Migrate and verify the disposable database:** securely transfer the
-   generated SQL credential to the local operator environment, run the
-   versioned migrator and synthetic DB smoke, and retain only the reviewer
-   evidence row if needed.
-2. **Configure AWS identity and budget:** configure AWS SSO/MFA, verify the
-   intended billing account, and create the budget stack before any workload.
-3. **Create the Managed MCP identity and deploy AWS:** store its key directly in
-   AWS Secrets Manager, then run one successful
-   `list_databases` invocation and one denied `insert_rows` invocation. Retain
-   only redacted, non-secret evidence.
+1. **Expose the application boundary:** deploy the repository `search`/`fetch`
+   MCP service behind authenticated HTTPS with fixed tenant/incident scope, or
+   keep the submission claim explicitly limited to the private operational
+   evidence worker.
+2. **Harden SQL identities:** separate schema migration from runtime access,
+   grant only the required database privileges, and capture vector query-plan
+   evidence without reopening a broad network rule.
+3. **Package the judge flow:** record a two-to-three minute video showing one
+   accepted path, one rejected path, live Managed MCP evidence, and the explicit
+   local-versus-live boundary; then complete the participant attestations and
+   final Devpost submission.
 
 The exact commands and stop conditions are in
 [CLOUD_DEPLOYMENT_RUNBOOK.md](CLOUD_DEPLOYMENT_RUNBOOK.md).
@@ -123,17 +134,17 @@ The exact commands and stop conditions are in
 
 - Organizer eligibility attestations beyond the confirmed Devpost registration
   remain participant-owned.
-- The SQL credential was generated in the participant console but was not
-  copied into chat, logs, or the repository. A secure one-time transfer into the
-  local environment is required before the live migrator can run.
-- No authenticated AWS CLI identity is active, so the budget and workload
-  stacks have not been created.
-- The challenge requires at least two qualifying CockroachDB tools and one AWS
-  service. The repository proves Distributed Vector Indexing locally and
-  prepares `ccloud`, Managed MCP, and AWS paths, but live use evidence is still
-  required.
-- The Devpost submission still needs live cloud evidence, an architecture
-  diagram, a short public video, and the final narrative. See
+- The deployed long-lived service-account API key has no automatic rotation.
+  Rotate or delete it and tear down the worker resources after judging.
+- The live SQL smoke used the participant-created console identity. Separate
+  least-privilege migrator and runtime roles, then rotate the bootstrap
+  credential before any persistent application deployment.
+- The private Lambda proves AWS-to-Managed-MCP integration but is intentionally
+  not a functional public application URL. The repository MCP service is not
+  deployed behind authenticated HTTPS.
+- The Devpost submission still needs a short public video, screenshots, the
+  final narrative, participant attestations, and submission confirmation. See
   [DEVPOST_CHECKLIST.md](DEVPOST_CHECKLIST.md).
-- The versioned migration and real-engine smoke paths are implemented, but have
-  not yet been executed against the participant's CockroachDB Cloud cluster.
+- The AWS console session is live, but the local AWS CLI session was expired at
+  the last check. Refresh it before any further CLI-based deployment, rotation,
+  or teardown verification.

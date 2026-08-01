@@ -11,12 +11,16 @@ competition-eligible, managed-cloud demonstration.
 
 Implement:
 
-1. run the guarded CockroachDB Basic and AWS account procedure in
+1. **Completed 2026-07-31:** run the guarded CockroachDB Basic and AWS account procedure in
    [CLOUD_DEPLOYMENT_RUNBOOK.md](CLOUD_DEPLOYMENT_RUNBOOK.md), then capture one
-   successful and one denied Managed MCP Lambda invocation;
-2. run the implemented versioned migrator and synthetic smoke path against the
-   live database with a least-privilege application identity, then capture
-   vector query-plan evidence;
+   successful and one denied Managed MCP Lambda invocation; two successful read
+   tools and one pre-secret write denial are now recorded;
+2. **Live-data path completed 2026-08-01:** run the implemented versioned
+   migrator and synthetic smoke path against the participant database; all
+   eight migrations and the scoped vector flow passed, generated rows were
+   cleaned up, and the temporary network rule was removed. Remaining hardening:
+   separate least-privilege migrator/runtime identities and capture vector
+   query-plan evidence;
 3. deploy the repository MCP server behind authenticated stable HTTPS and add a
    reproducible remote smoke test;
 4. replace deterministic demo embeddings with a bounded semantic embedder and
@@ -40,9 +44,11 @@ Exit criteria:
 - the cloud resource has an explicit budget/usage guardrail and teardown plan.
 
 **Why this is first:** P2A already proves the application contract locally.
-The repository now contains the cost-bounded Managed MCP/AWS deployment path,
-so P2B's shortest remaining gate is live participant-owned evidence. That closes
-the competition's decisive proof gap before broader product features.
+The cost-bounded Managed MCP/AWS path now has participant-owned live evidence.
+P2B's shortest remaining gate is now an authenticated application surface,
+followed by least-privilege SQL-role and query-plan evidence. The participant
+cluster application data-plane proof is complete without retaining synthetic
+smoke rows.
 
 ## Priority 2 — P3 reliable external-action delivery
 
