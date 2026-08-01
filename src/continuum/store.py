@@ -16,7 +16,7 @@ from enum import StrEnum
 import json
 import time
 from typing import Any, Protocol, TypeVar
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 
 from continuum.memory import (
     ActionClass,
@@ -455,3 +455,9 @@ def pin_database_tls_root(database_url: str, ca_cert_path: str) -> str:
         (("sslmode", "verify-full"), ("sslrootcert", ca_cert_path))
     )
     return urlunsplit(parts._replace(query=urlencode(query)))
+
+
+def database_url_user(database_url: str) -> str:
+    """Return the decoded login name without exposing other URL material."""
+
+    return unquote(urlsplit(database_url).username or "")

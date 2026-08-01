@@ -59,9 +59,6 @@ def provision_scope_role(
             sql.SQL("CREATE USER IF NOT EXISTS {}").format(sql.Identifier(role_name))
         )
         connection.execute(
-            sql.SQL("REVOKE admin FROM {}").format(sql.Identifier(role_name))
-        )
-        connection.execute(
             sql.SQL("ALTER ROLE {} WITH NOBYPASSRLS").format(
                 sql.Identifier(role_name)
             )

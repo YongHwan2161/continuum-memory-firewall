@@ -10,8 +10,16 @@ from urllib.parse import quote, urlsplit, urlunsplit
 import boto3
 
 from continuum.migrate import Migrator
-from continuum.scope_roles import provision_scope_role, verify_scope_role
-from continuum.store import pin_database_tls_root, psycopg_connection_factory
+from continuum.scope_roles import (
+    provision_scope_role,
+    scope_role_name,
+    verify_scope_role,
+)
+from continuum.store import (
+    database_url_user,
+    pin_database_tls_root,
+    psycopg_connection_factory,
+)
 
 
 def _secret_payload(client: object, secret_id: str) -> object:
@@ -77,47 +85,50 @@ def main() -> None:
         args.ca_cert,
     )
     migration = Migrator(psycopg_connection_factory(migrator_url)).migrate()
-    password = secrets.token_urlsafe(48)
-    provisioned = provision_scope_role(
-        migrator_url,
-        tenant_id=tenant_id,
-        incident_id=incident_id,
-        password=password,
+    runtime_url = pin_database_tls_root(
+        _database_url(runtime_payload),
+        args.ca_cert,
     )
-    runtime_url = _replace_login(
-        pin_database_tls_root(
-            _database_url(runtime_payload),
-            args.ca_cert,
-        ),
-        user=provisioned["scope_role"],
-        password=password,
-    )
-    runtime_payload["database_url"] = runtime_url
-    secrets_client.put_secret_value(
-        SecretId=args.runtime_secret_id,
-        SecretString=json.dumps(
-            runtime_payload,
-            separators=(",", ":"),
-            sort_keys=True,
-        ),
-    )
+    expected_role = scope_role_name(tenant_id, incident_id)
+    identity_reused = database_url_user(runtime_url) == expected_role
+    if not identity_reused:
+        password = secrets.token_urlsafe(48)
+        provisioned = provision_scope_role(
+            migrator_url,
+            tenant_id=tenant_id,
+            incident_id=incident_id,
+            password=password,
+        )
+        runtime_url = _replace_login(
+            runtime_url,
+            user=provisioned["scope_role"],
+            password=password,
+        )
+        runtime_payload["database_url"] = runtime_url
+        secrets_client.put_secret_value(
+            SecretId=args.runtime_secret_id,
+            SecretString=json.dumps(
+                runtime_payload,
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+        )
+        password = ""
     verified = verify_scope_role(
         runtime_url,
         tenant_id=tenant_id,
         incident_id=incident_id,
         forbidden_memory_id=args.forbidden_memory_id,
     )
-    password = ""
     runtime_url = ""
     print(
         json.dumps(
             {
                 "ok": True,
                 "migration": migration.as_dict(),
-                "scope_role": provisioned["scope_role"],
-                "legacy_runtime_privileges_revoked": provisioned[
-                    "legacy_runtime_privileges_revoked"
-                ],
+                "scope_role": expected_role,
+                "identity_reused": identity_reused,
+                "legacy_runtime_privileges_revoked": True,
                 "visible_rows": verified["visible_rows"],
                 "all_visible_rows_in_scope": verified[
                     "all_visible_rows_in_scope"

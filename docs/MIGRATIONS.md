@@ -63,6 +63,12 @@ the idempotent statement identified by the durable intent, then records its
 checksum. A pre-existing product table without either migration history or an
 intent remains an explicit-adoption case.
 
+The caller-scoped SQL login is a separate one-time bootstrap boundary. Its
+creator temporarily needs only `CREATEROLE` and `CREATELOGIN`; those options
+must be removed immediately after the first successful cutover. Later deploys
+recognize the deterministic scope login in the runtime secret and verify its
+RLS negative tests without recreating the login or requiring either option.
+
 ## Existing unmanaged schema
 
 The migrator never silently marks pre-existing application tables as current.
