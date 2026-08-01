@@ -58,6 +58,7 @@ def main() -> None:
     parser.add_argument("--runtime-secret-id", required=True)
     parser.add_argument("--migrator-secret-id", required=True)
     parser.add_argument("--region", default="ap-southeast-1")
+    parser.add_argument("--bedrock-region", default="ap-northeast-2")
     parser.add_argument(
         "--ca-cert",
         default="/opt/continuum/cockroach-ca.crt",
@@ -91,6 +92,7 @@ def main() -> None:
     )
     expected_role = scope_role_name(tenant_id, incident_id)
     identity_reused = database_url_user(runtime_url) == expected_role
+    runtime_secret_updated = False
     if not identity_reused:
         password = secrets.token_urlsafe(48)
         provisioned = provision_scope_role(
@@ -105,6 +107,12 @@ def main() -> None:
             password=password,
         )
         runtime_payload["database_url"] = runtime_url
+        runtime_secret_updated = True
+        password = ""
+    if runtime_payload.get("bedrock_region") != args.bedrock_region:
+        runtime_payload["bedrock_region"] = args.bedrock_region
+        runtime_secret_updated = True
+    if runtime_secret_updated:
         secrets_client.put_secret_value(
             SecretId=args.runtime_secret_id,
             SecretString=json.dumps(
@@ -113,7 +121,6 @@ def main() -> None:
                 sort_keys=True,
             ),
         )
-        password = ""
     verified = verify_scope_role(
         runtime_url,
         tenant_id=tenant_id,
@@ -128,6 +135,8 @@ def main() -> None:
                 "migration": migration.as_dict(),
                 "scope_role": expected_role,
                 "identity_reused": identity_reused,
+                "bedrock_region": args.bedrock_region,
+                "runtime_secret_updated": runtime_secret_updated,
                 "legacy_runtime_privileges_revoked": True,
                 "visible_rows": verified["visible_rows"],
                 "all_visible_rows_in_scope": verified[

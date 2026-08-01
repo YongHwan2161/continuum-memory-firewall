@@ -21,7 +21,7 @@ class RuntimeSecretLoaderTests(unittest.TestCase):
             ),
             "oidc_issuer": "https://issuer.example.test/pool",
             "oidc_required_scope": "continuum/memory.read",
-            "bedrock_region": "ap-southeast-1",
+            "bedrock_region": "ap-northeast-2",
             "public_base_url": "https://203-0-113-10.sslip.io/",
             "caller_scopes": {
                 "client-a": {

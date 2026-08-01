@@ -57,6 +57,11 @@ class McpHostInfrastructureTests(unittest.TestCase):
             "foundation-model/amazon.titan-embed-text-v2:0",
             statement["Resource"]["Fn::Sub"],
         )
+        self.assertIn("bedrock:${BedrockRegion}", statement["Resource"]["Fn::Sub"])
+        self.assertEqual(
+            self.template["Parameters"]["BedrockRegion"]["Default"],
+            "ap-northeast-2",
+        )
 
     def test_deployment_fails_closed_outside_assumed_role(self):
         script = (ROOT / "scripts" / "deploy_mcp_host.sh").read_text(

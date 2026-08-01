@@ -134,6 +134,7 @@ def main() -> None:
     parser.add_argument("--runtime-secret-id", required=True)
     parser.add_argument("--migrator-secret-id", required=True)
     parser.add_argument("--region", default="ap-southeast-1")
+    parser.add_argument("--bedrock-region", default="ap-northeast-2")
     parser.add_argument(
         "--dataset",
         type=Path,
@@ -173,7 +174,7 @@ def main() -> None:
 
     migrator_connect = psycopg_connection_factory(migrator_url)
     Migrator(migrator_connect).migrate()
-    embedder = BedrockTitanEmbedder(region=args.region)
+    embedder = BedrockTitanEmbedder(region=args.bedrock_region)
     documents, queries = load_dataset(args.dataset)
     denied_tenant, denied_incident = _ensure_denied_incident(migrator_connect)
     memory_ids: dict[str, str] = {}

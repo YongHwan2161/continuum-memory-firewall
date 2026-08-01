@@ -371,6 +371,7 @@ before Secrets Manager or Managed MCP is accessed.
 ```bash
 export AWS_PROFILE=continuum-hackathon
 export AWS_REGION=ap-southeast-1
+export CONTINUUM_BEDROCK_REGION=ap-northeast-2
 export CONTINUUM_RUNTIME_SECRET_ARN='arn:aws:secretsmanager:...'
 export CONTINUUM_DEPLOY_BUCKET='private-package-bucket'
 export CONTINUUM_CA_CERT_PATH="$APPDATA/postgresql/root.crt"
@@ -381,6 +382,11 @@ The deployer builds deterministic bytes, uploads one private object, binds its
 SHA-256 to CloudFormation, verifies the full hash on the host, updates through
 SSM, and waits for `/healthz`. The instance role can read only that object and
 the one runtime secret; it cannot read the migrator secret.
+
+The EC2 host and CockroachDB fixed egress remain in Singapore. Titan Text
+Embeddings V2 is not available there, so the workload uses its Seoul
+(`ap-northeast-2`) Bedrock endpoint. IAM remains restricted to that one Region
+and the single `amazon.titan-embed-text-v2:0` foundation-model ARN.
 
 5. Add the stack's `StaticIp` as one CockroachDB `/32`. Run remote checks for
    TLS, health `200`, missing/wrong auth `401`, exact `search`/`fetch` tool
