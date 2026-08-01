@@ -37,21 +37,25 @@ complete attestations and organizer agreements.
       live-database smoke path verified against disposable CockroachDB
 - [x] Read-only standard MCP `search`/`fetch` contract and protocol tests included
 - [x] Participant-owned CockroachDB Basic cluster provisioned on AWS Singapore
-      with the free-resource monthly limits and a restricted temporary SQL network
+      with the free-resource monthly limits and a fixed AWS egress `/32`
 - [x] Live cluster state rechecked on 2026-08-01: all eight migrations applied,
-      synthetic vector smoke passed, generated rows cleaned up, and the SQL IP
-      allowlist reduced to zero entries
-- [ ] Functional cloud-backed application demo URL
+      synthetic vector smoke passed, least-privilege SQL roles passed negative
+      tests, and the workstation SQL rule was removed
+- [x] Functional cloud-backed application demo URL:
+      <https://47-131-98-12.sslip.io/healthz> with authenticated MCP at
+      <https://47-131-98-12.sslip.io/mcp>
 - [x] Live CockroachDB Cloud promotion and vector retrieval evidence; see
       [2026-08-01-live-sql-vector-smoke.md](evidence/2026-08-01-live-sql-vector-smoke.md)
-- [ ] Authenticated public repository MCP endpoint and reproducible remote smoke test
+- [x] Authenticated public repository MCP endpoint and reproducible remote smoke
+      test; see
+      [2026-08-01-authenticated-remote-mcp-smoke.md](evidence/2026-08-01-authenticated-remote-mcp-smoke.md)
 - [x] CockroachDB Cloud Managed MCP evidenced on 2026-07-31 through the private
       AWS worker: `list_databases` returned the `continuum` database
 - [x] Second CockroachDB Managed MCP read tool evidenced: `list_tables` returned
       the live cluster's historical pre-migration empty application schema
-- [x] AWS services deployed and evidenced: private Lambda, one scoped Secrets
-      Manager secret, encrypted private S3 package, CloudWatch Logs,
-      CloudFormation, and AWS Budgets
+- [x] AWS services deployed and evidenced: private Lambda, authenticated EC2,
+      Elastic IP, SSM, scoped Secrets Manager secrets, encrypted private S3
+      package, CloudWatch Logs, CloudFormation, and AWS Budgets
 - [x] Cost-bounded AWS deployment and negative boundary evidenced:
       `insert_rows` was rejected before secret resolution; see
       [2026-07-31-cloud-live-smoke.md](evidence/2026-07-31-cloud-live-smoke.md)

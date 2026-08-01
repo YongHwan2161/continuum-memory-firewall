@@ -4,6 +4,12 @@ This is the redacted, non-secret evidence record for the participant-owned
 CockroachDB Basic cluster. It intentionally omits the cluster ID, host, SQL URL,
 SQL password, workstation IP, cookies, and provider request identifiers.
 
+This record captures the earlier cleanup smoke. It is superseded for current
+network and retained-demo state by
+[2026-08-01-authenticated-remote-mcp-smoke.md](2026-08-01-authenticated-remote-mcp-smoke.md):
+the later deployment retains two synthetic scopes and one AWS Elastic IP `/32`
+for the authenticated remote service.
+
 ## Credential and TLS handling
 
 - The participant regenerated the dedicated SQL user's password in the

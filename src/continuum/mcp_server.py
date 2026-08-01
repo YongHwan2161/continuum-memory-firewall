@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hmac
+import json
 import os
 from typing import Any, Protocol
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -52,6 +54,7 @@ class MCPSettings:
     database_url: str
     tenant_id: str
     incident_id: str
+    bearer_token: str
     public_base_url: str = DEFAULT_PUBLIC_BASE_URL
     host: str = "127.0.0.1"
     port: int = 8000
@@ -62,10 +65,17 @@ class MCPSettings:
             "database_url": os.environ.get("CONTINUUM_DATABASE_URL", ""),
             "tenant_id": os.environ.get("CONTINUUM_TENANT_ID", ""),
             "incident_id": os.environ.get("CONTINUUM_INCIDENT_ID", ""),
+            "bearer_token": os.environ.get("CONTINUUM_MCP_BEARER_TOKEN", ""),
         }
         missing = [name for name, value in required.items() if not value]
         if missing:
-            names = ", ".join(f"CONTINUUM_{name.upper()}" for name in missing)
+            environment_names = {
+                "database_url": "CONTINUUM_DATABASE_URL",
+                "tenant_id": "CONTINUUM_TENANT_ID",
+                "incident_id": "CONTINUUM_INCIDENT_ID",
+                "bearer_token": "CONTINUUM_MCP_BEARER_TOKEN",
+            }
+            names = ", ".join(environment_names[name] for name in missing)
             raise RuntimeError(f"missing required environment variables: {names}")
 
         public_base_url = os.environ.get(
@@ -87,6 +97,7 @@ class MCPSettings:
             database_url=required["database_url"],
             tenant_id=required["tenant_id"],
             incident_id=required["incident_id"],
+            bearer_token=required["bearer_token"],
             public_base_url=public_base_url,
             host=os.environ.get("CONTINUUM_MCP_HOST", "0.0.0.0"),
             port=port,
@@ -196,9 +207,14 @@ def create_mcp_server(
 
     try:
         from mcp.server.fastmcp import FastMCP
+        from mcp.server.transport_security import TransportSecuritySettings
         from mcp.types import ToolAnnotations
     except ImportError as exc:  # pragma: no cover - package boundary
         raise RuntimeError("install the MCP extra: pip install '.[mcp]'") from exc
+
+    public_url = urlsplit(website_url)
+    if public_url.scheme != "https" or not public_url.netloc:
+        raise RuntimeError("website_url must be an absolute HTTPS URL")
 
     server = FastMCP(
         "continuum-memory-firewall",
@@ -213,6 +229,11 @@ def create_mcp_server(
         port=port,
         stateless_http=True,
         json_response=True,
+        transport_security=TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=[public_url.netloc],
+            allowed_origins=[f"{public_url.scheme}://{public_url.netloc}"],
+        ),
     )
     read_only = ToolAnnotations(
         readOnlyHint=True,
@@ -265,8 +286,72 @@ def create_mcp_server(
     return server
 
 
-def build_server_from_env():
-    settings = MCPSettings.from_env()
+class BearerAuthMiddleware:
+    """Fail closed before an unauthenticated request reaches MCP."""
+
+    def __init__(self, app: Any, *, bearer_token: str) -> None:
+        if len(bearer_token) < 32:
+            raise RuntimeError("CONTINUUM_MCP_BEARER_TOKEN must be at least 32 characters")
+        self._app = app
+        self._bearer_token = bearer_token.encode("utf-8")
+
+    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+        if scope["type"] != "http" or scope.get("path") == "/healthz":
+            await self._app(scope, receive, send)
+            return
+
+        authorization = [
+            value
+            for name, value in scope.get("headers", [])
+            if name.lower() == b"authorization"
+        ]
+        valid = False
+        if len(authorization) == 1 and authorization[0].startswith(b"Bearer "):
+            supplied = authorization[0][len(b"Bearer ") :]
+            valid = hmac.compare_digest(supplied, self._bearer_token)
+        if not valid:
+            body = json.dumps(
+                {"error": "unauthorized"},
+                separators=(",", ":"),
+            ).encode("utf-8")
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 401,
+                    "headers": [
+                        (b"content-type", b"application/json"),
+                        (b"content-length", str(len(body)).encode("ascii")),
+                        (b"www-authenticate", b"Bearer"),
+                        (b"cache-control", b"no-store"),
+                    ],
+                }
+            )
+            await send({"type": "http.response.body", "body": body})
+            return
+
+        await self._app(scope, receive, send)
+
+
+async def _healthz(_request: Any):
+    from starlette.responses import JSONResponse
+
+    return JSONResponse(
+        {"ok": True, "service": "continuum-memory-firewall"},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+def create_authenticated_app(server: Any, *, bearer_token: str):
+    """Create the public ASGI boundary with health and bearer authentication."""
+
+    from starlette.routing import Route
+
+    app = server.streamable_http_app()
+    app.routes.append(Route("/healthz", _healthz, methods=["GET"]))
+    return BearerAuthMiddleware(app, bearer_token=bearer_token)
+
+
+def build_server_from_settings(settings: MCPSettings):
     store = MemoryRetrievalStore(
         psycopg_connection_factory(settings.database_url)
     )
@@ -284,8 +369,32 @@ def build_server_from_env():
     )
 
 
+def build_server_from_env():
+    return build_server_from_settings(MCPSettings.from_env())
+
+
+def build_authenticated_app_from_env():
+    settings = MCPSettings.from_env()
+    server = build_server_from_settings(settings)
+    return create_authenticated_app(server, bearer_token=settings.bearer_token)
+
+
 def main() -> None:
-    build_server_from_env().run(transport="streamable-http")
+    import uvicorn
+
+    settings = MCPSettings.from_env()
+    app = create_authenticated_app(
+        build_server_from_settings(settings),
+        bearer_token=settings.bearer_token,
+    )
+    uvicorn.run(
+        app,
+        host=settings.host,
+        port=settings.port,
+        access_log=True,
+        timeout_keep_alive=5,
+        limit_concurrency=16,
+    )
 
 
 if __name__ == "__main__":

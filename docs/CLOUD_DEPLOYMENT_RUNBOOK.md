@@ -14,12 +14,13 @@ copying a newly issued API key are participant-owned actions.
 | Item | Repository support | Still requires the participant |
 |---|---|---|
 | CockroachDB Basic plan | dry-by-default `ccloud` preflight and provisioning script | create/login to the account, confirm actual free/trial entitlement, approve cluster creation |
-| CockroachDB network | architecture does not require Lambda-to-SQL access | remove broad SQL networks and add only the operator's temporary IP |
+| CockroachDB network | Lambda does not use SQL; the repository MCP host has one fixed Elastic IP | use a temporary operator `/32` only for provisioning, add the host `/32`, then remove and negatively test the operator rule |
 | Managed MCP identity | Lambda reads one secret ARN and accepts read-only tools only | create the CockroachDB service account/API key and copy it once |
 | AWS identity | read-only preflight verifies STS, S3, Secrets Manager, Budgets, and CloudFormation | secure the AWS root user, configure MFA/SSO, and choose the deployment account |
 | AWS budget | a separate, first-deployed CloudFormation stack creates forecast-at-80% and actual-at-100% email alerts | supply the billing-owner email and understand that alerts do not stop spend |
 | AWS worker | tested Lambda package, minimum IAM, optional concurrency reservation, 30-second timeout, 7-day logs | create a private package bucket and secret, then approve deployment |
-| Public exposure | no Function URL or API Gateway is created | keep direct invocation restricted to authorized AWS principals |
+| Repository MCP host | deterministic private package, exact-object IAM, SHA-256 verification, SSM update, TLS, bearer middleware, and no SSH | create separate runtime/migrator secrets and retain the fixed Elastic IP only while judging |
+| Public exposure | the Lambda has no public URL; the repository MCP exposes TLS `/mcp` and unauthenticated `/healthz` | keep the Lambda private and distribute the MCP bearer only to authorized reviewers |
 | Live evidence | deterministic smoke-test commands are documented | run them against the participant's accounts and retain non-secret output |
 
 Merging these files never creates a resource by itself. The current
@@ -47,13 +48,21 @@ CloudFormation
         remain)
     +-> CloudWatch Logs retention = 7 days
     +-> no VPC, NAT Gateway, Function URL, or API Gateway
+
+remote MCP client
+    -> TLS + bearer
+    -> one EC2 t3.micro, no SSH, SSM managed
+    -> exact runtime secret + exact private S3 artifact IAM
+    -> least-privilege runtime SQL role
+    -> CockroachDB through one Elastic IP /32
 ```
 
 Lambda does not connect to the CockroachDB SQL port. A non-VPC Lambda has no
 stable outbound IP, while adding a VPC/NAT Gateway would violate the project's
 cost rules. Managed MCP over HTTPS avoids both the broad SQL allowlist and NAT
-cost. SQL access is needed only from a temporary operator workstation for
-versioned migrations and application verification.
+cost. The separately deployed repository MCP needs SQL and therefore owns one
+Elastic IP. Operator SQL access is temporary; the final allowlist contains only
+that Elastic IP `/32`.
 
 The Managed MCP service has write-capable tools. The worker rejects every tool
 outside the explicit set in `src/continuum/aws_mcp_worker.py` before it reads the
@@ -346,7 +355,41 @@ python -m json.tool /tmp/continuum-mcp-denied.json
 Expected response: `ok: false` with `INVALID_REQUEST`. This request is rejected
 before Secrets Manager or Managed MCP is accessed.
 
-## Phase 6 — evidence to retain
+## Phase 6 — deploy the authenticated repository MCP
+
+1. Apply the eight migrations with the temporary bootstrap identity.
+2. Generate separate random migrator and runtime passwords in one process and
+   run `continuum-provision-sql-roles`. Verify migration replay as the migrator;
+   verify that the runtime can read canonical memory and insert retrieval audit
+   but receives SQLSTATE `42501` for schema creation and canonical update.
+3. Store the runtime URL, fixed synthetic scope, public HTTPS base, and a random
+   bearer token in `continuum/cockroach/mcp-runtime`. Store the migrator URL in
+   a separate offline secret. Never put secret values in command arguments,
+   source, deployment logs, or repository files.
+4. Export only non-secret deployment references and run:
+
+```bash
+export AWS_PROFILE=continuum-hackathon
+export AWS_REGION=ap-southeast-1
+export CONTINUUM_RUNTIME_SECRET_ARN='arn:aws:secretsmanager:...'
+export CONTINUUM_DEPLOY_BUCKET='private-package-bucket'
+export CONTINUUM_CA_CERT_PATH="$APPDATA/postgresql/root.crt"
+./scripts/deploy_mcp_host.sh
+```
+
+The deployer builds deterministic bytes, uploads one private object, binds its
+SHA-256 to CloudFormation, verifies the full hash on the host, updates through
+SSM, and waits for `/healthz`. The instance role can read only that object and
+the one runtime secret; it cannot read the migrator secret.
+
+5. Add the stack's `StaticIp` as one CockroachDB `/32`. Run remote checks for
+   TLS, health `200`, missing/wrong auth `401`, exact `search`/`fetch` tool
+   listing, allowed search/fetch, denied-scope search exclusion, and denied
+   cross-scope fetch.
+6. Delete the operator `/32`, confirm the console shows only the Elastic IP,
+   prove a new operator connection fails, and rerun the remote smoke.
+
+## Phase 7 — evidence to retain
 
 Save only non-secret evidence:
 
@@ -368,13 +411,19 @@ Never capture the SQL URL, API key, secret value, AWS cookies, or access tokens.
 Update [PROJECT_STATUS.md](PROJECT_STATUS.md) only after this evidence exists.
 The redacted 2026-08-01 participant-cluster result is recorded in
 [2026-08-01-live-sql-vector-smoke.md](evidence/2026-08-01-live-sql-vector-smoke.md).
+The authenticated endpoint, SQL-role, fixed-egress, and remote negative-scope
+result is recorded in
+[2026-08-01-authenticated-remote-mcp-smoke.md](evidence/2026-08-01-authenticated-remote-mcp-smoke.md).
 
-## Phase 7 — teardown
+## Phase 8 — teardown
 
 Before teardown, export non-secret schema/query-plan evidence and confirm the
 judging window has ended.
 
 ```bash
+aws cloudformation delete-stack --stack-name continuum-authenticated-mcp
+aws cloudformation wait stack-delete-complete \
+  --stack-name continuum-authenticated-mcp
 aws cloudformation delete-stack --stack-name continuum-hackathon
 aws cloudformation wait stack-delete-complete \
   --stack-name continuum-hackathon
