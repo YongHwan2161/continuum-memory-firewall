@@ -247,11 +247,10 @@ def provision_control_plane_role(
                     sql.Identifier(CONTROL_PLANE_USER)
                 )
             )
-            connection.execute(
-                sql.SQL("REVOKE admin FROM {}").format(
-                    sql.Identifier(CONTROL_PLANE_USER)
-                )
-            )
+            # The bootstrap identity intentionally has CREATEROLE/CREATELOGIN,
+            # not ADMIN OPTION on the built-in admin role. A defensive REVOKE
+            # here would therefore widen the bootstrap requirement. A fresh
+            # login is negatively verified below before it can be published.
             connection.execute(
                 sql.SQL("ALTER ROLE {} WITH NOBYPASSRLS").format(
                     sql.Identifier(CONTROL_PLANE_USER)
@@ -294,6 +293,16 @@ def provision_control_plane_role(
                     "public.retrieval_audit FROM {}"
                 ).format(sql.Identifier(CONTROL_PLANE_ROLE))
             )
+        fresh_identity_verified = False
+        if password is not None:
+            control_plane_url = database_url_with_login(
+                migrator_database_url,
+                user=CONTROL_PLANE_USER,
+                password=password,
+            )
+            fresh_identity_verified = verify_control_plane_role(
+                control_plane_url
+            )["canonical_memory_denied"]
     finally:
         if revoke_bootstrap_user is not None:
             _revoke_bootstrap_role_options(connect, revoke_bootstrap_user)
@@ -301,6 +310,7 @@ def provision_control_plane_role(
         "ok": True,
         "database": database_name,
         "user": CONTROL_PLANE_USER,
+        "fresh_identity_verified": fresh_identity_verified,
         "bootstrap_options_revoked": revoke_bootstrap_user is not None,
     }
 

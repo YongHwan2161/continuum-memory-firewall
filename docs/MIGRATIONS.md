@@ -70,7 +70,10 @@ recognize the deterministic scope login in the runtime secret and verify its
 RLS negative tests without recreating the login or requiring either option.
 The control-plane bootstrap uses the same bounded rule: its creation path
 removes both options in a `finally` guard, so a failed grant or verification
-cannot leave the migrator as a standing role administrator.
+cannot leave the migrator as a standing role administrator. It never requires
+membership or `ADMIN OPTION` on CockroachDB's built-in `admin` role; the new
+login's inability to read canonical memory is proved before its URL is
+published to Secrets Manager.
 
 Migrations `0012` through `0015` add the tenant control plane as four separate
 online schema changes: the current caller binding, its scope index, the
