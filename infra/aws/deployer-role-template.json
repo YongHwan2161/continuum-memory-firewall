@@ -61,6 +61,19 @@
                   "Resource": "*"
                 },
                 {
+                  "Sid": "DenyBootstrapStackMutation",
+                  "Effect": "Deny",
+                  "Action": [
+                    "cloudformation:CreateChangeSet",
+                    "cloudformation:ExecuteChangeSet",
+                    "cloudformation:UpdateStack",
+                    "cloudformation:DeleteStack",
+                    "cloudformation:SetStackPolicy",
+                    "cloudformation:UpdateTerminationProtection"
+                  ],
+                  "Resource": {"Fn::Sub": "arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/continuum-deployer-bootstrap/*"}
+                },
+                {
                   "Sid": "ProjectArtifacts",
                   "Effect": "Allow",
                   "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket", "s3:GetBucketLocation"],
@@ -83,6 +96,12 @@
                     {"Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/continuum-*"},
                     {"Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:instance-profile/continuum-*"}
                   ]
+                },
+                {
+                  "Sid": "DenyDeployerSelfModification",
+                  "Effect": "Deny",
+                  "Action": "iam:*",
+                  "Resource": {"Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/continuum-hackathon-deployer"}
                 },
                 {
                   "Sid": "RuntimeOperations",

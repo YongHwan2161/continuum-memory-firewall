@@ -40,6 +40,12 @@ class IdentityInfrastructureTests(unittest.TestCase):
         role = resources["ContinuumDeployer"]["Properties"]
         self.assertEqual(role["MaxSessionDuration"], 3600)
         self.assertEqual(role["RoleName"], "continuum-hackathon-deployer")
+        statements = role["Policies"][0]["PolicyDocument"]["Statement"]
+        denies = {item["Sid"] for item in statements if item["Effect"] == "Deny"}
+        self.assertEqual(
+            denies,
+            {"DenyBootstrapStackMutation", "DenyDeployerSelfModification"},
+        )
 
     def test_deployer_trust_is_keyless_and_exact_ref_scoped(self):
         provider = self.deployer["Resources"]["GitHubOidcProvider"]

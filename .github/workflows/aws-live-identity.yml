@@ -34,7 +34,7 @@ jobs:
         run: |
           runtime_secret_arn="$(aws cloudformation describe-stacks \
             --region ap-southeast-1 \
-            --stack-name continuum-mcp-host \
+            --stack-name continuum-authenticated-mcp \
             --query "Stacks[0].Parameters[?ParameterKey=='RuntimeSecretArn'].ParameterValue | [0]" \
             --output text)"
           budget_name="$(aws cloudformation describe-stacks \
