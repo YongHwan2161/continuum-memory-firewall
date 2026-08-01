@@ -244,6 +244,9 @@ def main() -> None:
     )
     report["database_row_isolation"] = {
         "all_visible_rows_in_scope": rls["all_visible_rows_in_scope"],
+        "all_visible_incidents_in_scope": rls[
+            "all_visible_incidents_in_scope"
+        ],
         "forbidden_memory_visible": rls["forbidden_memory_visible"],
         "negative_checks": rls["denied"],
     }

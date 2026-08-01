@@ -409,6 +409,21 @@ class CockroachIntegrationTests(unittest.TestCase):
         self.assertEqual(
             set(report["denied"]), {"row_security_off", "canonical_update"}
         )
+        self.assertTrue(report["all_visible_incidents_in_scope"])
+        self.assertEqual(report["visible_incidents"], 1)
+
+        runtime_retrieval = MemoryRetrievalStore(
+            psycopg_connection_factory(runtime_url)
+        )
+        search = runtime_retrieval.search(
+            tenant_id=TENANT_ID,
+            incident_id=INCIDENT_ID,
+            query="checkout timeout",
+            embedder=self.embedder,
+            min_similarity=-1.0,
+        )
+        self.assertIn(allowed.memory_id, search.evaluated_memory_ids)
+        self.assertNotIn(forbidden.memory_id, search.evaluated_memory_ids)
 
     def test_stale_candidate_is_rejected_and_auditable(self):
         self._insert_candidate(STALE_CANDIDATE_ID, "f" * 64)
