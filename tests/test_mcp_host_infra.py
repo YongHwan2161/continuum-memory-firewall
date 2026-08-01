@@ -106,6 +106,14 @@ class McpHostInfrastructureTests(unittest.TestCase):
         self.assertIn("health_ready=0", script)
         self.assertIn('if [[ "$health_ready" -ne 1 ]]', script)
 
+    def test_live_state_survives_service_runtime_directory_restart(self):
+        workflow = (
+            ROOT / ".github" / "workflows" / "aws-live-mcp.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("state_file=/run/continuum-live-eval-state.json", workflow)
+        self.assertNotIn("/run/continuum-mcp/live-eval-state.json", workflow)
+        self.assertIn('if [ \\"\\$attempt\\" -eq 12 ]', workflow)
+
     def test_public_ingress_has_https_bootstrap_but_no_ssh(self):
         ingress = self.resources["McpSecurityGroup"]["Properties"][
             "SecurityGroupIngress"
