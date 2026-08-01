@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timedelta, timezone
 import json
+import os
 from pathlib import Path
 from uuid import uuid4
 
@@ -136,6 +137,14 @@ def main() -> None:
     )
     parser.add_argument("--k", type=int, default=3)
     parser.add_argument("--minimum-recall", type=float, default=0.75)
+    parser.add_argument(
+        "--state-output",
+        type=Path,
+        help=(
+            "Write ephemeral cross-scope smoke state to a mode-0600 file. "
+            "The state is intentionally excluded from stdout evidence."
+        ),
+    )
     args = parser.parse_args()
 
     secret_client = boto3.client("secretsmanager", region_name=args.region)
@@ -227,6 +236,21 @@ def main() -> None:
         "forbidden_memory_visible": rls["forbidden_memory_visible"],
         "negative_checks": rls["denied"],
     }
+    if args.state_output is not None:
+        args.state_output.parent.mkdir(parents=True, exist_ok=True)
+        descriptor = os.open(
+            args.state_output,
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+            0o600,
+        )
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            json.dump(
+                {"forbidden_memory_id": next(iter(denied_ids))},
+                handle,
+                sort_keys=True,
+            )
+            handle.write("\n")
+        os.chmod(args.state_output, 0o600)
     print(json.dumps(report, sort_keys=True))
 
 
