@@ -34,3 +34,10 @@ semantic-model claim. On the committed suite it currently produces Recall@1
 0.65, Recall@3 0.8667, Recall@5 0.9333, zero returned leakage, and 48/60 global
 top-three collision opportunities. Live Titan and CockroachDB measurements must
 be recorded separately with their exact workflow head.
+
+The live report also records a read-only `EXPLAIN (REDACT)` digest and
+`SHOW INDEXES` metadata for the scoped vector query. It fails closed unless the
+visible `canonical_memories_embedding_idx` declares the tenant, incident, and
+embedding columns in that order. The raw plan is never emitted because even a
+redacted plan is unnecessary public surface; reviewers receive its SHA-256,
+line count, expected-index signal, and full-scan signal instead.

@@ -15,6 +15,7 @@ from continuum.migrate import (
     discover_migrations,
 )
 from continuum.memory import DecisionCode
+from continuum.query_plan import collect_query_plan_evidence
 from continuum.retrieval import (
     HASH_EMBEDDING_MODEL,
     HashingEmbedder,
@@ -296,6 +297,16 @@ class CockroachIntegrationTests(unittest.TestCase):
             [promoted.memory_id],
         )
         self.assertEqual(result.embedding_model, HASH_EMBEDDING_MODEL)
+        plan = collect_query_plan_evidence(
+            self.connect,
+            tenant_id=TENANT_ID,
+            incident_id=INCIDENT_ID,
+            embedding_model=self.embedder.model_id,
+            query_vector=self.embedder.embed("checkout error"),
+        )
+        self.assertTrue(plan["index_present"])
+        self.assertTrue(plan["prefix_columns_match"])
+        self.assertEqual(len(plan["redacted_plan_sha256"]), 64)
         with self.connect() as connection:
             audit = connection.execute(
                 """
