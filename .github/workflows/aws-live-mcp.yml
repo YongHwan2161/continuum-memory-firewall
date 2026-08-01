@@ -178,5 +178,12 @@ jobs:
             aws iam delete-role-policy \
               --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
               --policy-name ContinuumOneCommandMigration || true
+            if aws iam get-role-policy \
+              --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+              --policy-name ContinuumOneCommandMigration >/dev/null 2>&1; then
+              echo "temporary migration capability is still attached" >&2
+              exit 1
+            fi
+            echo "migration_capability_absent=true"
           fi
           rm -f -- /tmp/continuum-current.zip /tmp/cockroach-ca.crt

@@ -113,6 +113,8 @@ class McpHostInfrastructureTests(unittest.TestCase):
         self.assertIn("state_file=/run/continuum-live-eval-state.json", workflow)
         self.assertNotIn("/run/continuum-mcp/live-eval-state.json", workflow)
         self.assertIn('if [ \\"\\$attempt\\" -eq 12 ]', workflow)
+        self.assertIn("aws iam get-role-policy", workflow)
+        self.assertIn("migration_capability_absent=true", workflow)
 
     def test_public_ingress_has_https_bootstrap_but_no_ssh(self):
         ingress = self.resources["McpSecurityGroup"]["Properties"][
