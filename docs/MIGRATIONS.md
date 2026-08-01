@@ -69,6 +69,13 @@ must be removed immediately after the first successful cutover. Later deploys
 recognize the deterministic scope login in the runtime secret and verify its
 RLS negative tests without recreating the login or requiring either option.
 
+Migrations `0012` through `0015` add the tenant control plane as four separate
+online schema changes: the current caller binding, its scope index, the
+append-only audit history, and its caller/version index. A binding stores the
+deterministic scope SQL role as well as tenant and incident IDs. The runtime
+resolver accepts only an active, positive-version binding whose role can be
+recomputed from those IDs; a self-asserted tenant claim never selects a role.
+
 ## Existing unmanaged schema
 
 The migrator never silently marks pre-existing application tables as current.

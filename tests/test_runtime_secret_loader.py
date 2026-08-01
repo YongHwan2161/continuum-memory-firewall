@@ -63,6 +63,34 @@ class RuntimeSecretLoaderTests(unittest.TestCase):
         self.assertIn("CONTINUUM_CALLER_SCOPES_JSON", text)
         self.assertNotIn("AWS_", text)
 
+    def test_audited_control_plane_fields_are_rendered_together(self):
+        payload = self.payload()
+        payload["control_plane_database_url"] = (
+            "postgresql://continuum_control_plane@example.test:26257/continuum"
+            "?sslmode=verify-full"
+        )
+        payload["scope_database_urls"] = {
+            "continuum_scope_abc": (
+                "postgresql://continuum_scope_abc@example.test:26257/continuum"
+                "?sslmode=verify-full"
+            )
+        }
+        parsed = _parse_secret(json.dumps(payload))
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "runtime.env"
+            write_environment(path, parsed)
+            text = path.read_text(encoding="utf-8")
+        self.assertEqual(text.count("CONTINUUM_"), 8)
+        self.assertIn("CONTINUUM_CONTROL_PLANE_DATABASE_URL", text)
+        self.assertIn("CONTINUUM_SCOPE_DATABASE_URLS_JSON", text)
+
+        incomplete = self.payload()
+        incomplete["control_plane_database_url"] = payload[
+            "control_plane_database_url"
+        ]
+        with self.assertRaisesRegex(RuntimeError, "configured together"):
+            _parse_secret(json.dumps(incomplete))
+
 
 if __name__ == "__main__":
     unittest.main()

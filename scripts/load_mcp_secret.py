@@ -18,6 +18,8 @@ REQUIRED_STRING_FIELDS = (
     "public_base_url",
 )
 CALLER_SCOPES_FIELD = "caller_scopes"
+CONTROL_PLANE_DATABASE_URL_FIELD = "control_plane_database_url"
+SCOPE_DATABASE_URLS_FIELD = "scope_database_urls"
 
 
 def _quote_environment_value(value: str) -> str:
@@ -43,6 +45,29 @@ def _parse_secret(value: str) -> dict[str, object]:
     if not isinstance(caller_scopes, dict) or not caller_scopes:
         raise RuntimeError("runtime secret caller_scopes must be a non-empty object")
     parsed[CALLER_SCOPES_FIELD] = caller_scopes
+    control_plane_url = payload.get(CONTROL_PLANE_DATABASE_URL_FIELD)
+    scope_database_urls = payload.get(SCOPE_DATABASE_URLS_FIELD)
+    if (control_plane_url is None) != (scope_database_urls is None):
+        raise RuntimeError(
+            "runtime secret control-plane fields must be configured together"
+        )
+    if control_plane_url is not None:
+        if not isinstance(control_plane_url, str) or not control_plane_url:
+            raise RuntimeError("runtime secret control-plane URL must be a string")
+        if not isinstance(scope_database_urls, dict) or not scope_database_urls:
+            raise RuntimeError(
+                "runtime secret scope database URLs must be a non-empty object"
+            )
+        if not all(
+            isinstance(role, str)
+            and role
+            and isinstance(url, str)
+            and url
+            for role, url in scope_database_urls.items()
+        ):
+            raise RuntimeError("runtime secret scope database URL entries are invalid")
+        parsed[CONTROL_PLANE_DATABASE_URL_FIELD] = control_plane_url
+        parsed[SCOPE_DATABASE_URLS_FIELD] = scope_database_urls
     return parsed
 
 
@@ -54,6 +79,8 @@ def _render_environment(payload: Mapping[str, object]) -> str:
         "bedrock_region": "CONTINUUM_BEDROCK_REGION",
         "public_base_url": "CONTINUUM_PUBLIC_BASE_URL",
         "caller_scopes": "CONTINUUM_CALLER_SCOPES_JSON",
+        "control_plane_database_url": "CONTINUUM_CONTROL_PLANE_DATABASE_URL",
+        "scope_database_urls": "CONTINUUM_SCOPE_DATABASE_URLS_JSON",
     }
     values = {
         field: str(payload[field]) for field in REQUIRED_STRING_FIELDS
@@ -63,7 +90,19 @@ def _render_environment(payload: Mapping[str, object]) -> str:
         separators=(",", ":"),
         sort_keys=True,
     )
-    fields = (*REQUIRED_STRING_FIELDS, CALLER_SCOPES_FIELD)
+    fields = [*REQUIRED_STRING_FIELDS, CALLER_SCOPES_FIELD]
+    if CONTROL_PLANE_DATABASE_URL_FIELD in payload:
+        values[CONTROL_PLANE_DATABASE_URL_FIELD] = str(
+            payload[CONTROL_PLANE_DATABASE_URL_FIELD]
+        )
+        values[SCOPE_DATABASE_URLS_FIELD] = json.dumps(
+            payload[SCOPE_DATABASE_URLS_FIELD],
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        fields.extend(
+            (CONTROL_PLANE_DATABASE_URL_FIELD, SCOPE_DATABASE_URLS_FIELD)
+        )
     return "".join(
         f"{names[field]}={_quote_environment_value(values[field])}\n"
         for field in fields

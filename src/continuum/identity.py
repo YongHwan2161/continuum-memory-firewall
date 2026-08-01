@@ -25,10 +25,16 @@ class CallerIdentity:
     caller_id: str
     tenant_id: str
     incident_id: str
+    sql_role: str | None = None
+    binding_version: int = 0
 
 
 class TokenVerifier(Protocol):
     def verify(self, token: str) -> CallerIdentity: ...
+
+
+class ScopeResolver(Protocol):
+    def resolve(self, caller_id: str) -> CallerIdentity: ...
 
 
 _CURRENT_CALLER: ContextVar[CallerIdentity | None] = ContextVar(
@@ -108,7 +114,7 @@ class CognitoTokenVerifier:
         *,
         issuer: str,
         required_scope: str,
-        registry: ScopeRegistry,
+        registry: ScopeResolver,
         max_token_lifetime_seconds: int = 600,
         clock: Any = time.time,
     ) -> None:

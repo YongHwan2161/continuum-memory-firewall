@@ -21,6 +21,13 @@ from continuum.store import (
     pin_database_tls_root,
     psycopg_connection_factory,
 )
+from continuum.tenant_control import (
+    CONTROL_PLANE_USER,
+    DatabaseTenantControlPlane,
+    bind_caller_scope,
+    provision_control_plane_role,
+    verify_control_plane_role,
+)
 
 
 def _secret_payload(client: object, secret_id: str) -> object:
@@ -74,7 +81,9 @@ def main() -> None:
     caller_scopes = runtime_payload.get("caller_scopes")
     if not isinstance(caller_scopes, dict) or len(caller_scopes) != 1:
         raise RuntimeError("cutover requires exactly one registered demo caller")
-    scope = next(iter(caller_scopes.values()))
+    caller_id, scope = next(iter(caller_scopes.items()))
+    if not isinstance(caller_id, str) or not caller_id:
+        raise RuntimeError("caller id must be a non-empty string")
     if not isinstance(scope, dict):
         raise RuntimeError("caller scope must be an object")
     tenant_id = scope.get("tenant_id")
@@ -113,15 +122,47 @@ def main() -> None:
     if runtime_payload.get("bedrock_region") != args.bedrock_region:
         runtime_payload["bedrock_region"] = args.bedrock_region
         runtime_secret_updated = True
-    if runtime_secret_updated:
-        secrets_client.put_secret_value(
-            SecretId=args.runtime_secret_id,
-            SecretString=json.dumps(
-                runtime_payload,
-                separators=(",", ":"),
-                sort_keys=True,
-            ),
+    control_plane_url = runtime_payload.get("control_plane_database_url")
+    control_plane_reused = (
+        isinstance(control_plane_url, str)
+        and database_url_user(control_plane_url) == CONTROL_PLANE_USER
+    )
+    if control_plane_reused:
+        control_plane_url = pin_database_tls_root(control_plane_url, args.ca_cert)
+        provision_control_plane_role(migrator_url)
+    else:
+        control_plane_password = secrets.token_urlsafe(48)
+        provision_control_plane_role(
+            migrator_url,
+            password=control_plane_password,
         )
+        control_plane_url = _replace_login(
+            migrator_url,
+            user=CONTROL_PLANE_USER,
+            password=control_plane_password,
+        )
+        control_plane_password = ""
+        runtime_secret_updated = True
+    binding = bind_caller_scope(
+        migrator_url,
+        caller_id=caller_id,
+        tenant_id=tenant_id,
+        incident_id=incident_id,
+        actor="github-oidc-deployer",
+        reason="authenticated MCP tenant-control-plane cutover",
+    )
+    scope_database_urls = runtime_payload.get("scope_database_urls")
+    if not isinstance(scope_database_urls, dict):
+        scope_database_urls = {}
+    if scope_database_urls.get(expected_role) != runtime_url:
+        scope_database_urls[expected_role] = runtime_url
+        runtime_secret_updated = True
+    if runtime_payload.get("control_plane_database_url") != control_plane_url:
+        runtime_payload["control_plane_database_url"] = control_plane_url
+        runtime_secret_updated = True
+    if runtime_payload.get("scope_database_urls") != scope_database_urls:
+        runtime_payload["scope_database_urls"] = scope_database_urls
+        runtime_secret_updated = True
     configure_scope_read_policies(
         migrator_url,
         tenant_id=tenant_id,
@@ -133,7 +174,25 @@ def main() -> None:
         incident_id=incident_id,
         forbidden_memory_id=args.forbidden_memory_id,
     )
+    control_verified = verify_control_plane_role(control_plane_url)
+    resolved = DatabaseTenantControlPlane(
+        psycopg_connection_factory(control_plane_url)
+    ).resolve(caller_id)
+    if resolved.sql_role != expected_role or resolved.binding_version != binding[
+        "binding_version"
+    ]:
+        raise RuntimeError("audited tenant binding did not resolve to the scope role")
+    if runtime_secret_updated:
+        secrets_client.put_secret_value(
+            SecretId=args.runtime_secret_id,
+            SecretString=json.dumps(
+                runtime_payload,
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+        )
     runtime_url = ""
+    control_plane_url = ""
     print(
         json.dumps(
             {
@@ -143,6 +202,13 @@ def main() -> None:
                 "identity_reused": identity_reused,
                 "bedrock_region": args.bedrock_region,
                 "runtime_secret_updated": runtime_secret_updated,
+                "tenant_control_plane_active": True,
+                "control_plane_identity_reused": control_plane_reused,
+                "control_plane_memory_denied": control_verified[
+                    "canonical_memory_denied"
+                ],
+                "binding_version": binding["binding_version"],
+                "binding_event": binding["event_type"],
                 "legacy_runtime_privileges_revoked": True,
                 "visible_rows": verified["visible_rows"],
                 "visible_incidents": verified["visible_incidents"],

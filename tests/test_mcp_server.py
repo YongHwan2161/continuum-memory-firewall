@@ -149,6 +149,48 @@ class MCPSettingsTests(TestCase):
         self.assertEqual(settings.port, 9000)
         self.assertEqual(settings.host, "0.0.0.0")
 
+    def test_audited_control_plane_requires_matching_scope_login(self):
+        from continuum.mcp_server import MCPSettings
+
+        environment = {
+            "CONTINUUM_DATABASE_URL": (
+                "postgresql://legacy@127.0.0.1:26257/defaultdb?sslmode=disable"
+            ),
+            "CONTINUUM_CALLER_SCOPES_JSON": json.dumps(
+                {"client-a": {"tenant_id": "tenant-a", "incident_id": "incident-a"}}
+            ),
+            "CONTINUUM_OIDC_ISSUER": "https://issuer.example.test/pool",
+            "CONTINUUM_OIDC_REQUIRED_SCOPE": "continuum/memory.read",
+            "CONTINUUM_BEDROCK_REGION": "ap-northeast-2",
+            "CONTINUUM_CONTROL_PLANE_DATABASE_URL": (
+                "postgresql://continuum_control_plane@127.0.0.1:26257/defaultdb"
+                "?sslmode=disable"
+            ),
+            "CONTINUUM_SCOPE_DATABASE_URLS_JSON": json.dumps(
+                {
+                    "continuum_scope_abc": (
+                        "postgresql://continuum_scope_abc@127.0.0.1:26257/defaultdb"
+                        "?sslmode=disable"
+                    )
+                }
+            ),
+        }
+        with patch.dict(os.environ, environment, clear=True):
+            settings = MCPSettings.from_env()
+        self.assertTrue(settings.control_plane_database_url)
+
+        environment["CONTINUUM_SCOPE_DATABASE_URLS_JSON"] = json.dumps(
+            {
+                "continuum_scope_abc": (
+                    "postgresql://different@127.0.0.1:26257/defaultdb"
+                    "?sslmode=disable"
+                )
+            }
+        )
+        with patch.dict(os.environ, environment, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "login does not match"):
+                MCPSettings.from_env()
+
 
 @skipUnless(MCP_AVAILABLE, "install the MCP extra to run HTTP boundary tests")
 class BearerAuthTests(IsolatedAsyncioTestCase):
