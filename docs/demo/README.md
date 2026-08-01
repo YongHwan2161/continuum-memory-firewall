@@ -10,10 +10,13 @@ identifier, or private participant information.
 - `continuum-live-overview.png` — product thesis and exact-head live-proof badge.
 - `continuum-policy-rejection.png` — a high-similarity, untrusted model memory
   fails closed as `UNTRUSTED_SOURCE`.
+- `continuum-cockroach-live-memory.png` — redacted live SQL Shell aggregate
+  proving eight canonical memories, forty retrieval audits, and schema version
+  11 without row identifiers or participant identity.
 - `continuum-idempotent-failover.png` — one worker claims authority and the
   concurrent worker returns `DUPLICATE`.
-- `continuum-memory-firewall-demo.mp4` — 58-second, 1280×720 narrated demo
-  assembled from the three frames and live metrics.
+- `continuum-memory-firewall-demo.mp4` — sub-three-minute, 1280×720 narrated
+  demo assembled from the proof frames, live SQL result, and measured metrics.
 - `DEMO_NARRATION.md` — narration source.
 
 The browser console is an executable simulation of the policy and concurrency

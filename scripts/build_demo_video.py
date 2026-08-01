@@ -73,6 +73,22 @@ def result_card(path: Path) -> None:
     image.save(path)
 
 
+def live_memory_card(source: Path, path: Path) -> None:
+    image = Image.new("RGB", (WIDTH, HEIGHT), BACKGROUND)
+    draw = ImageDraw.Draw(image)
+    draw_grid(draw)
+    draw.text((56, 50), "LIVE COCKROACHDB SQL SHELL", fill=GREEN, font=font("arialbd.ttf", 20))
+    draw.text((56, 104), "The memory layer is durable and auditable.", fill=INK, font=font("georgia.ttf", 47))
+    draw.text((56, 174), "A redacted aggregate query reads the participant cluster without exposing row identifiers.", fill=MUTED, font=font("arial.ttf", 20))
+    with Image.open(source) as opened:
+        result = opened.convert("RGB")
+        result = result.resize((990, 380), Image.Resampling.LANCZOS)
+        image.paste(result, (145, 246))
+    draw.rectangle((145, 246, 1135, 626), outline=INK, width=2)
+    draw.text((176, 650), "canonical memories  8     retrieval audits  40     schema version  11", fill=INK, font=font("arialbd.ttf", 20))
+    image.save(path)
+
+
 def normalized_screenshot(source: Path, target: Path) -> None:
     with Image.open(source) as opened:
         image = opened.convert("RGB")
@@ -100,6 +116,7 @@ def main() -> None:
 
     required = [
         args.frames_dir / "continuum-live-overview.png",
+        args.frames_dir / "continuum-cockroach-live-memory.png",
         args.frames_dir / "continuum-policy-rejection.png",
         args.frames_dir / "continuum-idempotent-failover.png",
         args.narration_wav,
@@ -110,18 +127,19 @@ def main() -> None:
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     total = max(wav_duration(args.narration_wav) + 2.0, 42.0)
-    durations = [5.5, total * 0.25, total * 0.24, total * 0.25]
+    durations = [5.5, total * 0.18, total * 0.20, total * 0.19, total * 0.20]
     durations.append(total - sum(durations))
     ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
 
     with tempfile.TemporaryDirectory(prefix="continuum-demo-") as directory:
         temporary = Path(directory)
-        slides = [temporary / f"slide-{index}.png" for index in range(5)]
+        slides = [temporary / f"slide-{index}.png" for index in range(6)]
         title_card(slides[0])
         normalized_screenshot(required[0], slides[1])
-        normalized_screenshot(required[1], slides[2])
+        live_memory_card(required[1], slides[2])
         normalized_screenshot(required[2], slides[3])
-        result_card(slides[4])
+        normalized_screenshot(required[3], slides[4])
+        result_card(slides[5])
 
         manifest = temporary / "slides.txt"
         lines: list[str] = []

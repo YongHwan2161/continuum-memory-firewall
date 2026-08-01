@@ -123,7 +123,7 @@ the retained evidence files.
 
 ## Remaining acceptance gates
 
-- Publish the captured secret-free screenshots and 58-second video through a
+- Publish the captured secret-free screenshots and 72-second video through a
   Devpost-supported public host.
 - Complete participant-owned eligibility and organizer attestations and retain
   the Devpost submission receipt.

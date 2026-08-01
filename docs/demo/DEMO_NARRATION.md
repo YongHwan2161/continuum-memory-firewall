@@ -9,6 +9,10 @@ deterministic, row-level-security-confined database role, and embeds memory with
 Amazon Titan. Our four-query evaluation achieved perfect Recall at three, with
 zero cross-scope leakage.
 
+The live CockroachDB SQL shell reports eight canonical memories, forty
+retrieval audit records, and schema version eleven. This is the persistent
+memory layer at work, not a browser-only claim.
+
 The browser proof makes the boundary visible. High-similarity model output
 without trusted provenance is rejected and quarantined. During failover, one
 worker claims the action while the second returns duplicate, so authority has

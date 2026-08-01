@@ -80,7 +80,7 @@ complete attestations and organizer agreements.
 - [ ] Project submitted to the CockroachDB x AWS hackathon
 - [x] Architecture diagram distinguishes locally implemented, live deployed,
       and planned application components
-- [x] Secret-free 58-second narrated demo video generated at
+- [x] Secret-free 72-second narrated demo video generated at
       [docs/demo/continuum-memory-firewall-demo.mp4](demo/continuum-memory-firewall-demo.mp4)
 - [x] Secret-free screenshots captured for the live overview, policy rejection,
       and one-owner failover in [docs/demo/](demo/)
