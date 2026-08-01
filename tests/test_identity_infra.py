@@ -41,6 +41,20 @@ class IdentityInfrastructureTests(unittest.TestCase):
         self.assertEqual(role["MaxSessionDuration"], 3600)
         self.assertEqual(role["RoleName"], "continuum-hackathon-deployer")
 
+    def test_root_bridge_is_ephemeral_and_fail_closed(self):
+        wrapper = (ROOT / "scripts" / "with_ephemeral_deployer.sh").read_text(
+            encoding="utf-8"
+        )
+        runner = (ROOT / "scripts" / "run_as_deployer.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("trap cleanup EXIT INT TERM", wrapper)
+        self.assertIn("delete-access-key", wrapper)
+        self.assertIn("delete-user-policy", wrapper)
+        self.assertIn("delete-user", wrapper)
+        self.assertIn("AWS root cannot assume roles", runner)
+        self.assertIn("credentials=", runner)
+
 
 if __name__ == "__main__":
     unittest.main()
