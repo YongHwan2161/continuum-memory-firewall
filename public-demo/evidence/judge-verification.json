@@ -1,13 +1,15 @@
 {
   "schema_version": 3,
-  "generated_at": "2026-08-02T15:15:00+09:00",
+  "generated_at": "2026-08-02T15:35:13+09:00",
   "claim_boundary": "Read-only public verification of exact live Titan, CockroachDB RLS, natural 10k/50k ANN, OIDC MCP, key rotation, CI, and Devpost receipts.",
   "submission": {
     "id": 1121568,
     "status": "Submitted",
     "project_url": "https://devpost.com/software/continuum-memory-firewall",
-    "project_updated_at": "2026-08-01T13:05:38.850-04:00",
-    "video_url": "https://youtu.be/raad44nJj5I",
+    "project_updated_at": "2026-08-02T02:34:11.143-04:00",
+    "video_url": "https://youtu.be/H1hCZrC6ab8",
+    "video_duration_seconds": 99.7,
+    "video_sha256": "ae63e843d6da1b532c59e6b85ed6a1cbf15e94aa6983f7cb748b08c0b51863fb",
     "deadline_kst": "2026-08-19T06:00:00+09:00"
   },
   "source": {

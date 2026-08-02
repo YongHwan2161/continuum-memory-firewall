@@ -6,14 +6,14 @@
 MCP contract are implemented and tested. A private, cost-bounded AWS Lambda
 worker is deployed and has completed two live read-only CockroachDB Cloud
 Managed MCP calls while rejecting a write tool before credential access. The
-participant cluster is at migration version 15. A verified caller resolves
+participant cluster is at migration version 17. A verified caller resolves
 through an audited, versioned database binding to a matching NOBYPASSRLS SQL
 identity; database-native row policies enforce the same tenant and incident
 scope. The public `/mcp` endpoint accepts only five-minute Cognito
 client-credentials tokens and uses Bedrock Titan Text Embeddings v2. A
 60-query, six-variant live evaluation measured Recall@1/3/5 =
 0.8667/0.9833/1.0, zero cross-scope leakage, and p50/p95 =
-250.306/282.87 ms. Remote search/fetch and direct cross-scope denial passed.
+248.149/279.012 ms. Remote search/fetch and direct cross-scope denial passed.
 The Devpost entry is submitted to the CockroachDB x AWS hackathon as submission
 `1121568`. The submission remains editable while submissions are open; the
 current deadline is 2026-08-19 06:00 KST.
@@ -30,10 +30,10 @@ evidence, and explicit non-claims.
 | Idempotent replay | Implemented | Replaying the same source event returns the existing canonical record without duplication |
 | Serializable retry handling | Implemented | SQLSTATE `40001` is retried at the transaction boundary; unit tests exercise retry and exhaustion |
 | Concurrent action claim | Implemented | Two concurrent workers produce one `CLAIMED` result and one `DUPLICATE` result |
-| CockroachDB schema migrations | Implemented and integration-tested | Fifteen packaged single-statement migrations apply `VECTOR(512)`, vector-index DDL, RLS on three scope-bearing tables, and versioned/audited caller bindings; CI verifies initial apply and replay |
+| CockroachDB schema migrations | Implemented and integration-tested | Seventeen packaged single-statement migrations apply `VECTOR(512)`, the complete `(tenant_id, incident_id, embedding_model, embedding)` vector prefix, RLS on three scope-bearing tables, and versioned/audited caller bindings; CI verifies initial apply and replay |
 | Migration integrity and recovery | Implemented and integration-tested | SHA-256 history rejects drift and gaps; durable pre-DDL intent resumes the DDL/history crash gap; a renewable lease excludes a second owner; `XXA00` fails closed |
 | Existing-schema adoption | Implemented and fail-closed | Unmanaged tables are refused by default; explicit adoption validates required columns, indexes, and composite scope foreign keys |
-| Semantic live-DB evaluation | Live-smoked on participant CockroachDB Cloud | Titan v2 ran 60 adversarial and similar-meaning queries across six variant classes; Recall@1/3/5 = 0.8667/0.9833/1.0, zero forbidden-scope rows, p50 = 250.306 ms, p95 = 282.87 ms |
+| Semantic live-DB evaluation | Live-smoked on participant CockroachDB Cloud | Titan v2 ran 60 adversarial and similar-meaning queries across six variant classes; Recall@1/3/5 = 0.8667/0.9833/1.0, zero forbidden-scope rows, p50 = 248.149 ms, p95 = 279.012 ms |
 | Tenant and incident integrity | Implemented | Composite foreign keys and query predicates bind candidates, canonical memory, actions, and retrieval audit to the same scope |
 | Vector write and retrieval | Implemented and participant-cluster live-smoked | Deterministic local embeddings remain for tests; the live deployment uses `amazon.titan-embed-text-v2:0` with 512 dimensions and mandatory tenant/incident scope |
 | Retrieval audit | Implemented | Search transaction records model, query digest, policy digest, evaluated IDs, and accepted IDs |
@@ -45,7 +45,7 @@ evidence, and explicit non-claims.
 | AWS Managed MCP worker | Deployed and live-smoked | Private direct-invoke Lambda returned `ok: true` for `list_databases` and `list_tables`; `insert_rows` returned `INVALID_REQUEST` before secret access |
 | AWS infrastructure and package | Deployed and verified | Budget, private Lambda, and authenticated-MCP stacks are complete. The EC2 host has no SSH, requires IMDSv2, reads one runtime secret and one exact S3 object, verifies a deterministic artifact hash, and is managed through SSM |
 | Reviewer experience | Deployed public simulation and read-only verifier | GitHub Pages opens without login; `verify.html` checks the public exact-head workflow, 60-query metrics, MCP health, Devpost receipt, RLS, control plane, bounded pools, and vector-index contract using HTTP GET only |
-| Live CockroachDB Cloud | Migrated, semantically evaluated, RLS-confined, and egress-restricted | Migration version 15 is current; all visible rows in each protected table matched the caller scope; the allowlist contains only the AWS Elastic IP `/32` |
+| Live CockroachDB Cloud | Migrated, semantically evaluated, RLS-confined, and egress-restricted | Migration version 17 is current; all visible rows in each protected table matched the caller scope; the allowlist contains only the AWS Elastic IP `/32` |
 | Public MCP endpoint | Deployed and cross-scope-smoked | `https://47-131-98-12.sslip.io/mcp` has valid TLS, health `200`, missing auth `401`, five-minute OIDC, allowed search/fetch PASS, hidden forbidden memory, and cross-scope fetch denial |
 | CockroachDB Managed MCP | Live read-only evidence and guarded v3 rotation complete | Run `30709230016` replaced the AWS secret, waited beyond the five-minute cache bound, passed `list_databases` and `list_tables`, and retained pre-secret write denial; the v2 provider key and temporary GitHub secret were then deleted |
 | AWS service use | Live deployment evidenced | Lambda, EC2, Elastic IP, SSM, Secrets Manager, S3, CloudWatch Logs, CloudFormation, Cognito, Bedrock, IAM OIDC, and AWS Budgets are active; the USD 10 budget retains forecast-at-80% and actual-at-100% email alerts |
@@ -82,8 +82,9 @@ evidence, and explicit non-claims.
 - Submitted Devpost project page; submission `1121568` returned `Submitted` at
   2026-08-02 00:22 KST:
   <https://devpost.com/software/continuum-memory-firewall>
-- Public 72-second demonstration video embedded by Devpost:
-  <https://youtu.be/raad44nJj5I>
+- Public 99.7-second demonstration video embedded by Devpost:
+  <https://youtu.be/H1hCZrC6ab8> (SHA-256
+  `ae63e843d6da1b532c59e6b85ed6a1cbf15e94aa6983f7cb748b08c0b51863fb`)
 - Redacted live AWS and CockroachDB evidence:
   [2026-07-31-cloud-live-smoke.md](evidence/2026-07-31-cloud-live-smoke.md)
 - Redacted live SQL migration and vector evidence:

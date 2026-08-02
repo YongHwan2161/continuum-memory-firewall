@@ -171,7 +171,12 @@ def rotation_slide(path: Path) -> None:
             draw.line((x + 82, 300, x + 218, 300), fill=GREEN, width=3)
             draw.polygon(((x + 218, 300), (x + 204, 292), (x + 204, 308)), fill=GREEN)
     draw.rounded_rectangle((56, 486, 1224, 598), radius=8, fill=INK)
-    draw.text((82, 518), "list_databases ✓   list_tables ✓   insert_rows DENIED ✓", fill=MINT, font=font("consola.ttf", 22))
+    draw.text(
+        (82, 518),
+        "list_databases PASS   list_tables PASS   insert_rows DENIED",
+        fill=MINT,
+        font=font("consola.ttf", 22),
+    )
     draw.text((82, 558), "prior AWS value retained for automatic rollback", fill="white", font=font("arial.ttf", 18))
     image.save(path)
 
