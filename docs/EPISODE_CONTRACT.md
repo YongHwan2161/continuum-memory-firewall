@@ -30,6 +30,14 @@ the retrieval adapter. `propose_action` only writes a proposal; it cannot call a
 provider, enqueue delivery, approve destructive work, record success, or
 promote canonical memory.
 
+Tool availability is an explicit episode phase machine, not one broad
+allowlist. A memory arm receives only `search_memory` on its first turn. An
+empty search closes retrieval and exposes only `propose_action`; a non-empty
+search exposes `fetch_memory` and `propose_action`; after one fetch, only
+`propose_action` remains. Repeated search/fetch and any tool not exposed in the
+current phase fail closed. This prevents an unconstrained model choice from
+turning a cold start into an invalid fetch loop.
+
 ## Fail-closed limits
 
 - eight model turns and sixteen tool calls per run by default;
@@ -39,6 +47,9 @@ promote canonical memory.
 - stateless proposals cannot cite memory;
 - unknown tools, action types, parameters, scope fields, or pre-search fetches
   terminate the run as failed.
+
+Rejected runs carry a bounded stable failure code plus attempted model-turn and
+tool-call counts. Provider exception text is not copied into evaluation output.
 
 The external-effect and promotion boundary is specified separately in
 `TRANSACTION_MODEL.md`; a model response is never outcome evidence.

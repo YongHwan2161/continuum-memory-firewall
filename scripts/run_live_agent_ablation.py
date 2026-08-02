@@ -239,6 +239,9 @@ def main() -> None:
             result = None
             promoted_memory_id = None
             outcome_status = OutcomeStatus.FAILED
+            failure_code = None
+            failed_model_turns = 0
+            failed_tool_calls = 0
             try:
                 result = orchestrator.run(
                     tenant_id=evaluation_tenant,
@@ -297,8 +300,11 @@ def main() -> None:
                                 "type": "raw_rag_append_all_v1",
                             },
                         )
-            except OrchestrationError:
+            except OrchestrationError as exc:
                 outcome_status = OutcomeStatus.FAILED
+                failure_code = exc.code
+                failed_model_turns = exc.model_turns
+                failed_tool_calls = exc.tool_calls
             latency_ms = (time.perf_counter_ns() - started) / 1_000_000
             cited = () if result is None else tuple(
                 citation.memory_id for citation in result.citations
@@ -311,7 +317,9 @@ def main() -> None:
                     variant=case.variant,
                     outcome_status=outcome_status,
                     latency_ms=latency_ms,
-                    tool_calls=0 if result is None else result.tool_calls,
+                    tool_calls=(
+                        failed_tool_calls if result is None else result.tool_calls
+                    ),
                     cited_memory_ids=cited,
                     proposed_action_type=(
                         None
@@ -320,6 +328,10 @@ def main() -> None:
                     ),
                     promoted_memory_id=promoted_memory_id,
                     cross_scope_leak_count=int(forbidden_memory_id in cited),
+                    failure_code=failure_code,
+                    model_turns=(
+                        failed_model_turns if result is None else result.model_turns
+                    ),
                 )
             )
 
@@ -349,6 +361,8 @@ def main() -> None:
                     "proposed_action_type": row.proposed_action_type,
                     "promoted": row.promoted_memory_id is not None,
                     "cross_scope_leak_count": row.cross_scope_leak_count,
+                    "failure_code": row.failure_code,
+                    "model_turns": row.model_turns,
                 }
                 for row in observations
             ],

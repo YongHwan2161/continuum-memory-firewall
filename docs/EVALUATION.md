@@ -59,15 +59,20 @@ All memory-enabled calls use the same Titan embedding model, CockroachDB vector
 query, top-k limit, model, action allowlist, and synthetic provider verifier.
 The first tool call is forced to a scope-free `search_memory`; a cold start may
 propose without citations only after that search returns no rows. Later
-proposals must cite returned memory.
+proposals must cite returned memory. Tool exposure follows the phase machine in
+`EPISODE_CONTRACT.md`, so Nova cannot fetch before search, search repeatedly, or
+continue retrieval after a fetch.
 
 The primary metric is provider-receipt success rate, not model text agreement.
 The denominator is all 36 eligible cases in every arm. The report also includes
 Wilson 95% intervals, p50/p95 end-to-end latency, tool calls, failed and
 ambiguous outcomes, canonical promotions, false promotions, and cross-scope
-leaks. The release gate requires 36 observations in each arm, zero promotion of
-failed/ambiguous outcomes, and zero cross-scope leakage. It does not require a
-preselected lift; any measured lift or regression is reported as observed.
+leaks. It also reports stable orchestration failure-code counts and actual
+model-turn/tool-call progress for rejected cases, rather than representing all
+rejections as zero work. The release gate requires 36 observations in each
+arm, zero promotion of failed/ambiguous outcomes, and zero cross-scope leakage.
+It does not require a preselected lift; any measured lift or regression is
+reported as observed.
 
 The provider is explicitly non-effecting and synthetic. It issues deterministic
 idempotent receipts only when the proposal action and target match the labeled
