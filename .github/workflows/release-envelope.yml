@@ -6,7 +6,7 @@ on:
       release_tag:
         description: New immutable GitHub Release tag
         required: true
-        default: hackathon-v2
+        default: hackathon-v3
 
 permissions:
   actions: read
