@@ -1,12 +1,12 @@
 {
   "schema_version": 4,
-  "generated_at": "2026-08-02T17:54:43+09:00",
+  "generated_at": "2026-08-02T18:05:51+09:00",
   "claim_boundary": "Read-only public verification of one live agent memory story, exact Titan and CockroachDB RLS receipts, natural 10k/50k ANN, 10/25/50-agent pressure, OIDC MCP, key rotation, CI, and Devpost receipts.",
   "submission": {
     "id": 1121568,
     "status": "Submitted",
     "project_url": "https://devpost.com/software/continuum-memory-firewall",
-    "project_updated_at": "2026-08-02T04:54:43.155-04:00",
+    "project_updated_at": "2026-08-02T05:05:28.543-04:00",
     "video_url": "https://youtu.be/ik76Q8Z8IoA",
     "video_duration_seconds": 109.081,
     "video_sha256": "870094a0ec515da6b4edb8c476407624ba358d97677b41da6b551cb2f8440f4b",
@@ -129,10 +129,10 @@
     "temporary_github_secret_deleted": true
   },
   "release_envelope": {
-    "tag": "hackathon-v3",
-    "release_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v3",
-    "release_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/releases/tags/hackathon-v3",
-    "asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v3/continuum-release-envelope-v1.json",
+    "tag": "hackathon-v4",
+    "release_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v4",
+    "release_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/releases/tags/hackathon-v4",
+    "asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v4/continuum-release-envelope-v1.json",
     "asset_name": "continuum-release-envelope-v1.json"
   },
   "public_demo": {
