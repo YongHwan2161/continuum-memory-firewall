@@ -25,6 +25,14 @@ from continuum.migrate import (
 )
 from continuum.memory import DecisionCode
 from continuum.query_plan import collect_query_plan_evidence
+from continuum.outbox import (
+    CockroachOutboxStore,
+    CrashPoint,
+    InMemoryEffectProvider,
+    InjectedCrash,
+    OutboxStatus,
+    TransactionalOutboxWorker,
+)
 from continuum.retrieval import (
     HASH_EMBEDDING_MODEL,
     HashingEmbedder,
@@ -104,6 +112,7 @@ class CockroachIntegrationTests(unittest.TestCase):
         )
         self.embedder = HashingEmbedder()
         self.episodes = CockroachEpisodeStore(self.connect)
+        self.outbox = CockroachOutboxStore(self.connect, sleep=lambda _: None)
 
     def test_migrations_are_complete_and_idempotent(self):
         report = self.migrator.migrate()
@@ -258,6 +267,94 @@ class CockroachIntegrationTests(unittest.TestCase):
                 ),
             )
         self.assertEqual(getattr(raised.exception, "sqlstate", None), "23503")
+
+    def test_transactional_outbox_reconciles_or_fails_ambiguous(self):
+        def approved_proposal(suffix: str) -> str:
+            run = self.episodes.start_run(
+                tenant_id=TENANT_ID,
+                incident_id=INCIDENT_ID,
+                arm=AgentArm.STATELESS,
+                model_id="amazon.nova-micro-v1:0",
+                input_payload={"outbox_case": suffix},
+                now=NOW,
+            )
+            proposal_id = self.episodes.record_proposal(
+                run=run,
+                proposal=ProposedAction(
+                    action_key=f"checkout:inspect:{suffix}",
+                    action_type="inspect_service",
+                    parameters={"service": "checkout"},
+                    rationale="Bounded integration diagnostic.",
+                    citation_memory_ids=(),
+                    risk_class=RiskClass.READ_ONLY,
+                ),
+                now=NOW,
+            )
+            self.episodes.approve_proposal(
+                proposal_id=proposal_id,
+                actor="policy:outbox-integration-v1",
+                reason="allowlisted integration action",
+                now=NOW,
+            )
+            return proposal_id
+
+        idempotent = InMemoryEffectProvider(
+            name="integration-idempotent-v1",
+            supports_idempotency=True,
+            clock=lambda: NOW,
+        )
+        safe_item = self.outbox.enqueue_proposal(
+            proposal_id=approved_proposal("idempotent"),
+            provider=idempotent.name,
+            provider_supports_idempotency=True,
+            now=NOW,
+        )
+        safe_worker = TransactionalOutboxWorker(
+            outbox=self.outbox,
+            episodes=self.episodes,
+            provider=idempotent,
+            worker_id="integration-safe-worker",
+        )
+        with self.assertRaises(InjectedCrash):
+            safe_worker.process_one(now=NOW, crash_at=CrashPoint.AFTER_SEND)
+        safe_result = safe_worker.reconcile(
+            outbox_id=safe_item.outbox_id,
+            now=NOW + timedelta(seconds=1),
+        )
+
+        non_idempotent = InMemoryEffectProvider(
+            name="integration-non-idempotent-v1",
+            supports_idempotency=False,
+            clock=lambda: NOW + timedelta(seconds=2),
+        )
+        ambiguous_item = self.outbox.enqueue_proposal(
+            proposal_id=approved_proposal("ambiguous"),
+            provider=non_idempotent.name,
+            provider_supports_idempotency=False,
+            now=NOW + timedelta(seconds=2),
+        )
+        ambiguous_worker = TransactionalOutboxWorker(
+            outbox=self.outbox,
+            episodes=self.episodes,
+            provider=non_idempotent,
+            worker_id="integration-ambiguous-worker",
+        )
+        with self.assertRaises(InjectedCrash):
+            ambiguous_worker.process_one(
+                now=NOW + timedelta(seconds=2),
+                crash_at=CrashPoint.AFTER_SEND,
+            )
+        ambiguous_result = ambiguous_worker.reconcile(
+            outbox_id=ambiguous_item.outbox_id,
+            now=NOW + timedelta(seconds=3),
+        )
+
+        self.assertEqual(safe_result.item.status, OutboxStatus.ACKNOWLEDGED)
+        self.assertEqual(sum(idempotent.effect_count.values()), 1)
+        self.assertIsNotNone(safe_result.promotion.memory_id)
+        self.assertEqual(ambiguous_result.item.status, OutboxStatus.AMBIGUOUS)
+        self.assertEqual(sum(non_idempotent.effect_count.values()), 1)
+        self.assertIsNone(ambiguous_result.promotion.memory_id)
 
     def test_migration_checksum_drift_is_rejected(self):
         migrations = list(discover_migrations())

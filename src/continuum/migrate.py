@@ -167,6 +167,34 @@ EXPECTED_COLUMNS = {
         "observed_at",
         "verified_at",
     },
+    "action_outbox": {
+        "outbox_id",
+        "proposal_id",
+        "run_id",
+        "tenant_id",
+        "incident_id",
+        "provider",
+        "idempotency_key",
+        "action_payload",
+        "provider_supports_idempotency",
+        "status",
+        "attempt_count",
+        "next_attempt_at",
+        "lease_owner",
+        "lease_expires_at",
+        "dispatch_started_at",
+        "sent_at",
+        "acknowledged_at",
+        "provider_outcome_status",
+        "provider_observed_at",
+        "provider_verified_at",
+        "provider_receipt_id",
+        "receipt_digest",
+        "response_evidence",
+        "last_error_code",
+        "created_at",
+        "updated_at",
+    },
 }
 EXPECTED_INDEXES = {
     "memory_candidates_incident_created_idx",
@@ -180,6 +208,8 @@ EXPECTED_INDEXES = {
     "outcome_evidence_scope_run_idx",
     "canonical_memories_scope_memory_idx",
     "outcome_evidence_provider_receipt_idx",
+    "action_outbox_ready_idx",
+    "action_outbox_scope_run_idx",
 }
 EXPECTED_SCOPE_FOREIGN_KEYS = {
     "memory_candidates",
@@ -191,6 +221,7 @@ EXPECTED_SCOPE_FOREIGN_KEYS = {
     "retrieved_citations",
     "proposed_actions",
     "outcome_evidence",
+    "action_outbox",
 }
 SAFE_UPDATES_OFF_MIGRATIONS = {"create_model_scoped_vector_index"}
 
