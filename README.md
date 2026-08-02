@@ -5,6 +5,12 @@ memory promotion in long-running AI agents. It separates untrusted candidate
 memories from canonical memory and makes every promotion decision explicit,
 deterministic, and transactionally durable.
 
+**Live judge path:** [run the public product proof](https://yonghwan2161.github.io/continuum-memory-firewall/)
+or [verify every bound receipt](https://yonghwan2161.github.io/continuum-memory-firewall/verify.html).
+In the incident-response story, trusted telemetry becomes durable memory,
+poisoned model output remains quarantined, a later agent retrieves the accepted
+resolution, and CockroachDB grants exactly one action owner.
+
 The current milestone is **P2B: authenticated managed-cloud competition
 slice**. In addition to the transactional promotion and retrieval boundary, a
 private, cost-bounded AWS Lambda client for CockroachDB Cloud Managed MCP and a
@@ -13,10 +19,15 @@ Managed MCP read tools, a pre-secret write-tool denial, all fifteen
 participant-cluster migrations, audited caller-to-scope bindings, matching
 RLS-confined SQL identities, bounded per-identity connection pools, fixed AWS
 SQL egress, five-minute Cognito caller tokens, Bedrock Titan embeddings, and an
-authenticated cross-scope vector flow. The 60-query adversarial live evaluation
+authenticated cross-scope vector flow across all seventeen migrations. The
+60-query adversarial live evaluation
 measured Recall@1 = 0.8667, Recall@3 = 0.9833, Recall@5 = 1.0, zero cross-scope
-leakage, p50 = 250.306 ms, and p95 = 282.87 ms. It remains a bounded
-competition result rather than a broad production-quality claim.
+leakage, p50 = 248.149 ms, and p95 = 279.012 ms. A separate 10k/50k synthetic
+benchmark proved natural CockroachDB vector-search plans with no full scan and
+zero foreign rows. At 50k, beam 512 measured Recall@10 = 0.96875 with warm
+p50/p95 = 216.445/314.273 ms, versus exact primary-scan p50/p95 =
+1168.187/1362.044 ms. These remain bounded competition results rather than
+broad production-quality claims.
 
 For the authoritative project state and evidence, see
 [Project Status](docs/PROJECT_STATUS.md). For implementation order and exit
@@ -130,12 +141,12 @@ The logged-out browser proof console is available at:
 
 <https://yonghwan2161.github.io/continuum-memory-firewall/>
 
-It is an interactive simulation of the policy and replay semantics for review
-and presentation. It is **not** evidence of a live CockroachDB Cloud connection.
-The executable database evidence is the integration test suite and CI run
-linked from [Project Status](docs/PROJECT_STATUS.md). The original Sites
-deployment remains an access-gated backup because this workspace does not allow
-internet-public Sites access.
+The policy-replay interactions are simulations, while the live metric cards and
+read-only verifier load exact public receipts for the participant deployment,
+60-query Titan evaluation, and 10k/50k vector benchmark. The verifier never
+receives a token or database credential. The executable database evidence is
+the integration suite and linked exact-head workflows in
+[Project Status](docs/PROJECT_STATUS.md).
 
 The redacted private-worker deployment proof is recorded in
 [Live AWS and Managed MCP evidence](docs/evidence/2026-07-31-cloud-live-smoke.md).
@@ -146,6 +157,9 @@ cross-scope proof is recorded in
 [Authenticated remote MCP evidence](docs/evidence/2026-08-01-authenticated-remote-mcp-smoke.md).
 The exact-head Cognito, Titan, RLS, and cross-scope evaluation is recorded in
 [OIDC, Titan, and RLS live evidence](docs/evidence/2026-08-01-oidc-titan-rls-live-smoke.md).
+The representative-scale vector plan, Recall, latency, and isolation proof is
+recorded in
+[10k/50k vector-scale live evidence](docs/evidence/2026-08-02-vector-scale-live.md).
 
 ## Safety boundary
 

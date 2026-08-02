@@ -45,6 +45,8 @@ def configure_scope_read_policies(
     suffix = role_name.removeprefix("continuum_scope_")
     incident_policy = f"continuum_incident_select_{suffix}"
     audit_policy = f"continuum_audit_select_{suffix}"
+    candidate_policy = f"continuum_candidate_select_{suffix}"
+    action_policy = f"continuum_action_select_{suffix}"
     connect = psycopg_connection_factory(migrator_database_url)
     from psycopg import sql
 
@@ -94,9 +96,46 @@ def configure_scope_read_policies(
                 sql.Literal(incident_id),
             )
         )
+        for table_name, policy_name in (
+            ("memory_candidates", candidate_policy),
+            ("action_attempts", action_policy),
+        ):
+            table = sql.Identifier("public", table_name)
+            connection.execute(
+                sql.SQL("GRANT SELECT ON TABLE {} TO {}").format(
+                    table,
+                    sql.Identifier(role_name),
+                )
+            )
+            connection.execute(
+                sql.SQL("ALTER TABLE {} ENABLE ROW LEVEL SECURITY").format(table)
+            )
+            connection.execute(
+                sql.SQL("DROP POLICY IF EXISTS {} ON {}").format(
+                    sql.Identifier(policy_name),
+                    table,
+                )
+            )
+            connection.execute(
+                sql.SQL(
+                    "CREATE POLICY {} ON {} FOR SELECT TO {} USING "
+                    "(tenant_id = {}::UUID AND incident_id = {}::UUID)"
+                ).format(
+                    sql.Identifier(policy_name),
+                    table,
+                    sql.Identifier(role_name),
+                    sql.Literal(tenant_id),
+                    sql.Literal(incident_id),
+                )
+            )
     return {
         "scope_role": role_name,
-        "policies": [incident_policy, audit_policy],
+        "policies": [
+            incident_policy,
+            audit_policy,
+            candidate_policy,
+            action_policy,
+        ],
     }
 
 
@@ -294,6 +333,14 @@ def verify_scope_role(
         (
             "canonical_update",
             ("UPDATE canonical_memories SET payload = payload WHERE false",),
+        ),
+        (
+            "candidate_update",
+            ("UPDATE memory_candidates SET payload = payload WHERE false",),
+        ),
+        (
+            "action_update",
+            ("UPDATE action_attempts SET status = status WHERE false",),
         ),
     )
     for name, statements in negative_checks:

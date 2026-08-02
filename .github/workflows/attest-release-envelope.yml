@@ -1,0 +1,49 @@
+name: attest-release-envelope
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing immutable release tag to attest
+        required: true
+        default: hackathon-v2
+
+permissions:
+  attestations: write
+  contents: read
+  id-token: write
+
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download exact immutable envelope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          mkdir -p build/attest
+          receipt="$(gh api \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+          test "$(jq -r '.immutable' <<<"$receipt")" = true
+          expected="$(jq -r '.assets[] | select(.name == "continuum-release-envelope-v1.json") | .digest' <<<"$receipt")"
+          test "${expected#sha256:}" != "$expected"
+          gh release download "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern continuum-release-envelope-v1.json \
+            --dir build/attest
+          actual="sha256:$(sha256sum build/attest/continuum-release-envelope-v1.json | cut -d' ' -f1)"
+          test "$actual" = "$expected"
+      - name: Generate signed provenance for immutable envelope
+        uses: actions/attest@v4
+        with:
+          subject-path: build/attest/continuum-release-envelope-v1.json
+      - name: Verify signed provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh attestation verify \
+            build/attest/continuum-release-envelope-v1.json \
+            --repo "$GITHUB_REPOSITORY"

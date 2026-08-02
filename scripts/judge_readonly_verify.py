@@ -63,9 +63,19 @@ def verify_evidence(
     runtime = evidence["runtime"]
     submission = evidence["submission"]
     public_demo = evidence["public_demo"]
+    vector_scale = evidence["vector_scale"]
     workflow = fetch_json(source["workflow_api_url"])
+    benchmark_workflow = fetch_json(vector_scale["workflow_api_url"])
     health = fetch_json(runtime["health_url"])
+    scale_report = fetch_json(vector_scale["url"])
     demo_html = fetch_text(public_demo["url"])
+
+    scales = scale_report.get("scales", [])
+    beams = [beam for scale in scales for beam in scale.get("beams", [])]
+    beam_grid = [
+        [beam.get("beam_size") for beam in scale.get("beams", [])]
+        for scale in scales
+    ]
 
     checks = {
         "submission_recorded": submission["status"] == "Submitted",
@@ -102,11 +112,34 @@ def verify_evidence(
             runtime["temporary_migration_capability_absent"] is True
             and runtime["control_plane_and_migrator_role_options_empty"] is True
         ),
+        "representative_scale_gate": (
+            evidence.get("schema_version") == 3
+            and scale_report.get("gate", {}).get("status") == "PASS"
+            and [scale.get("row_count") for scale in scales] == [10_000, 50_000]
+        ),
+        "natural_ann_without_full_scan": (
+            beam_grid == [[1, 32, 128, 512], [1, 32, 128, 512]]
+            and all(
+                beam.get("query_plan", {}).get("reports_vector_search") is True
+                and beam.get("query_plan", {}).get("reports_full_scan") is False
+                for beam in beams
+            )
+        ),
+        "benchmark_workflow_matches_report": (
+            benchmark_workflow.get("conclusion") == "success"
+            and benchmark_workflow.get("head_sha") == vector_scale["head_sha"]
+            and scale_report.get("source_head") == vector_scale["head_sha"]
+        ),
+        "benchmark_scope_isolation": (
+            bool(beams)
+            and all(beam.get("cross_scope_leaked_rows") == 0 for beam in beams)
+        ),
     }
     return {
         "ok": all(checks.values()),
         "mode": "read-only-http-get",
         "workflow_run_id": source["workflow_run_id"],
+        "vector_benchmark_run_id": vector_scale["workflow_run_id"],
         "deployment_head_sha": source["deployment_head_sha"],
         "checks": checks,
     }
