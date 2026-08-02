@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 import json
 import secrets
+import time
 from urllib.parse import quote, urlsplit, urlunsplit
-
-import boto3
 
 from continuum.migrate import Migrator
 from continuum.scope_roles import (
@@ -30,8 +30,28 @@ from continuum.tenant_control import (
 )
 
 
-def _secret_payload(client: object, secret_id: str) -> object:
-    value = client.get_secret_value(SecretId=secret_id)["SecretString"]
+def _secret_payload(
+    client: object,
+    secret_id: str,
+    *,
+    attempts: int = 12,
+    delay_seconds: float = 5.0,
+    sleep: Callable[[float], None] = time.sleep,
+) -> object:
+    """Read a secret after bounded IAM propagation without printing its value."""
+
+    if attempts < 1 or delay_seconds < 0:
+        raise ValueError("secret access retry bounds are invalid")
+    for attempt in range(1, attempts + 1):
+        try:
+            value = client.get_secret_value(SecretId=secret_id)["SecretString"]
+            break
+        except Exception as error:
+            response = getattr(error, "response", {})
+            code = response.get("Error", {}).get("Code")
+            if code != "AccessDeniedException" or attempt == attempts:
+                raise
+            sleep(delay_seconds)
     try:
         return json.loads(value)
     except json.JSONDecodeError:
@@ -62,6 +82,11 @@ def _replace_login(database_url: str, *, user: str, password: str) -> str:
 
 
 def main() -> None:
+    try:
+        import boto3
+    except ImportError as exc:  # pragma: no cover - deployment dependency
+        raise RuntimeError("boto3 is required for the live cutover") from exc
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--runtime-secret-id", required=True)
     parser.add_argument("--migrator-secret-id", required=True)
