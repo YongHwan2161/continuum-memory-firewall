@@ -1,0 +1,34 @@
+name: judge-path-monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: continuum-judge-path-monitor
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Run the credential-free judge flow
+        run: |
+          python scripts/judge_readonly_verify.py \
+            --evidence-url \
+            https://yonghwan2161.github.io/continuum-memory-firewall/evidence/judge-verification.json \
+            | tee judge-path-result.json
+      - name: Preserve the monitor receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: judge-path-monitor-${{ github.run_id }}
+          path: judge-path-result.json
+          if-no-files-found: error
+          retention-days: 7
