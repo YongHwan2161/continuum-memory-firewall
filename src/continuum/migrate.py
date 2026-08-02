@@ -111,6 +111,61 @@ EXPECTED_COLUMNS = {
         "reason",
         "recorded_at",
     },
+    "agent_runs": {
+        "run_id",
+        "tenant_id",
+        "incident_id",
+        "arm",
+        "model_id",
+        "request_digest",
+        "input_payload",
+        "status",
+        "final_text",
+        "started_at",
+        "completed_at",
+    },
+    "retrieved_citations": {
+        "citation_id",
+        "run_id",
+        "tenant_id",
+        "incident_id",
+        "memory_id",
+        "rank",
+        "similarity",
+        "retrieval_id",
+        "payload_digest",
+        "cited_payload",
+        "created_at",
+    },
+    "proposed_actions": {
+        "proposal_id",
+        "run_id",
+        "tenant_id",
+        "incident_id",
+        "action_key",
+        "action_type",
+        "parameters",
+        "rationale",
+        "citation_ids",
+        "risk_class",
+        "status",
+        "created_at",
+        "decided_at",
+    },
+    "outcome_evidence": {
+        "outcome_id",
+        "run_id",
+        "proposal_id",
+        "tenant_id",
+        "incident_id",
+        "provider",
+        "status",
+        "provider_receipt_id",
+        "receipt_digest",
+        "evidence",
+        "observed_at",
+        "verified_at",
+    },
 }
 EXPECTED_INDEXES = {
     "memory_candidates_incident_created_idx",
@@ -118,6 +173,11 @@ EXPECTED_INDEXES = {
     "retrieval_audit_incident_created_idx",
     "tenant_scope_bindings_scope_idx",
     "tenant_scope_binding_audit_caller_idx",
+    "agent_runs_scope_started_idx",
+    "retrieved_citations_scope_run_idx",
+    "proposed_actions_scope_run_idx",
+    "outcome_evidence_scope_run_idx",
+    "canonical_memories_scope_memory_idx",
 }
 EXPECTED_SCOPE_FOREIGN_KEYS = {
     "memory_candidates",
@@ -125,6 +185,10 @@ EXPECTED_SCOPE_FOREIGN_KEYS = {
     "action_attempts",
     "retrieval_audit",
     "tenant_scope_bindings",
+    "agent_runs",
+    "retrieved_citations",
+    "proposed_actions",
+    "outcome_evidence",
 }
 SAFE_UPDATES_OFF_MIGRATIONS = {"create_model_scoped_vector_index"}
 
@@ -557,7 +621,7 @@ class Migrator:
         scoped_tables = {
             table_name
             for (table_name, _), column_names in foreign_keys.items()
-            if column_names == ["tenant_id", "incident_id"]
+            if column_names[:2] == ["tenant_id", "incident_id"]
         }
         missing_scope_foreign_keys = EXPECTED_SCOPE_FOREIGN_KEYS - scoped_tables
         if missing_scope_foreign_keys:

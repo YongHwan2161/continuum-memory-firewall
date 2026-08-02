@@ -7,6 +7,13 @@ from urllib.parse import quote, urlsplit, urlunsplit
 from uuid import uuid4
 
 from continuum.db_smoke import run_smoke
+from continuum.episode import (
+    AgentArm,
+    CockroachEpisodeStore,
+    ProposedAction,
+    RetrievedCitation,
+    RiskClass,
+)
 from continuum.identity import IdentityVerificationError
 from continuum.migrate import (
     MigrationDriftError,
@@ -94,6 +101,7 @@ class CockroachIntegrationTests(unittest.TestCase):
             sleep=lambda _: None,
         )
         self.embedder = HashingEmbedder()
+        self.episodes = CockroachEpisodeStore(self.connect)
 
     def test_migrations_are_complete_and_idempotent(self):
         report = self.migrator.migrate()
@@ -135,6 +143,94 @@ class CockroachIntegrationTests(unittest.TestCase):
                 (result["incident_id"],),
             ).fetchone()[0]
         self.assertEqual(count, 0)
+
+    def test_episode_contract_is_durable_and_scope_bound(self):
+        promoted = self.store.promote_candidate(CANDIDATE_ID, now=NOW)
+        run = self.episodes.start_run(
+            tenant_id=TENANT_ID,
+            incident_id=INCIDENT_ID,
+            arm=AgentArm.CONTINUUM,
+            model_id="amazon.nova-micro-v1:0",
+            input_payload={"symptom": "checkout latency"},
+            now=NOW,
+        )
+        citations = self.episodes.record_citations(
+            run=run,
+            citations=(
+                RetrievedCitation(
+                    memory_id=promoted.memory_id,
+                    rank=1,
+                    similarity=0.9,
+                    payload={"fix": "invalidate cache"},
+                ),
+            ),
+        )
+        proposal_id = self.episodes.record_proposal(
+            run=run,
+            proposal=ProposedAction(
+                action_key="checkout:invalidate:v1",
+                action_type="invalidate_cache",
+                parameters={"cache": "checkout"},
+                rationale="The cited verified episode matches.",
+                citation_memory_ids=(promoted.memory_id,),
+                risk_class=RiskClass.REVERSIBLE,
+            ),
+            now=NOW,
+        )
+
+        with self.connect() as connection:
+            durable = connection.execute(
+                """
+                SELECT
+                    r.status,
+                    count(DISTINCT c.citation_id),
+                    count(DISTINCT p.proposal_id)
+                FROM agent_runs AS r
+                LEFT JOIN retrieved_citations AS c ON c.run_id = r.run_id
+                LEFT JOIN proposed_actions AS p ON p.run_id = r.run_id
+                WHERE r.run_id = %s AND r.tenant_id = %s AND r.incident_id = %s
+                GROUP BY r.status
+                """,
+                (run.run_id, TENANT_ID, INCIDENT_ID),
+            ).fetchone()
+        self.assertEqual(durable, ("proposed", 1, 1))
+        self.assertEqual(len(citations), 1)
+        self.assertIsNotNone(proposal_id)
+
+    def test_episode_citation_cannot_bind_a_foreign_scope_memory(self):
+        self._insert_incident(
+            tenant_id=SECOND_TENANT_ID,
+            incident_id=SECOND_INCIDENT_ID,
+            service_name="foreign-checkout",
+        )
+        self._insert_candidate(
+            SECOND_CANDIDATE_ID,
+            INITIAL_HEAD,
+            tenant_id=SECOND_TENANT_ID,
+            incident_id=SECOND_INCIDENT_ID,
+        )
+        foreign = self.store.promote_candidate(SECOND_CANDIDATE_ID, now=NOW)
+        run = self.episodes.start_run(
+            tenant_id=TENANT_ID,
+            incident_id=INCIDENT_ID,
+            arm=AgentArm.CONTINUUM,
+            model_id="amazon.nova-micro-v1:0",
+            input_payload={"symptom": "checkout latency"},
+            now=NOW,
+        )
+
+        with self.assertRaises(Exception) as raised:
+            self.episodes.record_citations(
+                run=run,
+                citations=(
+                    RetrievedCitation(
+                        memory_id=foreign.memory_id,
+                        rank=1,
+                        payload={"foreign": True},
+                    ),
+                ),
+            )
+        self.assertEqual(getattr(raised.exception, "sqlstate", None), "23503")
 
     def test_migration_checksum_drift_is_rejected(self):
         migrations = list(discover_migrations())

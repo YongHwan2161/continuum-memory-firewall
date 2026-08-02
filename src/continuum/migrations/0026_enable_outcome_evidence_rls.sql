@@ -1,0 +1,1 @@
+ALTER TABLE outcome_evidence ENABLE ROW LEVEL SECURITY
