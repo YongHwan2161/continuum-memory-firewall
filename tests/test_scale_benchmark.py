@@ -5,6 +5,7 @@ import unittest
 from continuum.scale_benchmark import (
     DEFAULT_BEAMS,
     DEFAULT_SCALES,
+    INDEX_PREFIX_COLUMNS,
     synthetic_vector,
     summarize_latency_ms,
     target_row_ids,
@@ -14,6 +15,12 @@ from continuum.scale_benchmark import (
 
 
 class ScaleBenchmarkTest(unittest.TestCase):
+    def test_index_prefix_covers_every_equality_filter(self) -> None:
+        self.assertEqual(
+            INDEX_PREFIX_COLUMNS,
+            ("tenant_id", "incident_id", "embedding_model"),
+        )
+
     def test_vector_is_deterministic_dense_and_normalized(self) -> None:
         first = synthetic_vector(42)
         self.assertEqual(first, synthetic_vector(42))
