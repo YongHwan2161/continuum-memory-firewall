@@ -123,7 +123,6 @@ def main() -> None:
     episodes = CockroachEpisodeStore(connect)
     outbox = CockroachOutboxStore(connect)
     tenant_id = str(uuid4())
-    base = datetime.now(timezone.utc)
     scenarios: list[Mapping[str, Any]] = []
 
     definitions = (
@@ -135,7 +134,7 @@ def main() -> None:
     for offset, (case_name, crash_point, supports_idempotency) in enumerate(
         definitions
     ):
-        now = base + timedelta(minutes=offset)
+        now = datetime.now(timezone.utc)
         incident_id = _create_incident(
             connect,
             tenant_id=tenant_id,
@@ -170,7 +169,11 @@ def main() -> None:
             worker_id=f"outbox-live-{offset}",
         )
         try:
-            worker.process_one(now=now, crash_at=crash_point)
+            worker.process_one(
+                now=now,
+                crash_at=crash_point,
+                lease_seconds=1,
+            )
         except InjectedCrash as error:
             if error.point is not crash_point:
                 raise
@@ -181,11 +184,11 @@ def main() -> None:
         if crash_point is CrashPoint.BEFORE_SEND:
             requeued = worker.reconcile(
                 outbox_id=item.outbox_id,
-                now=now + timedelta(seconds=31),
+                now=now + timedelta(seconds=2),
             )
             if requeued.item.status is not OutboxStatus.PENDING:
                 raise RuntimeError("before-send lease did not requeue")
-            completed = worker.process_one(now=now + timedelta(seconds=32))
+            completed = worker.process_one(now=now + timedelta(seconds=3))
         else:
             completed = worker.reconcile(
                 outbox_id=item.outbox_id,
