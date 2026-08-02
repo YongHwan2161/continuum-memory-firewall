@@ -197,6 +197,41 @@ class CockroachIntegrationTests(unittest.TestCase):
         self.assertEqual(len(citations), 1)
         self.assertIsNotNone(proposal_id)
 
+    def test_episode_citation_cannot_bind_a_foreign_scope_memory(self):
+        self._insert_incident(
+            tenant_id=SECOND_TENANT_ID,
+            incident_id=SECOND_INCIDENT_ID,
+            service_name="foreign-checkout",
+        )
+        self._insert_candidate(
+            SECOND_CANDIDATE_ID,
+            INITIAL_HEAD,
+            tenant_id=SECOND_TENANT_ID,
+            incident_id=SECOND_INCIDENT_ID,
+        )
+        foreign = self.store.promote_candidate(SECOND_CANDIDATE_ID, now=NOW)
+        run = self.episodes.start_run(
+            tenant_id=TENANT_ID,
+            incident_id=INCIDENT_ID,
+            arm=AgentArm.CONTINUUM,
+            model_id="amazon.nova-micro-v1:0",
+            input_payload={"symptom": "checkout latency"},
+            now=NOW,
+        )
+
+        with self.assertRaises(Exception) as raised:
+            self.episodes.record_citations(
+                run=run,
+                citations=(
+                    RetrievedCitation(
+                        memory_id=foreign.memory_id,
+                        rank=1,
+                        payload={"foreign": True},
+                    ),
+                ),
+            )
+        self.assertEqual(getattr(raised.exception, "sqlstate", None), "23503")
+
     def test_migration_checksum_drift_is_rejected(self):
         migrations = list(discover_migrations())
         migrations[0] = type(migrations[0])(

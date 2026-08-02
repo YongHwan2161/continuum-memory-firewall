@@ -177,6 +177,7 @@ EXPECTED_INDEXES = {
     "retrieved_citations_scope_run_idx",
     "proposed_actions_scope_run_idx",
     "outcome_evidence_scope_run_idx",
+    "canonical_memories_scope_memory_idx",
 }
 EXPECTED_SCOPE_FOREIGN_KEYS = {
     "memory_candidates",

@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS retrieved_citations (
     CONSTRAINT retrieved_citations_run_scope_fk
         FOREIGN KEY (tenant_id, incident_id, run_id)
         REFERENCES agent_runs (tenant_id, incident_id, run_id),
+    CONSTRAINT retrieved_citations_memory_scope_fk
+        FOREIGN KEY (tenant_id, incident_id, memory_id)
+        REFERENCES canonical_memories (tenant_id, incident_id, memory_id),
     UNIQUE (run_id, memory_id),
     UNIQUE (run_id, rank),
     INDEX retrieved_citations_scope_run_idx (tenant_id, incident_id, run_id)
