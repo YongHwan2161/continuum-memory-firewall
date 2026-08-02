@@ -81,6 +81,29 @@ def _replace_login(database_url: str, *, user: str, password: str) -> str:
     return urlunsplit((parts.scheme, netloc, parts.path, parts.query, ""))
 
 
+def _verify_role_options_empty(
+    connect: Callable[[], object],
+    usernames: tuple[str, ...],
+) -> bool:
+    """Fail closed unless every bootstrap identity has no elevated options."""
+
+    if not usernames or any(not username for username in usernames):
+        raise ValueError("role option verification requires named identities")
+    placeholders = ", ".join("%s" for _ in usernames)
+    with connect() as connection:
+        rows = connection.execute(
+            "SELECT username, options FROM [SHOW ROLES] "
+            f"WHERE username IN ({placeholders})",
+            usernames,
+        ).fetchall()
+    observed = {str(row[0]): tuple(row[1] or ()) for row in rows}
+    if set(observed) != set(usernames):
+        raise RuntimeError("bootstrap role option evidence is incomplete")
+    if any(observed.values()):
+        raise RuntimeError("bootstrap role options are still elevated")
+    return True
+
+
 def main() -> None:
     try:
         import boto3
@@ -155,7 +178,6 @@ def main() -> None:
     control_plane_bootstrap_options_revoked = False
     if control_plane_reused:
         control_plane_url = pin_database_tls_root(control_plane_url, args.ca_cert)
-        provision_control_plane_role(migrator_url)
     else:
         control_plane_password = secrets.token_urlsafe(48)
         control_plane_provisioned = provision_control_plane_role(
@@ -205,6 +227,10 @@ def main() -> None:
         forbidden_memory_id=args.forbidden_memory_id,
     )
     control_verified = verify_control_plane_role(control_plane_url)
+    control_plane_bootstrap_options_revoked = _verify_role_options_empty(
+        psycopg_connection_factory(migrator_url),
+        (database_url_user(migrator_url), CONTROL_PLANE_USER),
+    )
     resolved = DatabaseTenantControlPlane(
         psycopg_connection_factory(control_plane_url)
     ).resolve(caller_id)
