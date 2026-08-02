@@ -65,6 +65,46 @@ def tool_use(identifier, name, value):
 
 
 class OrchestratorTests(unittest.TestCase):
+    def test_memory_arm_may_propose_after_an_explicit_cold_start_search(self):
+        class EmptyMemoryTools:
+            def search(self, *, query, limit):
+                return ()
+
+            def fetch(self, *, memory_id):
+                raise AssertionError("fetch should not run")
+
+        model = FakeModel(
+            [
+                response(tool_use("t1", "search_memory", {"query": "new incident"})),
+                response(
+                    tool_use(
+                        "t2",
+                        "propose_action",
+                        {
+                            "action_key": "cold-start:inspect:v1",
+                            "action_type": "inspect_service",
+                            "parameters": {"service": "checkout"},
+                            "rationale": "No memory matched; inspect first.",
+                            "citation_memory_ids": [],
+                        },
+                    )
+                ),
+            ]
+        )
+        result = AgentOrchestrator(
+            store=InMemoryEpisodeStore(),
+            model=model,
+            model_id="amazon.nova-micro-v1:0",
+        ).run(
+            tenant_id=TENANT_ID,
+            incident_id=INCIDENT_ID,
+            arm=AgentArm.CONTINUUM,
+            incident={"symptom": "new incident"},
+            memory_tools=EmptyMemoryTools(),
+        )
+        self.assertEqual(result.proposal.citation_memory_ids, ())
+        self.assertEqual(result.tool_calls, 2)
+
     def test_search_then_propose_is_persisted_without_execution(self):
         model = FakeModel(
             [
@@ -105,7 +145,16 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(memory.searches, [("slow checkout", 3)])
         first_tools = model.calls[0]["toolConfig"]["tools"]
         names = {item["toolSpec"]["name"] for item in first_tools}
-        self.assertEqual(names, {"search_memory", "fetch_memory", "propose_action"})
+        self.assertEqual(names, {"search_memory", "fetch_memory"})
+        second_names = {
+            item["toolSpec"]["name"]
+            for item in model.calls[1]["toolConfig"]["tools"]
+        }
+        self.assertEqual(
+            second_names,
+            {"search_memory", "fetch_memory", "propose_action"},
+        )
+        self.assertEqual(model.calls[0]["toolConfig"]["toolChoice"], {"any": {}})
         search_schema = first_tools[0]["toolSpec"]["inputSchema"]["json"]
         self.assertNotIn("tenant_id", search_schema["properties"])
         self.assertNotIn("incident_id", search_schema["properties"])

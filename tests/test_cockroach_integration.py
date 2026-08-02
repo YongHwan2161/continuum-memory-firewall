@@ -11,8 +11,10 @@ from continuum.episode import (
     AgentArm,
     CockroachEpisodeStore,
     ProposedAction,
+    ProviderOutcome,
     RetrievedCitation,
     RiskClass,
+    OutcomeStatus,
 )
 from continuum.identity import IdentityVerificationError
 from continuum.migrate import (
@@ -177,6 +179,28 @@ class CockroachIntegrationTests(unittest.TestCase):
             ),
             now=NOW,
         )
+        self.episodes.approve_proposal(
+            proposal_id=proposal_id,
+            actor="policy:integration-test-v1",
+            reason="allowlisted reversible test action",
+            now=NOW,
+        )
+        outcome = ProviderOutcome(
+            provider="integration-provider",
+            status=OutcomeStatus.SUCCEEDED,
+            provider_receipt_id="integration-receipt-1",
+            evidence={"expected_action_matched": True},
+            observed_at=NOW,
+            verified_at=NOW,
+        )
+        promoted_outcome = self.episodes.record_outcome_and_promote(
+            proposal_id=proposal_id,
+            outcome=outcome,
+        )
+        replayed_outcome = self.episodes.record_outcome_and_promote(
+            proposal_id=proposal_id,
+            outcome=outcome,
+        )
 
         with self.connect() as connection:
             durable = connection.execute(
@@ -193,9 +217,12 @@ class CockroachIntegrationTests(unittest.TestCase):
                 """,
                 (run.run_id, TENANT_ID, INCIDENT_ID),
             ).fetchone()
-        self.assertEqual(durable, ("proposed", 1, 1))
+        self.assertEqual(durable, ("succeeded", 1, 1))
         self.assertEqual(len(citations), 1)
         self.assertIsNotNone(proposal_id)
+        self.assertIsNotNone(promoted_outcome.memory_id)
+        self.assertTrue(replayed_outcome.replayed)
+        self.assertEqual(replayed_outcome.memory_id, promoted_outcome.memory_id)
 
     def test_episode_citation_cannot_bind_a_foreign_scope_memory(self):
         self._insert_incident(

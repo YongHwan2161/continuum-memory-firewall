@@ -63,6 +63,25 @@ class McpHostInfrastructureTests(unittest.TestCase):
             "ap-northeast-2",
         )
 
+    def test_instance_role_can_invoke_only_one_nova_planning_model(self):
+        role = self.resources["McpInstanceRole"]["Properties"]
+        policy = role["Policies"][3]
+        self.assertEqual(policy["PolicyName"], "InvokeOneAgentPlanningModel")
+        statement = policy["PolicyDocument"]["Statement"][0]
+        self.assertEqual(statement["Action"], "bedrock:InvokeModel")
+        self.assertIn(
+            "foundation-model/amazon.nova-micro-v1:0",
+            statement["Resource"]["Fn::Sub"],
+        )
+        self.assertIn(
+            "bedrock:${AgentBedrockRegion}",
+            statement["Resource"]["Fn::Sub"],
+        )
+        self.assertEqual(
+            self.template["Parameters"]["AgentBedrockRegion"]["Default"],
+            "ap-southeast-2",
+        )
+
     def test_deployment_fails_closed_outside_assumed_role(self):
         script = (ROOT / "scripts" / "deploy_mcp_host.sh").read_text(
             encoding="utf-8"
@@ -94,12 +113,23 @@ class McpHostInfrastructureTests(unittest.TestCase):
         for path in (
             "cutover_scope_identity.py",
             "live_semantic_eval.py",
+            "run_live_agent_ablation.py",
             "seed_judge_story.py",
             "remote_oidc_smoke.py",
             "semantic-retrieval-v1.json",
             "adversarial-semantic-retrieval-v2.json",
         ):
             self.assertIn(path, script)
+
+    def test_agent_ablation_workflow_revokes_temporary_capability(self):
+        workflow = (
+            ROOT / ".github" / "workflows" / "aws-agent-ablation.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("ContinuumAgentAblationOneCommand", workflow)
+        self.assertIn("aws iam delete-role-policy", workflow)
+        self.assertIn("temporary ablation capability remains attached", workflow)
+        self.assertIn("false_canonical_promotions", workflow)
+        self.assertIn("cross_scope_leak_count", workflow)
 
     def test_bootstrap_waits_for_the_restarted_service(self):
         script = (ROOT / "scripts" / "bootstrap_mcp_host.sh").read_text(
