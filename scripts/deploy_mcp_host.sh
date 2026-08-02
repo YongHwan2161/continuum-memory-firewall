@@ -36,7 +36,7 @@ ami_id="$(MSYS_NO_PATHCONV=1 aws ssm get-parameter --region "$region" \
   --name /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id \
   --query 'Parameter.Value' --output text)"
 
-aws cloudformation deploy \
+if ! aws cloudformation deploy \
   --region "$region" \
   --stack-name "$stack_name" \
   --template-file "$repo_root/infra/aws/mcp-host-template.json" \
@@ -51,7 +51,16 @@ aws cloudformation deploy \
     "ArtifactSha256=$package_sha256" \
     "BedrockRegion=$bedrock_region" \
     "AgentBedrockRegion=$agent_bedrock_region" \
-    "RuntimeSecretArn=$CONTINUUM_RUNTIME_SECRET_ARN"
+    "RuntimeSecretArn=$CONTINUUM_RUNTIME_SECRET_ARN"; then
+  # Emit bounded metadata only. Do not request template properties, parameters,
+  # or secret values when a live stack update fails.
+  aws cloudformation describe-stack-events \
+    --region "$region" \
+    --stack-name "$stack_name" \
+    --query 'StackEvents[:12].{Time:Timestamp,LogicalId:LogicalResourceId,Type:ResourceType,Status:ResourceStatus,Reason:ResourceStatusReason}' \
+    --output table || true
+  exit 1
+fi
 
 instance_id="$(aws cloudformation describe-stacks --region "$region" \
   --stack-name "$stack_name" \
