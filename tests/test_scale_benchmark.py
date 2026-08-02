@@ -15,6 +15,30 @@ from continuum.scale_benchmark import (
 
 
 class ScaleBenchmarkTest(unittest.TestCase):
+    def test_secret_read_waits_for_bounded_iam_propagation(self) -> None:
+        from continuum.scale_benchmark import _secret_string_with_retry
+
+        class Denied(Exception):
+            response = {"Error": {"Code": "AccessDeniedException"}}
+
+        class Client:
+            calls = 0
+
+            def get_secret_value(self, **_kwargs):
+                self.calls += 1
+                if self.calls < 3:
+                    raise Denied()
+                return {"SecretString": "postgresql://root@localhost/db"}
+
+        sleeps = []
+        result = _secret_string_with_retry(
+            Client(),
+            "secret",
+            sleep=sleeps.append,
+        )
+        self.assertEqual(result, "postgresql://root@localhost/db")
+        self.assertEqual(sleeps, [5.0, 5.0])
+
     def test_index_prefix_covers_every_equality_filter(self) -> None:
         self.assertEqual(
             INDEX_PREFIX_COLUMNS,

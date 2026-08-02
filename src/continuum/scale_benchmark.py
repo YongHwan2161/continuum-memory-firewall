@@ -9,7 +9,7 @@ and verifies that the optimizer selected the expected prefixed vector index.
 from __future__ import annotations
 
 import argparse
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -473,14 +473,36 @@ def run_benchmark(
     return report
 
 
+def _secret_string_with_retry(
+    client: Any,
+    secret_id: str,
+    *,
+    attempts: int = 12,
+    delay_seconds: float = 5.0,
+    sleep: Callable[[float], None] = time.sleep,
+) -> str:
+    if attempts < 1 or delay_seconds < 0:
+        raise ValueError("secret access retry bounds are invalid")
+    for attempt in range(1, attempts + 1):
+        try:
+            return str(client.get_secret_value(SecretId=secret_id)["SecretString"])
+        except Exception as error:
+            response = getattr(error, "response", {})
+            code = response.get("Error", {}).get("Code")
+            if code != "AccessDeniedException" or attempt == attempts:
+                raise
+            sleep(delay_seconds)
+
+
 def _database_url_from_secret(region: str, secret_id: str) -> str:
     try:
         import boto3
     except ImportError as exc:  # pragma: no cover - live-only dependency
         raise RuntimeError("boto3 is required for the live benchmark") from exc
-    value = boto3.client("secretsmanager", region_name=region).get_secret_value(
-        SecretId=secret_id
-    )["SecretString"]
+    value = _secret_string_with_retry(
+        boto3.client("secretsmanager", region_name=region),
+        secret_id,
+    )
     try:
         payload = json.loads(value)
     except json.JSONDecodeError:
