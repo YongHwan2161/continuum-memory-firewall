@@ -34,14 +34,26 @@ creates a draft, attaches the envelope and SHA sidecar, then publishes it and
 fails unless the GitHub API reports `immutable: true`, the release targets the
 exact workflow commit, and both uploaded asset digests equal the local bytes.
 
-With a current GitHub CLI, a judge can verify the published release and a
-downloaded envelope asset:
+The public verifier checks the release API's immutable flag, exact tag, uploaded
+asset state, and SHA-256 digest. A judge can independently download the envelope
+and validate its sidecar without trusting the public page:
 
 ```bash
-gh release verify hackathon-v1
 gh release download hackathon-v1 --pattern 'continuum-release-envelope-v1.json*'
-gh release verify-asset hackathon-v1 continuum-release-envelope-v1.json
 sha256sum -c continuum-release-envelope-v1.json.sha256
+```
+
+GitHub documents that immutable releases automatically receive a release
+attestation, verifiable with `gh release verify` and `gh release verify-asset`.
+Because that automatic attestation can be temporarily unavailable after
+publication, `.github/workflows/attest-release-envelope.yml` independently
+downloads the already-immutable envelope, compares it to the release API digest,
+generates signed SLSA build provenance with `actions/attest@v4`, and verifies it
+in the same run. Consumers can verify that exact downloaded asset with:
+
+```bash
+gh attestation verify continuum-release-envelope-v1.json \
+  --repo YongHwan2161/continuum-memory-firewall
 ```
 
 The JSON `gates.checks` object is the machine-readable explanation of why the
