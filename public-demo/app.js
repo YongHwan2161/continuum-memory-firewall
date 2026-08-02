@@ -51,17 +51,22 @@ async function quickCheck() {
   result.textContent = 'Checking immutable evidence, workflow, Pages, and MCP health…';
   try {
     const [judge, scale] = await Promise.all([json(judgeUrl), json(scaleUrl)]);
-    const [workflow, health, page] = await Promise.all([
+    const [workflow, health, page, release] = await Promise.all([
       json(judge.source.workflow_api_url),
       json(judge.runtime.health_url),
       fetch('./', {cache: 'no-store'}).then(response => response.text()),
+      json(judge.release_envelope.release_api_url),
     ]);
+    const releaseAsset = release.assets?.find(asset => asset.name === judge.release_envelope.asset_name);
     const passed = judge.submission.status === 'Submitted'
       && judge.evaluation.cross_scope_leaked_documents === 0
       && scale.gate.status === 'PASS'
       && workflow.conclusion === 'success'
       && health.ok === true
-      && page.includes('Continuum Memory Firewall');
+      && page.includes('Continuum Memory Firewall')
+      && release.immutable === true
+      && release.tag_name === judge.release_envelope.tag
+      && releaseAsset?.state === 'uploaded';
     result.textContent = passed ? 'PASS · public evidence and live health agree.' : 'HOLD · open the full verifier for details.';
     byId('proof-status').textContent = passed ? 'ALL PUBLIC GATES PASS' : 'HOLD';
   } catch (error) {

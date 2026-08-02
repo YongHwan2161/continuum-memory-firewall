@@ -98,11 +98,13 @@ complete attestations and organizer agreements.
       Devpost submission `1121568` returned `Submitted`
 - [x] Architecture diagram distinguishes locally implemented, live deployed,
       and planned application components
-- [ ] Updated secret-free 90–120 second narrated demo generated from the live
+- [x] Updated secret-free 90–120 second narrated demo generated from the live
       verifier and 10k/50k evidence
 - [x] Secret-free screenshots captured for the live overview, policy rejection,
       and one-owner failover in [docs/demo/](demo/)
-- [ ] Updated demo uploaded publicly to YouTube and embedded on Devpost
+- [x] Updated demo uploaded publicly to YouTube and embedded on Devpost:
+      <https://youtu.be/H1hCZrC6ab8>; 99.7 seconds; SHA-256
+      `ae63e843d6da1b532c59e6b85ed6a1cbf15e94aa6983f7cb748b08c0b51863fb`
 - [x] Problem, approach, architecture, and technical challenge narrative
       rendered on the public Devpost project page
 - [x] Measured 60-query and 10k/50k retrieval/isolation results recorded;
