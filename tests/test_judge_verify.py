@@ -161,7 +161,7 @@ class JudgeVerificationTests(unittest.TestCase):
         )
         pressure = json.loads(pressure_bytes)
         self.assertEqual(
-            hashlib.sha256(pressure_bytes).hexdigest(),
+            hashlib.sha256(pressure_bytes.replace(b"\r\n", b"\n")).hexdigest(),
             evidence["agent_pressure"]["report_sha256"],
         )
         self.assertEqual(

@@ -21,6 +21,8 @@ identifier, or private participant information.
 - `DEMO_NARRATION_V2.md` — 90–120 second narration for the rebuilt judge path:
   verifier, authorization architecture, 60-query evaluation, isolation denial,
   representative-scale ANN proof, and key rotation.
+- `DEMO_NARRATION_V3.md` — story-first 90–120 second narration that adds the
+  live checkout incident and measured 10/25/50-agent pressure result.
 
 The browser console is an executable simulation of the policy and concurrency
 contract. The OIDC, RLS, Titan, Recall@3, and leakage statements shown in its
@@ -58,3 +60,21 @@ python scripts/build_demo_video_v2.py `
 The builder fails closed unless the scale evidence is `PASS` and the narration
 duration is between 90 and 120 seconds. The output remains a release artifact;
 the source, narration, and rebuild command are the reviewed repository inputs.
+
+For the story-first v3 entry, capture the fixed live incident and the completed
+public verifier, generate a disposable WAV from `DEMO_NARRATION_V3.md`, then
+run:
+
+```powershell
+python scripts/build_demo_video_v3.py `
+  --judge-evidence public-demo/evidence/judge-verification.json `
+  --scale-evidence public-demo/evidence/vector-scale.json `
+  --pressure-evidence public-demo/evidence/agent-pressure.json `
+  --story-screenshot build/demo-v3/live-story.png `
+  --verifier-screenshot build/demo-v3/verifier-pass.png `
+  --narration-wav build/demo-v3/narration.wav `
+  --output build/demo-v3/continuum-memory-firewall-demo-v3.mp4
+```
+
+The v3 builder additionally fails closed unless the agent-pressure evidence is
+`PASS`.
