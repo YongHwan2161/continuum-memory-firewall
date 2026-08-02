@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import re
 from typing import Any, Callable, Mapping, Protocol, Sequence
 
 from continuum.episode import (
@@ -36,6 +37,26 @@ provider receipt or claim that an action succeeded."""
 
 class OrchestrationError(RuntimeError):
     """Raised when a model violates the bounded tool contract."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str | None = None,
+        model_turns: int = 0,
+        tool_calls: int = 0,
+    ) -> None:
+        super().__init__(message)
+        normalized = re.sub(r"[^A-Z0-9]+", "_", message.upper()).strip("_")
+        self.code = code or f"ORCHESTRATION_{normalized[:64]}"
+        self.model_turns = model_turns
+        self.tool_calls = tool_calls
+
+    def attach_progress(self, *, model_turns: int, tool_calls: int) -> None:
+        """Attach bounded counters without exposing provider exception text."""
+
+        self.model_turns = max(self.model_turns, model_turns)
+        self.tool_calls = max(self.tool_calls, tool_calls)
 
 
 @dataclass(frozen=True, slots=True)
@@ -209,6 +230,31 @@ class AgentOrchestrator:
         incident: Mapping[str, Any],
         memory_tools: ScopedMemoryTools | None,
     ) -> OrchestrationResult:
+        progress = {"model_turns": 0, "tool_calls": 0}
+        try:
+            return self._run_started_bounded(
+                run=run,
+                arm=arm,
+                incident=incident,
+                memory_tools=memory_tools,
+                progress=progress,
+            )
+        except OrchestrationError as exc:
+            exc.attach_progress(
+                model_turns=progress["model_turns"],
+                tool_calls=progress["tool_calls"],
+            )
+            raise
+
+    def _run_started_bounded(
+        self,
+        *,
+        run: AgentRun,
+        arm: AgentArm,
+        incident: Mapping[str, Any],
+        memory_tools: ScopedMemoryTools | None,
+        progress: dict[str, int],
+    ) -> OrchestrationResult:
         input_text = json.dumps(
             incident,
             allow_nan=False,
@@ -222,20 +268,26 @@ class AgentOrchestrator:
         citations: dict[str, RetrievedCitation] = {}
         tool_calls = 0
         search_attempted = False
+        fetch_performed = False
 
         for model_turn in range(1, self._max_model_turns + 1):
+            progress["model_turns"] = model_turn
+            tool_specs = self._tool_specs(
+                arm,
+                search_attempted=search_attempted,
+                has_search_hits=bool(citations),
+                fetch_performed=fetch_performed,
+            )
+            allowed_tools = {
+                str(item["toolSpec"]["name"]) for item in tool_specs
+            }
             try:
                 response = self._model.converse(
                     modelId=self._model_id,
                     system=[{"text": SYSTEM_PROMPT}],
                     messages=messages,
                     toolConfig={
-                        "tools": self._tool_specs(
-                            arm,
-                            can_propose=(
-                                arm is AgentArm.STATELESS or search_attempted
-                            ),
-                        ),
+                        "tools": tool_specs,
                         "toolChoice": {"any": {}},
                     },
                     inferenceConfig={
@@ -251,7 +303,10 @@ class AgentOrchestrator:
             except OrchestrationError:
                 raise
             except Exception as exc:
-                raise OrchestrationError("Bedrock model invocation failed") from exc
+                raise OrchestrationError(
+                    "Bedrock model invocation failed",
+                    code="BEDROCK_MODEL_INVOCATION_FAILED",
+                ) from exc
 
             output = response.get("output")
             if not isinstance(output, Mapping):
@@ -270,6 +325,7 @@ class AgentOrchestrator:
                 if not isinstance(block, Mapping) or "toolUse" not in block:
                     continue
                 tool_calls += 1
+                progress["tool_calls"] = tool_calls
                 if tool_calls > self._max_tool_calls:
                     raise OrchestrationError("tool-call budget exceeded")
                 tool_use = block["toolUse"]
@@ -282,10 +338,16 @@ class AgentOrchestrator:
                     raise OrchestrationError("toolUse identity is invalid")
                 if not isinstance(tool_input, Mapping):
                     raise OrchestrationError("tool input must be an object")
+                if name not in allowed_tools:
+                    raise OrchestrationError(
+                        "model requested a tool outside the current episode phase"
+                    )
 
                 if name == "search_memory":
                     if memory_tools is None:
                         raise OrchestrationError("stateless arm requested memory search")
+                    if search_attempted:
+                        raise OrchestrationError("memory search may run only once")
                     result = self._search(memory_tools, tool_input, citations)
                     search_attempted = True
                     tool_result_blocks.append(
@@ -294,7 +356,10 @@ class AgentOrchestrator:
                 elif name == "fetch_memory":
                     if memory_tools is None:
                         raise OrchestrationError("stateless arm requested memory fetch")
+                    if fetch_performed:
+                        raise OrchestrationError("memory fetch may run only once")
                     result = self._fetch(memory_tools, tool_input, citations)
+                    fetch_performed = True
                     tool_result_blocks.append(self._tool_result(tool_use_id, result))
                 elif name == "propose_action":
                     if terminal is not None:
@@ -353,86 +418,88 @@ class AgentOrchestrator:
         self,
         arm: AgentArm,
         *,
-        can_propose: bool,
+        search_attempted: bool,
+        has_search_hits: bool,
+        fetch_performed: bool,
     ) -> list[Mapping[str, Any]]:
-        tools: list[Mapping[str, Any]] = []
-        if arm is not AgentArm.STATELESS:
-            tools.extend(
-                [
-                    {
-                        "toolSpec": {
-                            "name": "search_memory",
-                            "description": "Search server-scoped incident memory.",
-                            "inputSchema": {
-                                "json": {
-                                    "type": "object",
-                                    "properties": {
-                                        "query": {"type": "string"},
-                                        "limit": {
-                                            "type": "integer",
-                                            "minimum": 1,
-                                            "maximum": 5,
-                                        },
-                                    },
-                                    "required": ["query"],
-                                    "additionalProperties": False,
-                                }
+        propose_tool: Mapping[str, Any] = {
+            "toolSpec": {
+                "name": "propose_action",
+                "description": "Propose, but never execute, one allowlisted action.",
+                "inputSchema": {
+                    "json": {
+                        "type": "object",
+                        "properties": {
+                            "action_key": {"type": "string"},
+                            "action_type": {
+                                "type": "string",
+                                "enum": sorted(self._action_policies),
                             },
-                        }
-                    },
-                    {
-                        "toolSpec": {
-                            "name": "fetch_memory",
-                            "description": "Fetch one memory returned by scoped search.",
-                            "inputSchema": {
-                                "json": {
-                                    "type": "object",
-                                    "properties": {"memory_id": {"type": "string"}},
-                                    "required": ["memory_id"],
-                                    "additionalProperties": False,
-                                }
+                            "parameters": {"type": "object"},
+                            "rationale": {"type": "string"},
+                            "citation_memory_ids": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "maxItems": 20,
                             },
-                        }
-                    },
-                ]
-            )
-        if not can_propose:
-            return tools
-        tools.append(
-            {
-                "toolSpec": {
-                    "name": "propose_action",
-                    "description": "Propose, but never execute, one allowlisted action.",
-                    "inputSchema": {
-                        "json": {
-                            "type": "object",
-                            "properties": {
-                                "action_key": {"type": "string"},
-                                "action_type": {
-                                    "type": "string",
-                                    "enum": sorted(self._action_policies),
-                                },
-                                "parameters": {"type": "object"},
-                                "rationale": {"type": "string"},
-                                "citation_memory_ids": {
-                                    "type": "array",
-                                    "items": {"type": "string"},
-                                    "maxItems": 20,
-                                },
-                            },
-                            "required": [
-                                "action_key",
-                                "action_type",
-                                "parameters",
-                                "rationale",
-                                "citation_memory_ids",
-                            ],
-                            "additionalProperties": False,
-                        }
-                    },
-                }
+                        },
+                        "required": [
+                            "action_key",
+                            "action_type",
+                            "parameters",
+                            "rationale",
+                            "citation_memory_ids",
+                        ],
+                        "additionalProperties": False,
+                    }
+                },
             }
-        )
+        }
+        if arm is AgentArm.STATELESS:
+            return [propose_tool]
+        if not search_attempted:
+            return [
+                {
+                    "toolSpec": {
+                        "name": "search_memory",
+                        "description": "Search server-scoped incident memory.",
+                        "inputSchema": {
+                            "json": {
+                                "type": "object",
+                                "properties": {
+                                    "query": {"type": "string"},
+                                    "limit": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 5,
+                                    },
+                                },
+                                "required": ["query"],
+                                "additionalProperties": False,
+                            },
+                        },
+                    }
+                }
+            ]
+        tools: list[Mapping[str, Any]] = []
+        if has_search_hits and not fetch_performed:
+            tools.append(
+                {
+                    "toolSpec": {
+                        "name": "fetch_memory",
+                        "description": "Fetch one memory returned by scoped search.",
+                        "inputSchema": {
+                            "json": {
+                                "type": "object",
+                                "properties": {"memory_id": {"type": "string"}},
+                                "required": ["memory_id"],
+                                "additionalProperties": False,
+                            },
+                        },
+                    }
+                }
+            )
+        tools.append(propose_tool)
         return tools
 
     def _search(

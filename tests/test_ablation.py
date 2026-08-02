@@ -90,6 +90,10 @@ class AblationTests(unittest.TestCase):
                         cited_memory_ids=() if arm is AgentArm.STATELESS else ("m1",),
                         proposed_action_type=case.expected.action_type,
                         promoted_memory_id=f"memory-{arm}-{index}" if succeeded else None,
+                        failure_code=(
+                            "MODEL_REJECTED" if not succeeded and index % 2 == 0 else None
+                        ),
+                        model_turns=1 if arm is AgentArm.STATELESS else 2,
                     )
                 )
 
@@ -105,6 +109,11 @@ class AblationTests(unittest.TestCase):
                 report["arms"][arm.value]["false_canonical_promotions"],
                 0,
             )
+        self.assertEqual(report["arms"]["continuum"]["mean_model_turns"], 2.0)
+        self.assertEqual(
+            report["arms"]["continuum"]["failure_codes"],
+            {"MODEL_REJECTED": 1},
+        )
 
     def test_summary_rejects_missing_arm_cases(self):
         cases = build_competition_cases()

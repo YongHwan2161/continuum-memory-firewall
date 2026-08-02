@@ -104,6 +104,16 @@ class OrchestratorTests(unittest.TestCase):
         )
         self.assertEqual(result.proposal.citation_memory_ids, ())
         self.assertEqual(result.tool_calls, 2)
+        first_names = {
+            item["toolSpec"]["name"]
+            for item in model.calls[0]["toolConfig"]["tools"]
+        }
+        second_names = {
+            item["toolSpec"]["name"]
+            for item in model.calls[1]["toolConfig"]["tools"]
+        }
+        self.assertEqual(first_names, {"search_memory"})
+        self.assertEqual(second_names, {"propose_action"})
 
     def test_search_then_propose_is_persisted_without_execution(self):
         model = FakeModel(
@@ -145,14 +155,14 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(memory.searches, [("slow checkout", 3)])
         first_tools = model.calls[0]["toolConfig"]["tools"]
         names = {item["toolSpec"]["name"] for item in first_tools}
-        self.assertEqual(names, {"search_memory", "fetch_memory"})
+        self.assertEqual(names, {"search_memory"})
         second_names = {
             item["toolSpec"]["name"]
             for item in model.calls[1]["toolConfig"]["tools"]
         }
         self.assertEqual(
             second_names,
-            {"search_memory", "fetch_memory", "propose_action"},
+            {"fetch_memory", "propose_action"},
         )
         self.assertEqual(model.calls[0]["toolConfig"]["toolChoice"], {"any": {}})
         search_schema = first_tools[0]["toolSpec"]["inputSchema"]["json"]
@@ -171,7 +181,10 @@ class OrchestratorTests(unittest.TestCase):
                 )
             ]
         )
-        with self.assertRaisesRegex(OrchestrationError, "prior search"):
+        with self.assertRaisesRegex(
+            OrchestrationError,
+            "outside the current episode phase",
+        ) as raised:
             AgentOrchestrator(
                 store=InMemoryEpisodeStore(),
                 model=model,
@@ -183,6 +196,56 @@ class OrchestratorTests(unittest.TestCase):
                 incident={"symptom": "slow checkout"},
                 memory_tools=FakeMemoryTools(),
             )
+        self.assertEqual(raised.exception.model_turns, 1)
+        self.assertEqual(raised.exception.tool_calls, 1)
+
+    def test_fetch_closes_retrieval_phase_before_proposal(self):
+        model = FakeModel(
+            [
+                response(tool_use("t1", "search_memory", {"query": "slow checkout"})),
+                response(tool_use("t2", "fetch_memory", {"memory_id": MEMORY_ID})),
+                response(
+                    tool_use(
+                        "t3",
+                        "propose_action",
+                        {
+                            "action_key": "checkout:invalidate:fetched:v1",
+                            "action_type": "invalidate_cache",
+                            "parameters": {"cache": "checkout"},
+                            "rationale": "Fetched successful memory matches.",
+                            "citation_memory_ids": [MEMORY_ID],
+                        },
+                    )
+                ),
+            ]
+        )
+        memory = FakeMemoryTools()
+        result = AgentOrchestrator(
+            store=InMemoryEpisodeStore(),
+            model=model,
+            model_id="amazon.nova-micro-v1:0",
+        ).run(
+            tenant_id=TENANT_ID,
+            incident_id=INCIDENT_ID,
+            arm=AgentArm.CONTINUUM,
+            incident={"symptom": "slow checkout"},
+            memory_tools=memory,
+        )
+
+        exposed = [
+            {item["toolSpec"]["name"] for item in call["toolConfig"]["tools"]}
+            for call in model.calls
+        ]
+        self.assertEqual(
+            exposed,
+            [
+                {"search_memory"},
+                {"fetch_memory", "propose_action"},
+                {"propose_action"},
+            ],
+        )
+        self.assertEqual(result.tool_calls, 3)
+        self.assertEqual(memory.fetches, [MEMORY_ID])
 
     def test_model_cannot_supply_scope_to_search(self):
         model = FakeModel(
