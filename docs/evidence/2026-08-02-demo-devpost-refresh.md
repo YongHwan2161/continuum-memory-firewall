@@ -13,8 +13,8 @@ the refreshed Devpost project receipt without exposing credentials.
 - YouTube visibility: `Public`
 - YouTube copyright check: no issues found
 - Devpost project: <https://devpost.com/software/continuum-memory-firewall>
-- Devpost project version: `10`
-- Devpost updated at: `2026-08-02T02:34:11.143-04:00`
+- Devpost project version: `11`
+- Devpost updated at: `2026-08-02T02:59:21.321-04:00`
 - Submission ID/status: `1121568` / `Submitted`
 
 ## Judge sequence
@@ -35,3 +35,12 @@ the first measured pass on a newly opened SQL connection; it is not described
 as a physical CockroachDB Cloud cache flush. Raw runtime evidence and the video
 binary remain outside Git; the repository retains bounded digests, receipts,
 source, and the reproducible video builder.
+
+## Receipt stabilization
+
+The initial v1 envelope used the first response after the Devpost link update.
+Devpost subsequently finalized a newer asynchronous `updated_at` value without
+changing the submitted story or video. The release link was therefore advanced
+to `hackathon-v2`, the receipt was read twice 44 seconds apart with the same
+timestamp, and v2 is the current envelope. The immutable v1 release remains as
+the audit record of the detected ordering issue.
