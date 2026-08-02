@@ -49,6 +49,7 @@ EXPECTED_COLUMNS = {
         "expires_at",
         "decision_code",
         "decided_at",
+        "approval_evidence",
     },
     "canonical_memories": {
         "memory_id",
@@ -178,6 +179,7 @@ EXPECTED_INDEXES = {
     "proposed_actions_scope_run_idx",
     "outcome_evidence_scope_run_idx",
     "canonical_memories_scope_memory_idx",
+    "outcome_evidence_provider_receipt_idx",
 }
 EXPECTED_SCOPE_FOREIGN_KEYS = {
     "memory_candidates",

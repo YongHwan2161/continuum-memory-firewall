@@ -35,6 +35,12 @@
       "AllowedPattern": "^[a-z]{2}-[a-z]+-[0-9]+$",
       "Description": "Region where Titan Text Embeddings V2 is available"
     },
+    "AgentBedrockRegion": {
+      "Type": "String",
+      "Default": "ap-southeast-2",
+      "AllowedPattern": "^[a-z]{2}-[a-z]+-[0-9]+$",
+      "Description": "Region where the allowlisted Nova planning model is available"
+    },
     "RuntimeSecretArn": {
       "Type": "String",
       "Description": "Existing runtime secret ARN; the value is never passed to CloudFormation"
@@ -114,6 +120,21 @@
                   "Action": "bedrock:InvokeModel",
                   "Resource": {
                     "Fn::Sub": "arn:${AWS::Partition}:bedrock:${BedrockRegion}::foundation-model/amazon.titan-embed-text-v2:0"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "InvokeOneAgentPlanningModel",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "bedrock:InvokeModel",
+                  "Resource": {
+                    "Fn::Sub": "arn:${AWS::Partition}:bedrock:${AgentBedrockRegion}::foundation-model/amazon.nova-micro-v1:0"
                   }
                 }
               ]

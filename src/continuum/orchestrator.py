@@ -221,6 +221,7 @@ class AgentOrchestrator:
         ]
         citations: dict[str, RetrievedCitation] = {}
         tool_calls = 0
+        search_attempted = False
 
         for model_turn in range(1, self._max_model_turns + 1):
             try:
@@ -228,7 +229,15 @@ class AgentOrchestrator:
                     modelId=self._model_id,
                     system=[{"text": SYSTEM_PROMPT}],
                     messages=messages,
-                    toolConfig={"tools": self._tool_specs(arm)},
+                    toolConfig={
+                        "tools": self._tool_specs(
+                            arm,
+                            can_propose=(
+                                arm is AgentArm.STATELESS or search_attempted
+                            ),
+                        ),
+                        "toolChoice": {"any": {}},
+                    },
                     inferenceConfig={
                         "maxTokens": 768,
                         "temperature": 0,
@@ -278,6 +287,7 @@ class AgentOrchestrator:
                     if memory_tools is None:
                         raise OrchestrationError("stateless arm requested memory search")
                     result = self._search(memory_tools, tool_input, citations)
+                    search_attempted = True
                     tool_result_blocks.append(
                         self._tool_result(tool_use_id, {"hits": result})
                     )
@@ -289,7 +299,12 @@ class AgentOrchestrator:
                 elif name == "propose_action":
                     if terminal is not None:
                         raise OrchestrationError("model proposed more than one action")
-                    terminal = self._proposal(arm, tool_input, citations)
+                    terminal = self._proposal(
+                        arm,
+                        tool_input,
+                        citations,
+                        search_attempted=search_attempted,
+                    )
                 else:
                     raise OrchestrationError("model requested a forbidden tool")
 
@@ -334,7 +349,12 @@ class AgentOrchestrator:
         )
         raise OrchestrationError("model turn budget exceeded")
 
-    def _tool_specs(self, arm: AgentArm) -> list[Mapping[str, Any]]:
+    def _tool_specs(
+        self,
+        arm: AgentArm,
+        *,
+        can_propose: bool,
+    ) -> list[Mapping[str, Any]]:
         tools: list[Mapping[str, Any]] = []
         if arm is not AgentArm.STATELESS:
             tools.extend(
@@ -376,6 +396,8 @@ class AgentOrchestrator:
                     },
                 ]
             )
+        if not can_propose:
+            return tools
         tools.append(
             {
                 "toolSpec": {
@@ -477,6 +499,8 @@ class AgentOrchestrator:
         arm: AgentArm,
         value: Mapping[str, Any],
         citations: Mapping[str, RetrievedCitation],
+        *,
+        search_attempted: bool,
     ) -> ProposedAction:
         expected = {
             "action_key",
@@ -502,7 +526,9 @@ class AgentOrchestrator:
         cited_ids = tuple(cited)
         if not all(isinstance(item, str) for item in cited_ids):
             raise OrchestrationError("citation memory IDs must be strings")
-        if arm is not AgentArm.STATELESS and not cited_ids:
+        if arm is not AgentArm.STATELESS and not search_attempted:
+            raise OrchestrationError("memory-enabled proposal must search first")
+        if arm is not AgentArm.STATELESS and citations and not cited_ids:
             raise OrchestrationError("memory-enabled proposal must cite memory")
         if arm is AgentArm.STATELESS and cited_ids:
             raise OrchestrationError("stateless proposal cannot cite memory")

@@ -42,3 +42,14 @@ promote canonical memory.
 
 The external-effect and promotion boundary is specified separately in
 `TRANSACTION_MODEL.md`; a model response is never outcome evidence.
+
+## Outcome-gated promotion
+
+An allowlisted proposal still requires a separate approval transition. Only a
+`succeeded` provider outcome with a receipt ID, canonical receipt digest, and
+verification timestamp can create a `tool`-sourced candidate and canonical
+memory. Outcome evidence, candidate insertion, incident-head compare-and-set,
+canonical insertion, and run completion occur in one SERIALIZABLE transaction.
+Failed and `ambiguous` outcomes complete the run without creating a candidate.
+The unique `(provider, provider_receipt_id)` index prevents one receipt from
+authorizing more than one episode.

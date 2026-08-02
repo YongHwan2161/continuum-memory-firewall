@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
+from datetime import datetime, timezone
 import unittest
 
 from continuum.episode import (
@@ -8,8 +9,10 @@ from continuum.episode import (
     AgentRunStatus,
     InMemoryEpisodeStore,
     ProposedAction,
+    ProviderOutcome,
     RetrievedCitation,
     RiskClass,
+    OutcomeStatus,
     payload_digest,
     validate_citations,
     validate_proposal,
@@ -120,6 +123,88 @@ class EpisodeContractTests(unittest.TestCase):
             payload_digest({"b": 2, "a": 1}),
             payload_digest({"a": 1, "b": 2}),
         )
+
+    def test_only_verified_success_promotes_canonical_outcome(self):
+        memory_id = "00000000-0000-0000-0000-000000000301"
+        self.store.record_citations(
+            run=self.run,
+            citations=(RetrievedCitation(memory_id, 1, {"fix": "invalidate"}),),
+        )
+        proposal_id = self.store.record_proposal(
+            run=self.run,
+            proposal=ProposedAction(
+                action_key="checkout:invalidate:v1",
+                action_type="invalidate_cache",
+                parameters={"cache": "checkout"},
+                rationale="verified prior episode",
+                citation_memory_ids=(memory_id,),
+                risk_class=RiskClass.REVERSIBLE,
+            ),
+        )
+        self.store.approve_proposal(
+            proposal_id=proposal_id,
+            actor="policy:synthetic-eval-v1",
+            reason="allowlisted reversible synthetic action",
+        )
+        observed = datetime(2026, 8, 2, tzinfo=timezone.utc)
+        outcome = ProviderOutcome(
+            provider="synthetic-provider",
+            status=OutcomeStatus.SUCCEEDED,
+            provider_receipt_id="receipt-1",
+            evidence={"expected_action_matched": True},
+            observed_at=observed,
+            verified_at=observed,
+        )
+        first = self.store.record_outcome_and_promote(
+            proposal_id=proposal_id,
+            outcome=outcome,
+        )
+        replay = self.store.record_outcome_and_promote(
+            proposal_id=proposal_id,
+            outcome=outcome,
+        )
+
+        self.assertIsNotNone(first.memory_id)
+        self.assertEqual(len(self.store.canonical_outcomes), 1)
+        self.assertTrue(replay.replayed)
+        self.assertEqual(replay.memory_id, first.memory_id)
+
+    def test_failed_outcome_is_evidence_but_never_canonical(self):
+        stateless = self.store.start_run(
+            tenant_id=self.run.tenant_id,
+            incident_id=self.run.incident_id,
+            arm=AgentArm.STATELESS,
+            model_id="amazon.nova-micro-v1:0",
+            input_payload={"symptom": "unknown"},
+        )
+        proposal_id = self.store.record_proposal(
+            run=stateless,
+            proposal=ProposedAction(
+                action_key="inspect:v1",
+                action_type="inspect_service",
+                parameters={"service": "checkout"},
+                rationale="inspect",
+                citation_memory_ids=(),
+                risk_class=RiskClass.READ_ONLY,
+            ),
+        )
+        self.store.approve_proposal(
+            proposal_id=proposal_id,
+            actor="policy:synthetic-eval-v1",
+            reason="read-only",
+        )
+        observed = datetime(2026, 8, 2, tzinfo=timezone.utc)
+        result = self.store.record_outcome_and_promote(
+            proposal_id=proposal_id,
+            outcome=ProviderOutcome(
+                provider="synthetic-provider",
+                status=OutcomeStatus.FAILED,
+                evidence={"expected_action_matched": False},
+                observed_at=observed,
+            ),
+        )
+        self.assertIsNone(result.memory_id)
+        self.assertEqual(self.store.canonical_outcomes, {})
 
 
 if __name__ == "__main__":

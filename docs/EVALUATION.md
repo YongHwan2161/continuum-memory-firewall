@@ -42,3 +42,35 @@ embedding model, and embedding columns in that order. The raw plan is never
 emitted because even a redacted plan is unnecessary public surface; reviewers
 receive its SHA-256, line count, expected-index signal, and full-scan signal
 instead.
+
+## Outcome-learning three-arm ablation
+
+`continuum.ablation` defines 36 non-sensitive synthetic recurrences across six
+incident families and six variants: explicit seed, paraphrase, similar meaning,
+poison pressure, stale pressure, and later recurrence. The exact same ordered
+case IDs are run through:
+
+1. `stateless`: Nova receives no memory tools;
+2. `raw_rag`: Nova retrieves append-all model episodes plus untrusted/stale
+   injections from an isolated baseline scope;
+3. `continuum`: Nova retrieves only provider-verified canonical outcomes.
+
+All memory-enabled calls use the same Titan embedding model, CockroachDB vector
+query, top-k limit, model, action allowlist, and synthetic provider verifier.
+The first tool call is forced to a scope-free `search_memory`; a cold start may
+propose without citations only after that search returns no rows. Later
+proposals must cite returned memory.
+
+The primary metric is provider-receipt success rate, not model text agreement.
+The denominator is all 36 eligible cases in every arm. The report also includes
+Wilson 95% intervals, p50/p95 end-to-end latency, tool calls, failed and
+ambiguous outcomes, canonical promotions, false promotions, and cross-scope
+leaks. The release gate requires 36 observations in each arm, zero promotion of
+failed/ambiguous outcomes, and zero cross-scope leakage. It does not require a
+preselected lift; any measured lift or regression is reported as observed.
+
+The provider is explicitly non-effecting and synthetic. It issues deterministic
+idempotent receipts only when the proposal action and target match the labeled
+case. This supports causal product comparison without claiming a production
+remediation API. The live workflow retains the full 108-observation JSON as a
+private GitHub Actions artifact and emits only redacted aggregate evidence.

@@ -18,6 +18,7 @@ repo_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 "$repo_root/scripts/assert_deployer_identity.sh"
 region="${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-southeast-1}}"
 bedrock_region="${CONTINUUM_BEDROCK_REGION:-ap-northeast-2}"
+agent_bedrock_region="${CONTINUUM_AGENT_BEDROCK_REGION:-ap-southeast-2}"
 stack_name="${CONTINUUM_MCP_STACK_NAME:-continuum-authenticated-mcp}"
 deployment_key="${CONTINUUM_MCP_DEPLOYMENT_KEY:-mcp-host/continuum-mcp-host.zip}"
 package_path="$repo_root/build/aws/continuum-mcp-host.zip"
@@ -73,6 +74,13 @@ aws iam put-role-policy \
   --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
   --policy-name InvokeOneSemanticEmbeddingModel \
   --policy-document "$model_policy"
+agent_model_arn="arn:aws:bedrock:${agent_bedrock_region}::foundation-model/amazon.nova-micro-v1:0"
+agent_model_policy="$(jq -cn --arg model "$agent_model_arn" \
+  '{Version:"2012-10-17",Statement:[{Effect:"Allow",Action:"bedrock:InvokeModel",Resource:$model}]}')"
+aws iam put-role-policy \
+  --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+  --policy-name InvokeOneAgentPlanningModel \
+  --policy-document "$agent_model_policy"
 aws ec2 create-tags --region "$region" --resources "$instance_id" \
   --tags "Key=continuum:artifact-sha256,Value=$package_sha256"
 aws ec2 wait instance-status-ok --region "$region" --instance-ids "$instance_id"
