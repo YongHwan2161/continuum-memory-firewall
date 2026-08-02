@@ -4,10 +4,13 @@ import json
 from pathlib import Path
 import unittest
 
-from scripts.build_release_envelope import build_envelope
+from scripts.build_release_envelope import build_envelope, repository_text_bytes
 
 
 class ReleaseEnvelopeTests(unittest.TestCase):
+    def test_repository_text_digest_is_checkout_line_ending_stable(self) -> None:
+        self.assertEqual(repository_text_bytes(b"one\r\ntwo\r\n"), b"one\ntwo\n")
+
     def setUp(self) -> None:
         self.scale = {
             "source_head": "b" * 40,
@@ -32,10 +35,29 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             ],
         }
         self.scale_bytes = (json.dumps(self.scale, sort_keys=True) + "\n").encode()
+        self.pressure = {
+            "source_head": "f" * 40,
+            "database": {"bounded_connection_pool_max": 20},
+            "gate": {
+                "status": "PASS",
+                "all_operations_completed": True,
+                "cross_scope_leakage_zero": True,
+                "exactly_one_action_owner_per_level": True,
+                "pool_recovery_passed": True,
+                "synthetic_rows_cleaned": True,
+            },
+            "levels": [
+                {"concurrent_agents": concurrency}
+                for concurrency in (10, 25, 50)
+            ],
+        }
+        self.pressure_bytes = (
+            json.dumps(self.pressure, sort_keys=True) + "\n"
+        ).encode()
         from scripts.build_release_envelope import sha256_bytes
 
         self.judge = {
-            "schema_version": 3,
+            "schema_version": 4,
             "source": {
                 "workflow_run_id": 10,
                 "workflow_attempt": 1,
@@ -48,6 +70,13 @@ class ReleaseEnvelopeTests(unittest.TestCase):
                 "workflow_url": "https://github.com/o/r/actions/runs/11",
                 "head_sha": "b" * 40,
                 "report_sha256": sha256_bytes(self.scale_bytes),
+            },
+            "agent_pressure": {
+                "workflow_run_id": 14,
+                "workflow_url": "https://github.com/o/r/actions/runs/14",
+                "head_sha": "f" * 40,
+                "report_sha256": sha256_bytes(self.pressure_bytes),
+                "workflow_artifact_sha256": "9" * 64,
             },
             "runtime": {
                 "migration_version": 17,
@@ -99,8 +128,10 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         return build_envelope(
             self.judge,
             self.scale,
+            self.pressure,
             judge_bytes=self.judge_bytes,
             scale_bytes=self.scale_bytes,
+            pressure_bytes=self.pressure_bytes,
             repo_root=Path(__file__).parents[1],
             repository="o/r",
             commit_sha="d" * 40,
@@ -115,6 +146,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         self.assertEqual(envelope["gates"]["status"], "PASS")
         self.assertEqual(envelope["application_deployment"]["migration_version"], 17)
         self.assertEqual(envelope["vector_benchmark"]["row_counts"], [10_000, 50_000])
+        self.assertEqual(envelope["agent_pressure"]["concurrent_agents"], [10, 25, 50])
         self.assertEqual(len(envelope["database_policy"]["rls"]["files"]), 3)
         self.assertEqual(len(envelope["public_judge_evidence"]["sha256"]), 64)
 
@@ -136,6 +168,17 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         self.judge["runtime"]["temporary_migration_capability_absent"] = True
         self.judge["release_envelope"]["tag"] = "mutable-tag"
         with self.assertRaisesRegex(RuntimeError, "release_reference"):
+            self.build()
+
+    def test_pressure_checksum_and_gate_fail_closed(self) -> None:
+        self.judge["agent_pressure"]["report_sha256"] = "0" * 64
+        with self.assertRaisesRegex(RuntimeError, "pressure_checksum"):
+            self.build()
+        self.judge["agent_pressure"]["report_sha256"] = __import__(
+            "hashlib"
+        ).sha256(self.pressure_bytes).hexdigest()
+        self.pressure["gate"]["pool_recovery_passed"] = False
+        with self.assertRaisesRegex(RuntimeError, "pressure_gate"):
             self.build()
 
 
