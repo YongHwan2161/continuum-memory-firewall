@@ -620,7 +620,7 @@ class Migrator:
         scoped_tables = {
             table_name
             for (table_name, _), column_names in foreign_keys.items()
-            if column_names == ["tenant_id", "incident_id"]
+            if column_names[:2] == ["tenant_id", "incident_id"]
         }
         missing_scope_foreign_keys = EXPECTED_SCOPE_FOREIGN_KEYS - scoped_tables
         if missing_scope_foreign_keys:

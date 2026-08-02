@@ -78,6 +78,21 @@ class MigrationDefinitionTests(unittest.TestCase):
 
 
 class MigrationBoundaryTests(unittest.TestCase):
+    def test_scope_fk_validator_accepts_a_scope_prefixed_run_key(self) -> None:
+        foreign_keys = {
+            ("retrieved_citations", "run_scope_fk"): [
+                "tenant_id",
+                "incident_id",
+                "run_id",
+            ]
+        }
+        scoped_tables = {
+            table_name
+            for (table_name, _), column_names in foreign_keys.items()
+            if column_names[:2] == ["tenant_id", "incident_id"]
+        }
+        self.assertEqual(scoped_tables, {"retrieved_citations"})
+
     def test_remote_database_requires_verify_full(self) -> None:
         with self.assertRaisesRegex(MigrationError, "sslmode=verify-full"):
             validate_database_transport(
