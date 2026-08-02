@@ -116,6 +116,7 @@ class McpHostInfrastructureTests(unittest.TestCase):
             "cutover_scope_identity.py",
             "live_semantic_eval.py",
             "run_live_agent_ablation.py",
+            "run_live_outbox_faults.py",
             "seed_judge_story.py",
             "remote_oidc_smoke.py",
             "semantic-retrieval-v1.json",
@@ -132,6 +133,20 @@ class McpHostInfrastructureTests(unittest.TestCase):
         self.assertIn("temporary ablation capability remains attached", workflow)
         self.assertIn("false_canonical_promotions", workflow)
         self.assertIn("cross_scope_leak_count", workflow)
+        self.assertIn("deploy_mcp_host_direct_recovery.sh", workflow)
+        self.assertIn("UPDATE_ROLLBACK_FAILED", workflow)
+
+    def test_outbox_fault_workflow_is_keyless_bounded_and_self_revoking(self):
+        workflow = (
+            ROOT / ".github" / "workflows" / "aws-outbox-faults.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("id-token: write", workflow)
+        self.assertIn("assert_deployer_identity.sh", workflow)
+        self.assertIn("ContinuumOutboxFaultsOneCommand", workflow)
+        self.assertIn("aws iam delete-role-policy", workflow)
+        self.assertIn("duplicate_effects_zero", workflow)
+        self.assertIn("after_send_non_idempotent", workflow)
+        self.assertIn("temporary outbox capability remains attached", workflow)
         self.assertIn("deploy_mcp_host_direct_recovery.sh", workflow)
         self.assertIn("UPDATE_ROLLBACK_FAILED", workflow)
 

@@ -30,6 +30,7 @@ OWNED_TABLES = (
     "retrieved_citations",
     "proposed_actions",
     "outcome_evidence",
+    "action_outbox",
 )
 
 
