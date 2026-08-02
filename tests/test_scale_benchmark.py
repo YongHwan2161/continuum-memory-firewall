@@ -79,7 +79,9 @@ class ScaleBenchmarkTest(unittest.TestCase):
                     "beams": [
                         {
                             "beam_size": beam,
-                            "recall_by_k": {"10": 1.0},
+                            "recall_by_k": {
+                                "10": 1.0 if beam == DEFAULT_BEAMS[-1] else 0.1
+                            },
                             "cross_scope_leaked_rows": 0,
                             "query_plan": {
                                 "reports_vector_search": True,
@@ -97,6 +99,35 @@ class ScaleBenchmarkTest(unittest.TestCase):
             "reports_vector_search"
         ] = False
         with self.assertRaisesRegex(RuntimeError, "naturally select"):
+            validate_report(report)
+
+    def test_only_highest_beam_has_minimum_recall_gate(self) -> None:
+        report = {
+            "scales": [
+                {
+                    "row_count": scale,
+                    "index_contract": {
+                        "present": True,
+                        "visible": True,
+                        "prefix_and_vector_match": True,
+                    },
+                    "beams": [
+                        {
+                            "beam_size": beam,
+                            "recall_by_k": {"10": 0.74},
+                            "cross_scope_leaked_rows": 0,
+                            "query_plan": {
+                                "reports_vector_search": True,
+                                "reports_full_scan": False,
+                            },
+                        }
+                        for beam in DEFAULT_BEAMS
+                    ],
+                }
+                for scale in DEFAULT_SCALES
+            ]
+        }
+        with self.assertRaisesRegex(RuntimeError, "highest-beam"):
             validate_report(report)
 
 
