@@ -30,8 +30,9 @@ ALLOWED_INCIDENT = "018f4ab7-419d-7c7d-8000-000000000002"
 FOREIGN_TENANT = "018f4ab7-419d-7c7d-8000-000000000003"
 FOREIGN_INCIDENT = "018f4ab7-419d-7c7d-8000-000000000004"
 DEFAULT_SCALES = (10_000, 50_000)
-DEFAULT_BEAMS = (1, 4, 16, 32)
+DEFAULT_BEAMS = (1, 32, 128, 512)
 DEFAULT_CUTOFFS = (1, 5, 10)
+MINIMUM_HIGH_BEAM_RECALL_AT_10 = 0.75
 
 
 def synthetic_vector(row_id: int, *, dimensions: int = DIMENSIONS) -> tuple[float, ...]:
@@ -381,14 +382,20 @@ def validate_report(report: dict[str, Any]) -> None:
             and contract["prefix_and_vector_match"]
         ):
             raise RuntimeError("the synthetic vector index contract is invalid")
-        for beam in scale["beams"]:
+        beam_reports = scale["beams"]
+        if [item["beam_size"] for item in beam_reports] != list(DEFAULT_BEAMS):
+            raise RuntimeError("the complete beam-size trade-off is required")
+        for beam in beam_reports:
             plan = beam["query_plan"]
             if not plan["reports_vector_search"] or plan["reports_full_scan"]:
                 raise RuntimeError("CockroachDB did not naturally select the ANN index")
             if beam["cross_scope_leaked_rows"] != 0:
                 raise RuntimeError("synthetic prefix-scope leakage detected")
-            if beam["recall_by_k"]["10"] < 0.75:
-                raise RuntimeError("Recall@10 fell below the benchmark gate")
+        if (
+            beam_reports[-1]["recall_by_k"]["10"]
+            < MINIMUM_HIGH_BEAM_RECALL_AT_10
+        ):
+            raise RuntimeError("highest-beam Recall@10 fell below the benchmark gate")
 
 
 def run_benchmark(
@@ -456,7 +463,8 @@ def run_benchmark(
         "status": "HOLD",
         "natural_ann_selected_at_all_scales": False,
         "cross_scope_leakage_zero": False,
-        "minimum_recall_at_10": 0.75,
+        "minimum_recall_at_10": MINIMUM_HIGH_BEAM_RECALL_AT_10,
+        "minimum_recall_applies_to_beam": DEFAULT_BEAMS[-1],
     }
     try:
         validate_report(report)
