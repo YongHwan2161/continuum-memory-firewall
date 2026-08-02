@@ -87,6 +87,8 @@ class McpHostInfrastructureTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("assert_deployer_identity.sh", script)
+        self.assertIn("describe-stack-events", script)
+        self.assertNotIn("TemplateBody", script)
         recovery = (
             ROOT / "scripts" / "deploy_mcp_host_direct_recovery.sh"
         ).read_text(encoding="utf-8")
