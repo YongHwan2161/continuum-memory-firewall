@@ -1,5 +1,6 @@
 const judgeUrl = './evidence/judge-verification.json';
 const scaleUrl = './evidence/vector-scale.json';
+const pressureUrl = './evidence/agent-pressure.json';
 const byId = id => document.getElementById(id);
 const percent = value => `${(Number(value) * 100).toFixed(1)}%`;
 const latency = value => `${Number(value).toFixed(1)} ms`;
@@ -77,13 +78,39 @@ function renderScale(evidence) {
     </tr>`)).join('');
 }
 
+function renderPressure(evidence) {
+  const highest = evidence.levels.at(-1);
+  const peak = evidence.levels.reduce((best, item) =>
+    item.throughput_ops_per_second > best.throughput_ops_per_second ? item : best
+  );
+  byId('pressure-gate').textContent = evidence.gate.status;
+  byId('pressure-peak').textContent = `${peak.throughput_ops_per_second.toFixed(1)}/s`;
+  byId('pressure-peak-detail').textContent = `Peak at ${peak.concurrent_agents} agents`;
+  byId('pressure-p99').textContent = latency(highest.latency_ms.p99);
+  byId('pressure-p99-detail').textContent = '50 agents · 20 SQL connections';
+  byId('pressure-recovery').textContent = latency(evidence.recoveries.at(-1).time_to_first_success_ms);
+  byId('pressure-rows').innerHTML = evidence.levels.map((level, index) => `
+    <tr>
+      <td>${level.concurrent_agents}</td>
+      <td>${level.operations}</td>
+      <td>${level.throughput_ops_per_second.toFixed(1)}/s</td>
+      <td>${latency(level.latency_ms.p50)}</td>
+      <td>${latency(level.latency_ms.p95)}</td>
+      <td>${latency(level.latency_ms.p99)}</td>
+      <td>${level.durable_action_claims}</td>
+      <td>${latency(evidence.recoveries[index].time_to_first_success_ms)}</td>
+    </tr>`).join('');
+}
+
 async function quickCheck() {
   const button = byId('quick-check');
   const result = byId('quick-result');
   button.disabled = true;
   result.textContent = 'Checking immutable evidence, workflow, Pages, and MCP health…';
   try {
-    const [judge, scale] = await Promise.all([json(judgeUrl), json(scaleUrl)]);
+    const [judge, scale, pressure] = await Promise.all([
+      json(judgeUrl), json(scaleUrl), json(pressureUrl)
+    ]);
     const [workflow, health, page, release] = await Promise.all([
       json(judge.source.workflow_api_url),
       json(judge.runtime.health_url),
@@ -94,6 +121,9 @@ async function quickCheck() {
     const passed = judge.submission.status === 'Submitted'
       && judge.evaluation.cross_scope_leaked_documents === 0
       && scale.gate.status === 'PASS'
+      && pressure.gate.status === 'PASS'
+      && pressure.levels.at(-1).concurrent_agents === 50
+      && pressure.levels.every(level => level.durable_action_claims === 1)
       && workflow.conclusion === 'success'
       && health.ok === true
       && page.includes('Continuum Memory Firewall')
@@ -111,8 +141,12 @@ async function quickCheck() {
   }
 }
 
-Promise.all([json(judgeUrl), json(scaleUrl)])
-  .then(([judge, scale]) => { renderJudge(judge); renderScale(scale); })
+Promise.all([json(judgeUrl), json(scaleUrl), json(pressureUrl)])
+  .then(([judge, scale, pressure]) => {
+    renderJudge(judge);
+    renderScale(scale);
+    renderPressure(pressure);
+  })
   .catch(error => { byId('proof-status').textContent = 'EVIDENCE HOLD'; console.error(error); });
 byId('quick-check').addEventListener('click', quickCheck);
 byId('run-story').addEventListener('click', runStory);

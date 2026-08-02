@@ -34,6 +34,12 @@ def sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
+def repository_text_bytes(value: bytes) -> bytes:
+    """Match the LF-normalized Git blob and GitHub Pages representation."""
+
+    return value.replace(b"\r\n", b"\n")
+
+
 def _migration_receipt(repo_root: Path, names: tuple[str, ...]) -> dict[str, Any]:
     root = repo_root / "src" / "continuum" / "migrations"
     files = []
@@ -54,9 +60,11 @@ def _migration_receipt(repo_root: Path, names: tuple[str, ...]) -> dict[str, Any
 def build_envelope(
     judge: dict[str, Any],
     scale: dict[str, Any],
+    pressure: dict[str, Any],
     *,
     judge_bytes: bytes,
     scale_bytes: bytes,
+    pressure_bytes: bytes,
     repo_root: Path,
     repository: str,
     commit_sha: str,
@@ -65,8 +73,8 @@ def build_envelope(
     release_tag: str,
     generated_at: str | None = None,
 ) -> dict[str, Any]:
-    if judge.get("schema_version") != 3:
-        raise RuntimeError("judge evidence schema 3 is required")
+    if judge.get("schema_version") != 4:
+        raise RuntimeError("judge evidence schema 4 is required")
     if not SHA_PATTERN.fullmatch(commit_sha):
         raise RuntimeError("release commit must be a full lowercase SHA")
     if workflow_run_id < 1 or not workflow_url.startswith("https://github.com/"):
@@ -76,6 +84,7 @@ def build_envelope(
 
     source = judge["source"]
     vector = judge["vector_scale"]
+    pressure_reference = judge["agent_pressure"]
     runtime = judge["runtime"]
     submission = judge["submission"]
     managed = judge["managed_mcp"]
@@ -86,8 +95,9 @@ def build_envelope(
         [beam.get("beam_size") for beam in item.get("beams", [])]
         for item in scales
     ]
-    scale_sha = sha256_bytes(scale_bytes)
-    judge_sha = sha256_bytes(judge_bytes)
+    scale_sha = sha256_bytes(repository_text_bytes(scale_bytes))
+    pressure_sha = sha256_bytes(repository_text_bytes(pressure_bytes))
+    judge_sha = sha256_bytes(repository_text_bytes(judge_bytes))
     checks = {
         "submission_receipt_bound": (
             int(submission.get("id", 0)) > 0
@@ -142,6 +152,33 @@ def build_envelope(
         "zero_benchmark_scope_leakage": bool(beams)
         and all(beam.get("cross_scope_leaked_rows") == 0 for beam in beams),
         "vector_gate_passed": scale.get("gate", {}).get("status") == "PASS",
+        "agent_pressure_checksum_matches": (
+            pressure_sha == pressure_reference.get("report_sha256")
+        ),
+        "agent_pressure_workflow_head_matches": (
+            pressure.get("source_head") == pressure_reference.get("head_sha")
+        ),
+        "agent_pressure_artifact_digest_bound": (
+            SHA256_PATTERN.fullmatch(
+                pressure_reference.get("workflow_artifact_sha256", "")
+            )
+            is not None
+        ),
+        "agent_pressure_levels_present": [
+            item.get("concurrent_agents") for item in pressure.get("levels", [])
+        ]
+        == [10, 25, 50],
+        "agent_pressure_gate_passed": (
+            pressure.get("gate", {}).get("status") == "PASS"
+            and pressure.get("gate", {}).get("all_operations_completed") is True
+            and pressure.get("gate", {}).get("cross_scope_leakage_zero") is True
+            and pressure.get("gate", {}).get(
+                "exactly_one_action_owner_per_level"
+            )
+            is True
+            and pressure.get("gate", {}).get("pool_recovery_passed") is True
+            and pressure.get("gate", {}).get("synthetic_rows_cleaned") is True
+        ),
         "public_release_reference_matches": (
             release_reference.get("tag") == release_tag
             and release_reference.get("release_url")
@@ -203,6 +240,22 @@ def build_envelope(
             "beam_sizes": scale["beam_sizes"],
             "gate": scale["gate"],
         },
+        "agent_pressure": {
+            "head_sha": pressure_reference["head_sha"],
+            "workflow_run_id": pressure_reference["workflow_run_id"],
+            "workflow_url": pressure_reference["workflow_url"],
+            "report_sha256": pressure_sha,
+            "workflow_artifact_sha256": pressure_reference[
+                "workflow_artifact_sha256"
+            ],
+            "concurrent_agents": [
+                item["concurrent_agents"] for item in pressure["levels"]
+            ],
+            "bounded_connection_pool_max": pressure["database"][
+                "bounded_connection_pool_max"
+            ],
+            "gate": pressure["gate"],
+        },
         "public_judge_evidence": {
             "url": judge["public_demo"]["evidence_url"],
             "sha256": judge_sha,
@@ -230,6 +283,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--judge-evidence", type=Path, required=True)
     parser.add_argument("--scale-evidence", type=Path, required=True)
+    parser.add_argument("--pressure-evidence", type=Path, required=True)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--repository", required=True)
     parser.add_argument("--commit-sha", required=True)
@@ -240,11 +294,14 @@ def main() -> None:
     args = parser.parse_args()
     judge_bytes = args.judge_evidence.read_bytes()
     scale_bytes = args.scale_evidence.read_bytes()
+    pressure_bytes = args.pressure_evidence.read_bytes()
     envelope = build_envelope(
         json.loads(judge_bytes),
         json.loads(scale_bytes),
+        json.loads(pressure_bytes),
         judge_bytes=judge_bytes,
         scale_bytes=scale_bytes,
+        pressure_bytes=pressure_bytes,
         repo_root=args.repo_root.resolve(),
         repository=args.repository,
         commit_sha=args.commit_sha,

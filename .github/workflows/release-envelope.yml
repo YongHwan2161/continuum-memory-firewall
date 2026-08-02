@@ -34,7 +34,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           judge=public-demo/evidence/judge-verification.json
-          for plane in source vector_scale managed_mcp; do
+          for plane in source vector_scale agent_pressure managed_mcp; do
             case "$plane" in
               source)
                 run_id="$(jq -r '.source.workflow_run_id' "$judge")"
@@ -43,6 +43,10 @@ jobs:
               vector_scale)
                 run_id="$(jq -r '.vector_scale.workflow_run_id' "$judge")"
                 expected_head="$(jq -r '.vector_scale.head_sha' "$judge")"
+                ;;
+              agent_pressure)
+                run_id="$(jq -r '.agent_pressure.workflow_run_id' "$judge")"
+                expected_head="$(jq -r '.agent_pressure.head_sha' "$judge")"
                 ;;
               managed_mcp)
                 run_id="$(jq -r '.managed_mcp.rotation_workflow_run_id' "$judge")"
@@ -62,6 +66,7 @@ jobs:
           python scripts/build_release_envelope.py \
             --judge-evidence public-demo/evidence/judge-verification.json \
             --scale-evidence public-demo/evidence/vector-scale.json \
+            --pressure-evidence public-demo/evidence/agent-pressure.json \
             --repo-root . \
             --repository "$GITHUB_REPOSITORY" \
             --commit-sha "$GITHUB_SHA" \

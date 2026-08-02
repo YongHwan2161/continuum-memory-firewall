@@ -127,6 +127,24 @@
       <p class="micro">“First pass” includes a fresh SQL connection; it does not claim a physical CockroachDB Cloud cache flush.</p>
     </section>
 
+    <section class="stage" id="pressure">
+      <div class="section-title"><p class="kicker">REAL CONCURRENT-AGENT PRESSURE</p><h2>Correct at 50 agents—and honest about the queue.</h2><p class="copy">Each agent runs an exact 70% ANN read / 20% trusted memory promotion / 10% action-claim mix against the participant cluster. The application pool stays capped at 20 SQL connections.</p></div>
+      <div class="pressure-summary">
+        <article><span>Report gate</span><strong id="pressure-gate">—</strong><small>850 total live operations</small></article>
+        <article><span>Peak throughput</span><strong id="pressure-peak">—</strong><small id="pressure-peak-detail">Loading…</small></article>
+        <article><span>50-agent p99</span><strong id="pressure-p99">—</strong><small id="pressure-p99-detail">Loading…</small></article>
+        <article><span>Pool recovery</span><strong id="pressure-recovery">—</strong><small>teardown → first successful ANN read</small></article>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Agents</th><th>Ops</th><th>Throughput</th><th>p50</th><th>p95</th><th>p99</th><th>Action owners</th><th>Pool recovery</th></tr></thead>
+          <tbody id="pressure-rows"><tr><td colspan="8">Pressure evidence is loading…</td></tr></tbody>
+        </table>
+      </div>
+      <p class="pressure-insight"><b>Measured bottleneck:</b> throughput peaks at 25 agents, then the 20-connection pool queues excess work at 50. Correctness holds—0 worker errors, 0 foreign rows, one durable action owner—but the next improvement is admission control, not an unbounded pool.</p>
+      <p class="micro">Recovery deliberately tears down and recreates the client pool. It is not represented as CockroachDB node failover.</p>
+    </section>
+
     <section class="stage rotation">
       <div class="section-title"><p class="kicker">FAIL-CLOSED KEY ROTATION</p><h2>Replace, outwait the cache, prove, then retire.</h2></div>
       <ol>
