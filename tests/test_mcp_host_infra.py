@@ -133,6 +133,8 @@ class McpHostInfrastructureTests(unittest.TestCase):
         self.assertIn("temporary ablation capability remains attached", workflow)
         self.assertIn("false_canonical_promotions", workflow)
         self.assertIn("cross_scope_leak_count", workflow)
+        self.assertIn("deploy_mcp_host_direct_recovery.sh", workflow)
+        self.assertIn("UPDATE_ROLLBACK_FAILED", workflow)
 
     def test_outbox_fault_workflow_is_keyless_bounded_and_self_revoking(self):
         workflow = (
