@@ -5,6 +5,12 @@ memory promotion in long-running AI agents. It separates untrusted candidate
 memories from canonical memory and makes every promotion decision explicit,
 deterministic, and transactionally durable.
 
+**Live judge path:** [run the public product proof](https://yonghwan2161.github.io/continuum-memory-firewall/)
+or [verify every bound receipt](https://yonghwan2161.github.io/continuum-memory-firewall/verify.html).
+In the incident-response story, trusted telemetry becomes durable memory,
+poisoned model output remains quarantined, a later agent retrieves the accepted
+resolution, and CockroachDB grants exactly one action owner.
+
 The current milestone is **P2B: authenticated managed-cloud competition
 slice**. In addition to the transactional promotion and retrieval boundary, a
 private, cost-bounded AWS Lambda client for CockroachDB Cloud Managed MCP and a
