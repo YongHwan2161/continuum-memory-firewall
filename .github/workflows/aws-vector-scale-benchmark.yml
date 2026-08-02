@@ -95,6 +95,10 @@ jobs:
             --query StandardOutputContent --output text \
             >"$RUNNER_TEMP/vector-scale.json"
           if [[ "$status" != Success ]]; then
+            if jq -e '.schema_version == 1' "$RUNNER_TEMP/vector-scale.json" >/dev/null 2>&1; then
+              jq '{source_head,gate,scales:[.scales[]|{row_count,index_contract,beams:[.beams[]|{beam_size,recall_by_k,query_plan}]}]}' \
+                "$RUNNER_TEMP/vector-scale.json"
+            fi
             aws ssm get-command-invocation \
               --region ap-southeast-1 \
               --command-id "$command_id" \
@@ -114,6 +118,7 @@ jobs:
           jq '{source_head,gate,scales:[.scales[]|{row_count,query_count,exact_primary_scan_ms,beams:[.beams[]|{beam_size,recall_by_k,fresh_connection_first_pass_ms,same_connection_immediate_repeat_ms,query_plan}]}]}' \
             "$RUNNER_TEMP/vector-scale.json"
       - name: Upload immutable benchmark report
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: continuum-vector-scale-${{ github.sha }}
