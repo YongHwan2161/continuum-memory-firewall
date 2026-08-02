@@ -31,14 +31,18 @@ class Connection:
                 rows=[
                     ("tenant_id", 1, "ASC", True, False),
                     ("incident_id", 2, "ASC", True, False),
-                    ("embedding", 3, "vector_cosine_ops", True, False),
-                    ("memory_id", 4, "ASC", True, True),
+                    ("embedding_model", 3, "ASC", True, False),
+                    ("embedding", 4, "vector_cosine_ops", True, False),
+                    ("memory_id", 5, "ASC", True, True),
                 ]
             )
         return Result(
             rows=[
                 ("distribution: local",),
-                ("scan canonical_memories@canonical_memories_embedding_idx",),
+                (
+                    "scan canonical_memories@"
+                    "canonical_memories_model_embedding_idx",
+                ),
             ]
         )
 

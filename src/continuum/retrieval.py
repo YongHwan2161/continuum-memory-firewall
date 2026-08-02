@@ -346,7 +346,6 @@ class MemoryRetrievalStore:
                     WHERE
                         tenant_id = %s
                         AND incident_id = %s
-                        AND embedding IS NOT NULL
                         AND embedding_model = %s
                     ORDER BY embedding <=> %s::VECTOR
                     LIMIT %s

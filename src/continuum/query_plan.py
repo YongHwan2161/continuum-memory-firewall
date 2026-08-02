@@ -9,8 +9,13 @@ from typing import Any, Callable
 from continuum.retrieval import EMBEDDING_DIMENSIONS, vector_literal
 
 
-EXPECTED_VECTOR_INDEX = "canonical_memories_embedding_idx"
-EXPECTED_PREFIX_COLUMNS = ("tenant_id", "incident_id", "embedding")
+EXPECTED_VECTOR_INDEX = "canonical_memories_model_embedding_idx"
+EXPECTED_PREFIX_COLUMNS = (
+    "tenant_id",
+    "incident_id",
+    "embedding_model",
+    "embedding",
+)
 
 
 def collect_query_plan_evidence(
@@ -45,7 +50,6 @@ def collect_query_plan_evidence(
             FROM canonical_memories
             WHERE tenant_id = %s
               AND incident_id = %s
-              AND embedding IS NOT NULL
               AND embedding_model = %s
             ORDER BY embedding <=> %s::VECTOR
             LIMIT 5

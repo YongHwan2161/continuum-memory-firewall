@@ -114,7 +114,7 @@ EXPECTED_COLUMNS = {
 }
 EXPECTED_INDEXES = {
     "memory_candidates_incident_created_idx",
-    "canonical_memories_embedding_idx",
+    "canonical_memories_model_embedding_idx",
     "retrieval_audit_incident_created_idx",
     "tenant_scope_bindings_scope_idx",
     "tenant_scope_binding_audit_caller_idx",
@@ -126,6 +126,7 @@ EXPECTED_SCOPE_FOREIGN_KEYS = {
     "retrieval_audit",
     "tenant_scope_bindings",
 }
+SAFE_UPDATES_OFF_MIGRATIONS = {"create_model_scoped_vector_index"}
 
 
 class MigrationError(RuntimeError):
@@ -571,6 +572,8 @@ class Migrator:
         for attempt in range(self._max_attempts):
             try:
                 with self._autocommit_connection() as connection:
+                    if migration.name in SAFE_UPDATES_OFF_MIGRATIONS:
+                        connection.execute("SET sql_safe_updates = false")
                     connection.execute(migration.sql)
                 return
             except Exception as error:
