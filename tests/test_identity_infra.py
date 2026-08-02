@@ -46,6 +46,11 @@ class IdentityInfrastructureTests(unittest.TestCase):
             denies,
             {"DenyBootstrapStackMutation", "DenyDeployerSelfModification"},
         )
+        runtime = next(
+            item for item in statements if item["Sid"] == "RuntimeOperations"
+        )
+        self.assertIn("ec2:CreateTags", runtime["Action"])
+        self.assertIn("ec2:DeleteTags", runtime["Action"])
 
     def test_deployer_trust_is_keyless_and_exact_ref_scoped(self):
         provider = self.deployer["Resources"]["GitHubOidcProvider"]
