@@ -8,6 +8,7 @@ import json
 import secrets
 import time
 from urllib.parse import quote, urlsplit, urlunsplit
+from uuid import uuid4
 
 from continuum.migrate import Migrator
 from continuum.scope_roles import (
@@ -81,26 +82,27 @@ def _replace_login(database_url: str, *, user: str, password: str) -> str:
     return urlunsplit((parts.scheme, netloc, parts.path, parts.query, ""))
 
 
-def _verify_role_options_empty(
-    connect: Callable[[], object],
-    usernames: tuple[str, ...],
-) -> bool:
-    """Fail closed unless every bootstrap identity has no elevated options."""
+def _verify_role_creation_denied(connect: Callable[[], object]) -> bool:
+    """Prove CREATEROLE and CREATELOGIN are absent without system-table reads."""
 
-    if not usernames or any(not username for username in usernames):
-        raise ValueError("role option verification requires named identities")
-    placeholders = ", ".join("%s" for _ in usernames)
-    with connect() as connection:
-        rows = connection.execute(
-            "SELECT username, options FROM [SHOW ROLES] "
-            f"WHERE username IN ({placeholders})",
-            usernames,
-        ).fetchall()
-    observed = {str(row[0]): tuple(row[1] or ()) for row in rows}
-    if set(observed) != set(usernames):
-        raise RuntimeError("bootstrap role option evidence is incomplete")
-    if any(observed.values()):
-        raise RuntimeError("bootstrap role options are still elevated")
+    suffix = uuid4().hex
+    role_name = f"continuum_denied_role_{suffix}"
+    user_name = f"continuum_denied_user_{suffix}"
+    probes = (
+        (f"CREATE ROLE {role_name} NOLOGIN", f"DROP ROLE {role_name}"),
+        (f"CREATE USER {user_name}", f"DROP USER {user_name}"),
+    )
+    for create_statement, drop_statement in probes:
+        with connect() as connection:
+            try:
+                connection.execute(create_statement)
+            except Exception as error:
+                connection.rollback()
+                if getattr(error, "sqlstate", None) != "42501":
+                    raise
+            else:
+                connection.execute(drop_statement)
+                raise RuntimeError("bootstrap identity can still create SQL roles")
     return True
 
 
@@ -227,9 +229,9 @@ def main() -> None:
         forbidden_memory_id=args.forbidden_memory_id,
     )
     control_verified = verify_control_plane_role(control_plane_url)
-    control_plane_bootstrap_options_revoked = _verify_role_options_empty(
-        psycopg_connection_factory(migrator_url),
-        (database_url_user(migrator_url), CONTROL_PLANE_USER),
+    _verify_role_creation_denied(psycopg_connection_factory(migrator_url))
+    control_plane_bootstrap_options_revoked = _verify_role_creation_denied(
+        psycopg_connection_factory(control_plane_url)
     )
     resolved = DatabaseTenantControlPlane(
         psycopg_connection_factory(control_plane_url)
