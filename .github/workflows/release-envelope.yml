@@ -1,0 +1,107 @@
+name: immutable-release-envelope
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: New immutable GitHub Release tag
+        required: true
+        default: hackathon-v1
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Refuse tag replacement
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "release tag already exists; replacement is forbidden" >&2
+            exit 1
+          fi
+      - name: Revalidate referenced workflow receipts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          judge=public-demo/evidence/judge-verification.json
+          for plane in source vector_scale managed_mcp; do
+            case "$plane" in
+              source)
+                run_id="$(jq -r '.source.workflow_run_id' "$judge")"
+                expected_head="$(jq -r '.source.deployment_head_sha' "$judge")"
+                ;;
+              vector_scale)
+                run_id="$(jq -r '.vector_scale.workflow_run_id' "$judge")"
+                expected_head="$(jq -r '.vector_scale.head_sha' "$judge")"
+                ;;
+              managed_mcp)
+                run_id="$(jq -r '.managed_mcp.rotation_workflow_run_id' "$judge")"
+                expected_head=""
+                ;;
+            esac
+            receipt="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
+            test "$(jq -r '.conclusion' <<<"$receipt")" = success
+            if [ -n "$expected_head" ]; then
+              test "$(jq -r '.head_sha' <<<"$receipt")" = "$expected_head"
+            fi
+          done
+      - name: Build fail-closed envelope
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          python scripts/build_release_envelope.py \
+            --judge-evidence public-demo/evidence/judge-verification.json \
+            --scale-evidence public-demo/evidence/vector-scale.json \
+            --repo-root . \
+            --repository "$GITHUB_REPOSITORY" \
+            --commit-sha "$GITHUB_SHA" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --release-tag "$RELEASE_TAG" \
+            --output build/release/continuum-release-envelope-v1.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: continuum-release-envelope-${{ github.sha }}
+          path: build/release/*
+          if-no-files-found: error
+          retention-days: 90
+      - name: Publish immutable GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            build/release/continuum-release-envelope-v1.json \
+            build/release/continuum-release-envelope-v1.json.sha256 \
+            --target "$GITHUB_SHA" \
+            --draft \
+            --title "Continuum Memory Firewall evidence envelope" \
+            --notes "Exact commit, deployment, vector benchmark, RLS, key rotation, and Devpost receipts. The workflow refuses to replace an existing tag."
+          gh release edit "$RELEASE_TAG" --draft=false
+          for attempt in $(seq 1 12); do
+            release_receipt="$(gh api \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
+              "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+            if [ "$(jq -r '.immutable' <<<"$release_receipt")" = true ]; then
+              break
+            fi
+            sleep 5
+          done
+          test "$(jq -r '.immutable' <<<"$release_receipt")" = true
+          test "$(jq -r '.tag_name' <<<"$release_receipt")" = "$RELEASE_TAG"
+          test "$(jq -r '.target_commitish' <<<"$release_receipt")" = "$GITHUB_SHA"
+          envelope_digest="sha256:$(sha256sum build/release/continuum-release-envelope-v1.json | cut -d' ' -f1)"
+          sidecar_digest="sha256:$(sha256sum build/release/continuum-release-envelope-v1.json.sha256 | cut -d' ' -f1)"
+          test "$(jq -r '.assets[] | select(.name == "continuum-release-envelope-v1.json") | .digest' <<<"$release_receipt")" = "$envelope_digest"
+          test "$(jq -r '.assets[] | select(.name == "continuum-release-envelope-v1.json.sha256") | .digest' <<<"$release_receipt")" = "$sidecar_digest"
+          jq '{id,tag_name,target_commitish,immutable,assets:[.assets[]|{name,state,digest}]}' <<<"$release_receipt"
