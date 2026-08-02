@@ -49,7 +49,6 @@ EXPECTED_COLUMNS = {
         "expires_at",
         "decision_code",
         "decided_at",
-        "approval_evidence",
     },
     "canonical_memories": {
         "memory_id",
@@ -152,6 +151,7 @@ EXPECTED_COLUMNS = {
         "status",
         "created_at",
         "decided_at",
+        "approval_evidence",
     },
     "outcome_evidence": {
         "outcome_id",
