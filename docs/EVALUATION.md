@@ -37,7 +37,8 @@ be recorded separately with their exact workflow head.
 
 The live report also records a read-only `EXPLAIN (REDACT)` digest and
 `SHOW INDEXES` metadata for the scoped vector query. It fails closed unless the
-visible `canonical_memories_embedding_idx` declares the tenant, incident, and
-embedding columns in that order. The raw plan is never emitted because even a
-redacted plan is unnecessary public surface; reviewers receive its SHA-256,
-line count, expected-index signal, and full-scan signal instead.
+visible `canonical_memories_model_embedding_idx` declares the tenant, incident,
+embedding model, and embedding columns in that order. The raw plan is never
+emitted because even a redacted plan is unnecessary public surface; reviewers
+receive its SHA-256, line count, expected-index signal, and full-scan signal
+instead.

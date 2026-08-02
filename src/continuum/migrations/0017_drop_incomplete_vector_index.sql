@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS canonical_memories@canonical_memories_embedding_idx

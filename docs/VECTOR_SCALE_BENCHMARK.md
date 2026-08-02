@@ -8,10 +8,16 @@ judging. It does not read or write `canonical_memories`.
 The same equality-prefix contract used by application retrieval is exercised:
 
 ```sql
-WHERE tenant_id = $1 AND incident_id = $2
-ORDER BY embedding <=> $3::VECTOR
+WHERE tenant_id = $1 AND incident_id = $2 AND embedding_model = $3
+ORDER BY embedding <=> $4::VECTOR
 LIMIT 10
 ```
+
+`embedding_model` is deliberately the third prefix column. CockroachDB vector
+acceleration supports filters that match vector-index prefixes; leaving this
+equality filter outside the prefix caused the first two honest 10k/50k runs to
+choose a primary full scan. The benchmark and application index now express
+the complete retrieval predicate in the index contract.
 
 At 10k and 50k total rows, 10% of rows are placed in a foreign synthetic scope.
 Sixteen stable target vectors are evaluated. For each query, a primary-index

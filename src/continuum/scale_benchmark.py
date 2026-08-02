@@ -24,6 +24,7 @@ DIMENSIONS = 512
 TABLE_NAME = "continuum_vector_benchmark"
 INDEX_NAME = "continuum_vector_benchmark_embedding_idx"
 MODEL_NAME = "continuum-synthetic-xorshift32-v1/512"
+INDEX_PREFIX_COLUMNS = ("tenant_id", "incident_id", "embedding_model")
 ALLOWED_TENANT = "018f4ab7-419d-7c7d-8000-000000000001"
 ALLOWED_INCIDENT = "018f4ab7-419d-7c7d-8000-000000000002"
 FOREIGN_TENANT = "018f4ab7-419d-7c7d-8000-000000000003"
@@ -166,7 +167,7 @@ def _create_index(connection: Any) -> float:
         f"""
         CREATE VECTOR INDEX {INDEX_NAME}
         ON {TABLE_NAME}
-        (tenant_id, incident_id, embedding vector_cosine_ops)
+        (tenant_id, incident_id, embedding_model, embedding vector_cosine_ops)
         WITH (min_partition_size=16, max_partition_size=128)
         """
     )
@@ -238,7 +239,7 @@ def _index_contract(connection: Any) -> dict[str, Any]:
         "visible": bool(rows) and all(bool(row[2]) for row in rows),
         "columns": columns,
         "prefix_and_vector_match": columns
-        == ["tenant_id", "incident_id", "embedding"],
+        == [*INDEX_PREFIX_COLUMNS, "embedding"],
         "implicit_column_count": len(rows) - len(declared),
     }
 
@@ -444,7 +445,7 @@ def run_benchmark(
             "index": INDEX_NAME,
             "dimensions": DIMENSIONS,
             "model": MODEL_NAME,
-            "prefix_columns": ["tenant_id", "incident_id"],
+            "prefix_columns": list(INDEX_PREFIX_COLUMNS),
             "retained_row_count": DEFAULT_SCALES[-1],
         },
         "cutoffs": list(cutoffs),
