@@ -93,6 +93,7 @@ EOF
 rm -f /etc/nginx/sites-enabled/default
 cat > /etc/nginx/sites-available/continuum-mcp <<EOF
 limit_req_zone \$binary_remote_addr zone=continuum_mcp:10m rate=5r/s;
+limit_req_zone \$binary_remote_addr zone=continuum_demo:10m rate=3r/m;
 
 server {
     listen 80;
@@ -116,6 +117,15 @@ server {
         proxy_set_header X-Forwarded-Proto https;
         proxy_read_timeout 30s;
         proxy_send_timeout 30s;
+    }
+
+    location = /demo/run {
+        limit_req zone=continuum_demo burst=2 nodelay;
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 30s;
     }
 
     location / {

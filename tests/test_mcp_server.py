@@ -254,6 +254,10 @@ class BearerAuthTests(IsolatedAsyncioTestCase):
         messages = await self.request(path="/healthz")
         self.assertEqual(messages[0]["status"], 204)
 
+    async def test_bounded_judge_story_is_available_without_credentials(self):
+        messages = await self.request(path="/demo/run")
+        self.assertEqual(messages[0]["status"], 204)
+
 if __name__ == "__main__":
     import unittest
 

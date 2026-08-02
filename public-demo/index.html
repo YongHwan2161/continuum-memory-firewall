@@ -7,6 +7,7 @@
   <title>Continuum Memory Firewall — Live Judge Proof</title>
   <link rel="icon" href="./favicon.svg">
   <link rel="stylesheet" href="./app.css">
+  <link rel="stylesheet" href="./story.css">
 </head>
 <body>
   <div class="mesh" aria-hidden="true"></div>
@@ -44,6 +45,28 @@
         <button id="quick-check" type="button">Recheck public endpoints</button>
         <p id="quick-result" role="status">Evidence bundle is loading.</p>
       </aside>
+    </section>
+
+    <section class="stage judge-story" id="live-story">
+      <div class="story-intro">
+        <div>
+          <p class="kicker">LIVE PRODUCT RUN · SYNTHETIC INCIDENT</p>
+          <h2>Watch an incident agent store, reject, retrieve, and act.</h2>
+          <p class="copy">A bounded public scenario replays against the participant AWS and CockroachDB deployment. Trusted checkout telemetry is durable; a poisoned instruction is quarantined; Titan retrieves the verified recovery; two workers produce one database action owner.</p>
+        </div>
+        <div class="story-control">
+          <span>NO LOGIN · FIXED INPUT · LIVE RECEIPTS</span>
+          <button id="run-story" type="button">Run checkout incident <b>→</b></button>
+          <p id="story-state" role="status">Ready. The scenario contains only synthetic data.</p>
+        </div>
+      </div>
+      <div class="story-grid" aria-live="polite">
+        <article><span>01 · STORE</span><strong id="story-store">WAITING</strong><p id="story-store-detail">Trusted telemetry awaits policy evaluation.</p></article>
+        <article class="danger"><span>02 · REJECT</span><strong id="story-reject">WAITING</strong><p id="story-reject-detail">Poisoned model output remains quarantined.</p></article>
+        <article><span>03 · RETRIEVE</span><strong id="story-retrieve">WAITING</strong><p id="story-retrieve-detail">Titan and CockroachDB select accepted memory.</p><a id="story-citation" href="#live-story">Citation appears after the run</a></article>
+        <article><span>04 · ACT</span><strong id="story-action">WAITING</strong><p id="story-action-detail">Two agents race; one durable claim survives.</p></article>
+      </div>
+      <p class="micro">The public route accepts one fixed scenario, exposes no credential, and is rate-limited. Every displayed identifier is a synthetic database receipt.</p>
     </section>
 
     <section class="stage" id="architecture">

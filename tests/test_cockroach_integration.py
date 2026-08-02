@@ -429,7 +429,13 @@ class CockroachIntegrationTests(unittest.TestCase):
         self.assertTrue(report["all_visible_rows_in_scope"])
         self.assertFalse(report["forbidden_memory_visible"])
         self.assertEqual(
-            set(report["denied"]), {"row_security_off", "canonical_update"}
+            set(report["denied"]),
+            {
+                "row_security_off",
+                "canonical_update",
+                "candidate_update",
+                "action_update",
+            },
         )
         self.assertTrue(report["all_visible_incidents_in_scope"])
         self.assertTrue(report["all_visible_audits_in_scope"])
