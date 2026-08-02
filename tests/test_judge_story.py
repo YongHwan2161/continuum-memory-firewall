@@ -1,4 +1,5 @@
 import unittest
+from types import SimpleNamespace
 
 from continuum.identity import CallerIdentity
 from continuum.judge_story import (
@@ -8,9 +9,6 @@ from continuum.judge_story import (
     STORY_MEMORY_KEY,
     STORY_TITLE,
 )
-from continuum.mcp_server import FetchOutput, SearchOutput, SearchResult
-
-
 class _Result:
     def __init__(self, row):
         self._row = row
@@ -41,18 +39,16 @@ class _Connection:
 
 class _Knowledge:
     def search(self, _query):
-        return SearchOutput(
-            results=[
-                SearchResult(
-                    id="memory-1",
-                    title=STORY_TITLE,
-                    url="https://example.test/?memory=memory-1",
-                )
-            ]
+        return SimpleNamespace(
+            results=[SimpleNamespace(
+                id="memory-1",
+                title=STORY_TITLE,
+                url="https://example.test/?memory=memory-1",
+            )]
         )
 
     def fetch(self, memory_id):
-        return FetchOutput(
+        return SimpleNamespace(
             id=memory_id,
             title=STORY_TITLE,
             text='{"synthetic":true}',
