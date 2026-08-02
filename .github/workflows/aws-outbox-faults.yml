@@ -1,0 +1,185 @@
+name: aws-outbox-faults
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: continuum-outbox-faults
+  cancel-in-progress: false
+
+jobs:
+  live-faults:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      AWS_REGION: ap-southeast-1
+      CONTINUUM_BEDROCK_REGION: ap-northeast-2
+      CONTINUUM_AGENT_BEDROCK_REGION: ap-southeast-2
+      CONTINUUM_MCP_STACK_NAME: continuum-authenticated-mcp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          role-session-name: continuum-outbox-faults
+      - name: Prove dedicated deployment role
+        run: ./scripts/assert_deployer_identity.sh
+      - name: Resolve fixed-egress host without secret values
+        shell: bash
+        run: |
+          parameter() {
+            aws cloudformation describe-stacks --region "$AWS_REGION" \
+              --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+              --query "Stacks[0].Parameters[?ParameterKey=='$1'].ParameterValue | [0]" \
+              --output text
+          }
+          output() {
+            aws cloudformation describe-stacks --region "$AWS_REGION" \
+              --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue | [0]" \
+              --output text
+          }
+          runtime_secret_arn="$(parameter RuntimeSecretArn)"
+          deploy_bucket="$(parameter PackageBucket)"
+          deploy_key="$(parameter PackageKey)"
+          instance_role_arn="$(output RuntimeRoleArn)"
+          instance_id="$(output InstanceId)"
+          evidence_key="evidence/outbox-faults/${GITHUB_SHA}.json"
+          test -n "$runtime_secret_arn" && test "$runtime_secret_arn" != None
+          test -n "$deploy_bucket" && test "$deploy_bucket" != None
+          test -n "$instance_id" && test "$instance_id" != None
+          aws s3 cp "s3://$deploy_bucket/$deploy_key" /tmp/continuum-current.zip \
+            --region "$AWS_REGION" --only-show-errors
+          unzip -p /tmp/continuum-current.zip cockroach-ca.crt \
+            >/tmp/cockroach-ca.crt
+          chmod 0600 /tmp/cockroach-ca.crt
+          test -s /tmp/cockroach-ca.crt
+          echo "CONTINUUM_RUNTIME_SECRET_ARN=$runtime_secret_arn" >>"$GITHUB_ENV"
+          echo "CONTINUUM_DEPLOY_BUCKET=$deploy_bucket" >>"$GITHUB_ENV"
+          echo "CONTINUUM_MCP_DEPLOYMENT_KEY=$deploy_key" >>"$GITHUB_ENV"
+          echo "CONTINUUM_CA_CERT_PATH=/tmp/cockroach-ca.crt" >>"$GITHUB_ENV"
+          echo "CONTINUUM_INSTANCE_ROLE_NAME=${instance_role_arn##*/}" >>"$GITHUB_ENV"
+          echo "CONTINUUM_INSTANCE_ID=$instance_id" >>"$GITHUB_ENV"
+          echo "CONTINUUM_OUTBOX_EVIDENCE_KEY=$evidence_key" >>"$GITHUB_ENV"
+      - name: Deploy exact-head outbox runtime
+        run: ./scripts/deploy_mcp_host.sh
+      - name: Grant one-command migration read and exact evidence write
+        shell: bash
+        run: |
+          migrator_arn="$(aws secretsmanager describe-secret \
+            --region "$AWS_REGION" \
+            --secret-id continuum/cockroach/sql-migrator \
+            --query ARN --output text)"
+          evidence_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_OUTBOX_EVIDENCE_KEY"
+          policy="$(jq -cn \
+            --arg migrator "$migrator_arn" \
+            --arg evidence "$evidence_arn" \
+            '{Version:"2012-10-17",Statement:[
+              {Effect:"Allow",Action:"secretsmanager:GetSecretValue",Resource:$migrator},
+              {Effect:"Allow",Action:"s3:PutObject",Resource:$evidence}
+            ]}')"
+          aws iam put-role-policy \
+            --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+            --policy-name ContinuumOutboxFaultsOneCommand \
+            --policy-document "$policy"
+          sleep 10
+      - name: Inject before-send after-send and before-ack crashes
+        shell: bash
+        run: |
+          command_text="set -eu
+          report=/run/continuum-outbox-faults.json
+          trap 'rm -f -- \"\$report\"' EXIT
+          cd /opt/continuum
+          /opt/continuum/.venv/bin/python scripts/run_live_outbox_faults.py \
+            --region '$AWS_REGION' \
+            --migrator-secret-id continuum/cockroach/sql-migrator \
+            --ca-cert /opt/continuum/cockroach-ca.crt \
+            --source-head '$GITHUB_SHA' \
+            --output \"\$report\"
+          aws s3 cp \"\$report\" \
+            's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_OUTBOX_EVIDENCE_KEY' \
+            --region '$AWS_REGION' --only-show-errors"
+          parameters="$(jq -cn --arg command "$command_text" '{commands:[$command]}')"
+          command_id="$(aws ssm send-command \
+            --region "$AWS_REGION" \
+            --instance-ids "$CONTINUUM_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment 'Transactional outbox crash reconciliation proof' \
+            --parameters "$parameters" \
+            --query 'Command.CommandId' --output text)"
+          status=Pending
+          for _attempt in $(seq 1 180); do
+            status="$(aws ssm get-command-invocation \
+              --region "$AWS_REGION" \
+              --command-id "$command_id" \
+              --instance-id "$CONTINUUM_INSTANCE_ID" \
+              --query Status --output text)"
+            case "$status" in
+              Success|Failed|Cancelled|TimedOut) break ;;
+            esac
+            sleep 5
+          done
+          aws ssm get-command-invocation \
+            --region "$AWS_REGION" \
+            --command-id "$command_id" \
+            --instance-id "$CONTINUUM_INSTANCE_ID" \
+            --query '{Status:Status,ResponseCode:ResponseCode,Output:StandardOutputContent,Error:StandardErrorContent}' \
+            --output table
+          test "$status" = Success
+      - name: Validate immutable outbox fault report
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/continuum-outbox"
+          report="$RUNNER_TEMP/continuum-outbox/outbox-faults.json"
+          aws s3 cp \
+            "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_OUTBOX_EVIDENCE_KEY" \
+            "$report" --region "$AWS_REGION" --only-show-errors
+          jq -e --arg head "$GITHUB_SHA" '
+            .schema_version == 1 and
+            .source_head == $head and
+            .migration_version >= 30 and
+            .synthetic_non_effecting == true and
+            .gate.status == "PASS" and
+            .gate.duplicate_effects_zero == true and
+            .gate.ambiguous_without_blind_resend == true and
+            (.scenarios | length) == 4 and
+            ([.scenarios[].duplicate_effects] | all(. == 0)) and
+            ([.scenarios[] | select(.case == "after_send_non_idempotent")][0]
+              | .terminal_outbox_status == "ambiguous" and .canonical_promoted == false)
+          ' "$report" >/dev/null
+          sha256sum "$report"
+          jq '{schema_version,source_head,migration_version,provider_mode,gate,scenarios}' "$report"
+      - name: Upload private immutable outbox artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: continuum-outbox-faults-${{ github.sha }}
+          path: ${{ runner.temp }}/continuum-outbox/outbox-faults.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Revoke temporary capability and remove staging object
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${CONTINUUM_INSTANCE_ROLE_NAME:-}" ]]; then
+            aws iam delete-role-policy \
+              --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+              --policy-name ContinuumOutboxFaultsOneCommand || true
+            if aws iam get-role-policy \
+              --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+              --policy-name ContinuumOutboxFaultsOneCommand >/dev/null 2>&1; then
+              echo "temporary outbox capability remains attached" >&2
+              exit 1
+            fi
+          fi
+          if [[ -n "${CONTINUUM_DEPLOY_BUCKET:-}" && \
+                -n "${CONTINUUM_OUTBOX_EVIDENCE_KEY:-}" ]]; then
+            aws s3 rm \
+              "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_OUTBOX_EVIDENCE_KEY" \
+              --region "$AWS_REGION" --only-show-errors || true
+          fi
+          rm -f -- /tmp/continuum-current.zip /tmp/cockroach-ca.crt

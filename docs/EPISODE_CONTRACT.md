@@ -53,3 +53,22 @@ canonical insertion, and run completion occur in one SERIALIZABLE transaction.
 Failed and `ambiguous` outcomes complete the run without creating a candidate.
 The unique `(provider, provider_receipt_id)` index prevents one receipt from
 authorizing more than one episode.
+
+## Transactional outbox and crash states
+
+An approved proposal is enqueued in the same CockroachDB SERIALIZABLE
+transaction that moves the proposal and run to `enqueued`. The action payload
+is derived from the durable proposal; callers cannot substitute another body.
+The worker commits `dispatching` before it crosses the provider boundary and
+commits the provider response before it acknowledges the episode.
+
+- A crash before send expires back to `pending`; no provider effect exists.
+- A crash after send is reconciled with the same deterministic idempotency key
+  only when both the durable provider contract and the adapter support it.
+- Without provider idempotency, an after-send crash becomes `ambiguous`; the
+  worker never blindly resends and no canonical memory is promoted.
+- A crash after receipt persistence but before acknowledgement reuses the
+  durable receipt and the idempotent outcome-promotion transaction.
+
+This proves zero duplicate effects for the idempotent test provider. It does
+not claim generic exactly-once semantics for arbitrary external systems.

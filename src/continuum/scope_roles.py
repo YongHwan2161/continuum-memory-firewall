@@ -54,6 +54,7 @@ def configure_scope_read_policies(
             "retrieved_citations",
             "proposed_actions",
             "outcome_evidence",
+            "action_outbox",
         )
     }
     connect = psycopg_connection_factory(migrator_database_url)

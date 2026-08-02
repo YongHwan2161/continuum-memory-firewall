@@ -31,6 +31,7 @@ class SqlRoleProvisioningTests(unittest.TestCase):
                 "retrieved_citations",
                 "proposed_actions",
                 "outcome_evidence",
+                "action_outbox",
             },
         )
 
