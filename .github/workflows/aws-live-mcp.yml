@@ -129,6 +129,7 @@ jobs:
           trap 'rm -f -- \"\$state_file\"' EXIT
           /opt/continuum/.venv/bin/python scripts/cutover_scope_identity.py --region ap-southeast-1 --bedrock-region '$CONTINUUM_BEDROCK_REGION' --ca-cert /opt/continuum/cockroach-ca.crt --runtime-secret-id '$CONTINUUM_RUNTIME_SECRET_ARN' --migrator-secret-id continuum/cockroach/sql-migrator
           /opt/continuum/.venv/bin/python scripts/live_semantic_eval.py --region ap-southeast-1 --bedrock-region '$CONTINUUM_BEDROCK_REGION' --ca-cert /opt/continuum/cockroach-ca.crt --runtime-secret-id '$CONTINUUM_RUNTIME_SECRET_ARN' --migrator-secret-id continuum/cockroach/sql-migrator --state-output \"\$state_file\"
+          /opt/continuum/.venv/bin/python scripts/seed_judge_story.py --region ap-southeast-1 --bedrock-region '$CONTINUUM_BEDROCK_REGION' --ca-cert /opt/continuum/cockroach-ca.crt --runtime-secret-id '$CONTINUUM_RUNTIME_SECRET_ARN' --migrator-secret-id continuum/cockroach/sql-migrator
           systemctl restart continuum-mcp
           for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
             if curl --fail --silent --show-error '${CONTINUUM_PUBLIC_MCP_URL%/mcp}/healthz' >/dev/null; then break; fi
@@ -137,6 +138,7 @@ jobs:
           done
           forbidden_id=\$(/opt/continuum/.venv/bin/python -c 'import json; print(json.load(open(\"/run/continuum-live-eval-state.json\",encoding=\"utf-8\"))[\"forbidden_memory_id\"])')
           /opt/continuum/.venv/bin/python scripts/remote_oidc_smoke.py --region ap-southeast-1 --client-secret-id continuum/cognito/demo-client --mcp-url '$CONTINUUM_PUBLIC_MCP_URL' --forbidden-memory-id \"\$forbidden_id\"
+          curl --fail --silent --show-error '${CONTINUUM_PUBLIC_MCP_URL%/mcp}/demo/run?scenario=checkout-cache-pressure-v1' | /opt/continuum/.venv/bin/python -c 'import json,sys; value=json.load(sys.stdin); assert value[\"live\"] is True; assert value[\"storage\"][\"decision\"] == \"ACCEPTED\"; assert value[\"poisoning\"][\"decision\"] == \"UNTRUSTED_SOURCE\"; assert value[\"action\"][\"durable_claim_count\"] == 1; print(json.dumps({\"judge_story_live\": True, \"scenario\": value[\"scenario\"], \"action_claims\": 1}, sort_keys=True))'
           unset forbidden_id"
           parameters="$(jq -cn --arg command "$command_text" '{commands:[$command]}')"
           command_id="$(aws ssm send-command \

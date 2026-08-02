@@ -19,6 +19,7 @@ from continuum.identity import (
     bind_caller,
     current_caller,
 )
+from continuum.judge_story import CachedJudgeStoryEndpoint, JudgeStoryService, STORY_ID
 from continuum.retrieval import (
     BedrockTitanEmbedder,
     Embedder,
@@ -182,11 +183,15 @@ class ScopeStoreRegistry:
     def __init__(
         self,
         stores: dict[str, MemoryRetrievalStore],
+        connections: dict[str, Callable[[], Any]],
         pools: tuple[PsycopgConnectionPool, ...] = (),
     ) -> None:
         if not stores:
             raise ValueError("at least one scope database store is required")
+        if set(stores) != set(connections):
+            raise ValueError("every scope store must have one matching connection")
         self._stores = dict(stores)
+        self._connections = dict(connections)
         self._pools = pools
 
     @staticmethod
@@ -222,18 +227,30 @@ class ScopeStoreRegistry:
     @classmethod
     def from_json(cls, value: str) -> "ScopeStoreRegistry":
         stores: dict[str, MemoryRetrievalStore] = {}
+        connections: dict[str, Callable[[], Any]] = {}
         pools: list[PsycopgConnectionPool] = []
         for sql_role, database_url in cls._parse_config(value).items():
             pool = PsycopgConnectionPool(database_url)
             pools.append(pool)
             stores[sql_role] = MemoryRetrievalStore(pool)
-        return cls(stores, tuple(pools))
+            connections[sql_role] = pool
+        return cls(stores, connections, tuple(pools))
 
     def store_for(self, identity: CallerIdentity) -> MemoryRetrievalStore:
         if identity.sql_role is None:
             raise IdentityVerificationError("audited SQL role is required")
         try:
             return self._stores[identity.sql_role]
+        except KeyError as exc:
+            raise IdentityVerificationError(
+                "no database connection is registered for the audited SQL role"
+            ) from exc
+
+    def connection_for(self, identity: CallerIdentity) -> Callable[[], Any]:
+        if identity.sql_role is None:
+            raise IdentityVerificationError("audited SQL role is required")
+        try:
+            return self._connections[identity.sql_role]
         except KeyError as exc:
             raise IdentityVerificationError(
                 "no database connection is registered for the audited SQL role"
@@ -406,7 +423,10 @@ class OIDCAuthMiddleware:
         self._verifier = verifier
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
-        if scope["type"] != "http" or scope.get("path") == "/healthz":
+        if scope["type"] != "http" or scope.get("path") in {
+            "/healthz",
+            "/demo/run",
+        }:
             await self._app(scope, receive, send)
             return
 
@@ -471,11 +491,43 @@ def _healthz_handler(authorization_mode: str):
     return healthz
 
 
+def _judge_story_handler(endpoint: CachedJudgeStoryEndpoint):
+    async def judge_story(request: Any):
+        from starlette.responses import JSONResponse
+
+        scenario = request.query_params.get("scenario", STORY_ID)
+        headers = {
+            "Cache-Control": "no-store",
+            "Access-Control-Allow-Origin": "https://yonghwan2161.github.io",
+            "Vary": "Origin",
+        }
+        try:
+            result, cached = endpoint.run(scenario)
+        except ValueError:
+            return JSONResponse(
+                {"ok": False, "error": "unknown_scenario"},
+                status_code=404,
+                headers=headers,
+            )
+        except Exception:
+            return JSONResponse(
+                {"ok": False, "error": "judge_story_unavailable"},
+                status_code=503,
+                headers=headers,
+            )
+        result = dict(result)
+        result["receipt_cache"] = "bounded-30s" if cached else "live-refresh"
+        return JSONResponse(result, headers=headers)
+
+    return judge_story
+
+
 def create_authenticated_app(
     server: Any,
     *,
     verifier: TokenVerifier,
     authorization_mode: str = "static-registry",
+    judge_story_endpoint: CachedJudgeStoryEndpoint | None = None,
 ):
     """Create the public ASGI boundary with health and OIDC authentication."""
 
@@ -489,6 +541,14 @@ def create_authenticated_app(
             methods=["GET"],
         )
     )
+    if judge_story_endpoint is not None:
+        app.routes.append(
+            Route(
+                "/demo/run",
+                _judge_story_handler(judge_story_endpoint),
+                methods=["GET"],
+            )
+        )
     return OIDCAuthMiddleware(app, verifier=verifier)
 
 
@@ -504,7 +564,19 @@ def _service_and_scope_resolver(settings: MCPSettings):
             public_base_url=settings.public_base_url,
             store_provider=stores.store_for,
         )
-        return service, resolver, "audited-tenant-control-plane"
+        configured = ScopeRegistry.from_json(settings.caller_scopes_json)
+        judge_endpoint = None
+        if len(configured.caller_ids) == 1:
+            caller_id = next(iter(configured.caller_ids))
+            identity = resolver.resolve(caller_id)
+            judge_endpoint = CachedJudgeStoryEndpoint(
+                JudgeStoryService(
+                    service,
+                    identity,
+                    stores.connection_for(identity),
+                )
+            )
+        return service, resolver, "audited-tenant-control-plane", judge_endpoint
     service = ContinuumKnowledgeService(
         MemoryRetrievalStore(PsycopgConnectionPool(settings.database_url)),
         embedder=embedder,
@@ -514,11 +586,12 @@ def _service_and_scope_resolver(settings: MCPSettings):
         service,
         ScopeRegistry.from_json(settings.caller_scopes_json),
         "static-registry",
+        None,
     )
 
 
 def build_server_from_settings(settings: MCPSettings):
-    service, _resolver, _mode = _service_and_scope_resolver(settings)
+    service, _resolver, _mode, _judge_endpoint = _service_and_scope_resolver(settings)
     return create_mcp_server(
         service,
         host=settings.host,
@@ -533,7 +606,7 @@ def build_server_from_env():
 
 def build_authenticated_app_from_env():
     settings = MCPSettings.from_env()
-    service, resolver, mode = _service_and_scope_resolver(settings)
+    service, resolver, mode, judge_endpoint = _service_and_scope_resolver(settings)
     server = create_mcp_server(
         service,
         host=settings.host,
@@ -549,6 +622,7 @@ def build_authenticated_app_from_env():
         server,
         verifier=verifier,
         authorization_mode=mode,
+        judge_story_endpoint=judge_endpoint,
     )
 
 
@@ -556,7 +630,7 @@ def main() -> None:
     import uvicorn
 
     settings = MCPSettings.from_env()
-    service, resolver, mode = _service_and_scope_resolver(settings)
+    service, resolver, mode, judge_endpoint = _service_and_scope_resolver(settings)
     app = create_authenticated_app(
         create_mcp_server(
             service,
@@ -570,6 +644,7 @@ def main() -> None:
             registry=resolver,
         ),
         authorization_mode=mode,
+        judge_story_endpoint=judge_endpoint,
     )
     uvicorn.run(
         app,

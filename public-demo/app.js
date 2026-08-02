@@ -3,6 +3,7 @@ const scaleUrl = './evidence/vector-scale.json';
 const byId = id => document.getElementById(id);
 const percent = value => `${(Number(value) * 100).toFixed(1)}%`;
 const latency = value => `${Number(value).toFixed(1)} ms`;
+let liveStoryUrl = '';
 
 async function json(url) {
   const response = await fetch(url, {cache: 'no-store'});
@@ -21,7 +22,39 @@ function renderJudge(evidence) {
   byId('token-life').textContent = `${evidence.runtime.token_lifetime_seconds}s`;
   byId('submission').textContent = evidence.submission.status;
   byId('video-link').href = evidence.submission.video_url;
+  liveStoryUrl = evidence.runtime.demo_url
+    || evidence.runtime.health_url.replace(/\/healthz$/, '/demo/run?scenario=checkout-cache-pressure-v1');
   byId('proof-status').textContent = 'EVIDENCE READY';
+}
+
+async function runStory() {
+  const button = byId('run-story');
+  const state = byId('story-state');
+  button.disabled = true;
+  state.textContent = 'Running live Titan retrieval and binding database receipts…';
+  try {
+    if (!liveStoryUrl) throw new Error('live story endpoint is unavailable');
+    const receipt = await json(liveStoryUrl);
+    if (!receipt.live || receipt.scenario !== 'checkout-cache-pressure-v1') {
+      throw new Error('live story receipt is invalid');
+    }
+    byId('story-store').textContent = receipt.storage.decision;
+    byId('story-store-detail').textContent = `Sequence ${receipt.storage.sequence_no} · ${receipt.storage.embedding_model}`;
+    byId('story-reject').textContent = receipt.poisoning.decision;
+    byId('story-reject-detail').textContent = `Blocked: “${receipt.poisoning.attempted_instruction}”`;
+    byId('story-retrieve').textContent = receipt.retrieval.selected.title;
+    byId('story-retrieve-detail').textContent = `${receipt.retrieval.accepted_count}/${receipt.retrieval.returned_count} accepted · audit ${receipt.retrieval.audit_id.slice(0, 8)}`;
+    byId('story-citation').href = receipt.retrieval.selected.url;
+    byId('story-citation').textContent = `Open memory citation ${receipt.retrieval.selected.id.slice(0, 8)} ↗`;
+    byId('story-action').textContent = `${receipt.action.worker_a} / ${receipt.action.worker_b}`;
+    byId('story-action-detail').textContent = `Owner ${receipt.action.owner_worker_id} · ${receipt.action.durable_claim_count} durable claim`;
+    state.textContent = `PASS · live AWS/CockroachDB story · ${receipt.receipt_cache}`;
+  } catch (error) {
+    state.textContent = 'HOLD · live story is temporarily unavailable; the evidence verifier remains read-only.';
+    console.error(error);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function renderScale(evidence) {
@@ -82,3 +115,4 @@ Promise.all([json(judgeUrl), json(scaleUrl)])
   .then(([judge, scale]) => { renderJudge(judge); renderScale(scale); })
   .catch(error => { byId('proof-status').textContent = 'EVIDENCE HOLD'; console.error(error); });
 byId('quick-check').addEventListener('click', quickCheck);
+byId('run-story').addEventListener('click', runStory);

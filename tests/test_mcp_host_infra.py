@@ -94,6 +94,7 @@ class McpHostInfrastructureTests(unittest.TestCase):
         for path in (
             "cutover_scope_identity.py",
             "live_semantic_eval.py",
+            "seed_judge_story.py",
             "remote_oidc_smoke.py",
             "semantic-retrieval-v1.json",
             "adversarial-semantic-retrieval-v2.json",
@@ -116,6 +117,19 @@ class McpHostInfrastructureTests(unittest.TestCase):
         self.assertIn('if [ \\"\\$attempt\\" -eq 12 ]', workflow)
         self.assertIn("aws iam get-role-policy", workflow)
         self.assertIn("migration_capability_absent=true", workflow)
+        self.assertIn("seed_judge_story.py", workflow)
+        self.assertIn("judge_story_live", workflow)
+
+    def test_public_judge_story_is_rate_limited_and_has_no_auth_forwarding(self):
+        script = (ROOT / "scripts" / "bootstrap_mcp_host.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("zone=continuum_demo:10m rate=3r/m", script)
+        story_location = script.split("location = /demo/run", 1)[1].split(
+            "location /", 1
+        )[0]
+        self.assertIn("limit_req zone=continuum_demo", story_location)
+        self.assertNotIn("Authorization", story_location)
 
     def test_public_ingress_has_https_bootstrap_but_no_ssh(self):
         ingress = self.resources["McpSecurityGroup"]["Properties"][
