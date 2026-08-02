@@ -1,0 +1,1 @@
+ALTER TABLE retrieved_citations ENABLE ROW LEVEL SECURITY

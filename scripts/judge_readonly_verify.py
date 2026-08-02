@@ -64,10 +64,14 @@ def verify_evidence(
     submission = evidence["submission"]
     public_demo = evidence["public_demo"]
     vector_scale = evidence["vector_scale"]
+    agent_pressure = evidence["agent_pressure"]
     workflow = fetch_json(source["workflow_api_url"])
     benchmark_workflow = fetch_json(vector_scale["workflow_api_url"])
     health = fetch_json(runtime["health_url"])
     scale_report = fetch_json(vector_scale["url"])
+    pressure_workflow = fetch_json(agent_pressure["workflow_api_url"])
+    pressure_report = fetch_json(agent_pressure["url"])
+    live_story = fetch_json(runtime["demo_url"])
     demo_html = fetch_text(public_demo["url"])
 
     scales = scale_report.get("scales", [])
@@ -93,6 +97,13 @@ def verify_evidence(
             health.get("service") == "continuum-memory-firewall"
         ),
         "public_demo_marker_present": public_demo["marker"] in demo_html,
+        "live_story_bound": (
+            live_story.get("live") is True
+            and live_story.get("storage", {}).get("decision") == "ACCEPTED"
+            and live_story.get("poisoning", {}).get("decision")
+            == "UNTRUSTED_SOURCE"
+            and live_story.get("action", {}).get("durable_claim_count") == 1
+        ),
         "cross_scope_fetch_denied": runtime["cross_scope_fetch_denied"] is True,
         "tenant_control_plane_active": (
             runtime["tenant_control_plane_active"] is True
@@ -113,7 +124,7 @@ def verify_evidence(
             and runtime["control_plane_and_migrator_role_options_empty"] is True
         ),
         "representative_scale_gate": (
-            evidence.get("schema_version") == 3
+            evidence.get("schema_version") == 4
             and scale_report.get("gate", {}).get("status") == "PASS"
             and [scale.get("row_count") for scale in scales] == [10_000, 50_000]
         ),
@@ -134,12 +145,35 @@ def verify_evidence(
             bool(beams)
             and all(beam.get("cross_scope_leaked_rows") == 0 for beam in beams)
         ),
+        "agent_pressure_gate": (
+            pressure_report.get("gate", {}).get("status") == "PASS"
+            and [
+                level.get("concurrent_agents")
+                for level in pressure_report.get("levels", [])
+            ]
+            == [10, 25, 50]
+        ),
+        "agent_pressure_lineage": (
+            pressure_workflow.get("conclusion") == "success"
+            and pressure_workflow.get("head_sha") == agent_pressure["head_sha"]
+            and pressure_report.get("source_head") == agent_pressure["head_sha"]
+        ),
+        "agent_pressure_correctness": (
+            pressure_report.get("gate", {}).get("cross_scope_leakage_zero") is True
+            and pressure_report.get("gate", {}).get(
+                "exactly_one_action_owner_per_level"
+            )
+            is True
+            and pressure_report.get("gate", {}).get("pool_recovery_passed") is True
+            and pressure_report.get("gate", {}).get("synthetic_rows_cleaned") is True
+        ),
     }
     return {
         "ok": all(checks.values()),
         "mode": "read-only-http-get",
         "workflow_run_id": source["workflow_run_id"],
         "vector_benchmark_run_id": vector_scale["workflow_run_id"],
+        "agent_pressure_run_id": agent_pressure["workflow_run_id"],
         "deployment_head_sha": source["deployment_head_sha"],
         "checks": checks,
     }

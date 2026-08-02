@@ -1,25 +1,25 @@
 {
-  "schema_version": 3,
-  "generated_at": "2026-08-02T16:00:00+09:00",
-  "claim_boundary": "Read-only public verification of exact live Titan, CockroachDB RLS, natural 10k/50k ANN, OIDC MCP, key rotation, CI, and Devpost receipts.",
+  "schema_version": 4,
+  "generated_at": "2026-08-02T18:05:51+09:00",
+  "claim_boundary": "Read-only public verification of one live agent memory story, exact Titan and CockroachDB RLS receipts, natural 10k/50k ANN, 10/25/50-agent pressure, OIDC MCP, key rotation, CI, and Devpost receipts.",
   "submission": {
     "id": 1121568,
     "status": "Submitted",
     "project_url": "https://devpost.com/software/continuum-memory-firewall",
-    "project_updated_at": "2026-08-02T02:59:21.321-04:00",
-    "video_url": "https://youtu.be/H1hCZrC6ab8",
-    "video_duration_seconds": 99.7,
-    "video_sha256": "ae63e843d6da1b532c59e6b85ed6a1cbf15e94aa6983f7cb748b08c0b51863fb",
+    "project_updated_at": "2026-08-02T05:05:28.543-04:00",
+    "video_url": "https://youtu.be/ik76Q8Z8IoA",
+    "video_duration_seconds": 109.081,
+    "video_sha256": "870094a0ec515da6b4edb8c476407624ba358d97677b41da6b551cb2f8440f4b",
     "deadline_kst": "2026-08-19T06:00:00+09:00"
   },
   "source": {
     "repository": "YongHwan2161/continuum-memory-firewall",
-    "deployment_head_sha": "d951c4b83b0a96e75f299a1c4ead5c42e55ffc05",
-    "workflow_run_id": 30734432529,
+    "deployment_head_sha": "847413f208409fd2ef1b90d952423636fee11478",
+    "workflow_run_id": 30739303763,
     "workflow_attempt": 1,
-    "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30734432529",
-    "workflow_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/runs/30734432529",
-    "artifact_sha256": "e0a84576eb5687542f4d80654d24ec29a36ecb6b14dec70587994802b03c2253"
+    "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30739303763",
+    "workflow_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/runs/30739303763",
+    "artifact_sha256": "ad8acb56db34be4e2b017a46ccacb829454b063d929991a40f8371319f9fcbb9"
   },
   "evaluation": {
     "dataset": "adversarial-semantic-retrieval-v2",
@@ -36,9 +36,9 @@
     "cross_scope_leakage_rate": 0.0,
     "latency_ms": {
       "count": 60,
-      "p50": 248.149,
-      "p95": 279.012,
-      "max": 290.284
+      "p50": 242.775,
+      "p95": 270.569,
+      "max": 286.224
     },
     "variant_counts": {
       "misleading-scope": 10,
@@ -58,13 +58,14 @@
       "optimizer_selected_index": false,
       "plan_reports_full_scan": false,
       "plan_line_count": 25,
-      "redacted_plan_sha256": "83ebc44adee11e6fa9cf6f9328026acddf8b0b374e10b89db5128eed0cccc8df",
+      "redacted_plan_sha256": "6d58465c28be2ed930986031b129dfd1fef16198463e03590cf7f363455c0db8",
       "note": "The application corpus is intentionally tiny, so the cost-based optimizer did not select ANN there. The separate 10k/50k report proves natural vector-search selection with the complete filter prefix."
     }
   },
   "runtime": {
     "health_url": "https://47-131-98-12.sslip.io/healthz",
     "mcp_url": "https://47-131-98-12.sslip.io/mcp",
+    "demo_url": "https://47-131-98-12.sslip.io/demo/run?scenario=checkout-cache-pressure-v1",
     "unauthenticated_mcp_status": 401,
     "token_lifetime_seconds": 300,
     "tools": ["search", "fetch"],
@@ -75,7 +76,7 @@
     "all_visible_incidents_in_scope": true,
     "all_visible_audits_in_scope": true,
     "forbidden_memory_visible": false,
-    "denied_sql_checks": ["row_security_off", "canonical_update"],
+    "denied_sql_checks": ["row_security_off", "canonical_update", "candidate_update", "action_update"],
     "temporary_migration_capability_absent": true,
     "migration_version": 17,
     "migration_checksum_drift_absent": true,
@@ -86,7 +87,18 @@
     "control_plane_bootstrap_options_revoked": true,
     "control_plane_and_migrator_role_options_empty": true,
     "binding_version": 1,
-    "binding_event": "bound"
+    "binding_event": "unchanged"
+  },
+  "live_story": {
+    "scenario": "checkout-cache-pressure-v1",
+    "trusted_memory_decision": "ACCEPTED",
+    "poisoned_memory_decision": "UNTRUSTED_SOURCE",
+    "retrieval_title": "Checkout cache-pressure recovery",
+    "embedding_model": "amazon.titan-embed-text-v2:0/512",
+    "durable_action_claims": 1,
+    "duplicate_worker_result": "DUPLICATE",
+    "caller_and_sql_identity_publicly_hashed": true,
+    "public_write_capability": false
   },
   "vector_scale": {
     "workflow_run_id": 30735058404,
@@ -95,6 +107,17 @@
     "head_sha": "7900248121188284c1a9e7cdc57aa40bdd9c337e",
     "report_sha256": "f8847c7d08518642240566c26d7a90f4ce216a17bd61cc970d1fe3f903bf25c5",
     "url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/vector-scale.json"
+  },
+  "agent_pressure": {
+    "workflow_run_id": 30739691518,
+    "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30739691518",
+    "workflow_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/runs/30739691518",
+    "head_sha": "c8478b65b13a09c6586fba3000154a9b29f62868",
+    "artifact_id": 8830851472,
+    "artifact_name": "continuum-agent-pressure-c8478b65b13a09c6586fba3000154a9b29f62868",
+    "report_sha256": "8ae242a6d793cb56f4b8dfb7ae792b1160124827bb723b124d1aeacc37b9acb8",
+    "workflow_artifact_sha256": "50b742008025aeb510bb0e150e4ca93679977ad9bbc03a1a2ffef639dda92de9",
+    "url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/agent-pressure.json"
   },
   "managed_mcp": {
     "rotation_workflow_run_id": 30709230016,
@@ -106,10 +129,10 @@
     "temporary_github_secret_deleted": true
   },
   "release_envelope": {
-    "tag": "hackathon-v2",
-    "release_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v2",
-    "release_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/releases/tags/hackathon-v2",
-    "asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v2/continuum-release-envelope-v1.json",
+    "tag": "hackathon-v4",
+    "release_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v4",
+    "release_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/releases/tags/hackathon-v4",
+    "asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v4/continuum-release-envelope-v1.json",
     "asset_name": "continuum-release-envelope-v1.json"
   },
   "public_demo": {

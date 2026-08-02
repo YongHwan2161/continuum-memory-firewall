@@ -27,6 +27,10 @@ class SqlRoleProvisioningTests(unittest.TestCase):
                 "retrieval_audit",
                 "tenant_scope_bindings",
                 "tenant_scope_binding_audit",
+                "agent_runs",
+                "retrieved_citations",
+                "proposed_actions",
+                "outcome_evidence",
             },
         )
 

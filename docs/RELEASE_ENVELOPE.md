@@ -1,13 +1,13 @@
 # Immutable competition release envelope
 
-`hackathon-v2` is the current proof unit for the competition build. It is
+`hackathon-v4` is the current proof unit for the competition build. It is
 published only by `.github/workflows/release-envelope.yml` after every
 fail-closed gate passes.
 
-`hackathon-v1` remains immutable as the first published envelope. Devpost
-finalized its asynchronous project timestamp after that envelope was created,
-so v2 deliberately supersedes it with a stable, re-read Devpost receipt while
-retaining v1 as audit history.
+`hackathon-v1` through `hackathon-v3` remain immutable audit history. Version 4
+binds the final Devpost version 13 timestamp after removing the mutable release
+tag from its project links. The stable public verifier is now the sole resolver
+for the current immutable release, avoiding a timestamp/tag update cycle.
 
 The envelope binds:
 
@@ -44,7 +44,7 @@ asset state, and SHA-256 digest. A judge can independently download the envelope
 and validate its sidecar without trusting the public page:
 
 ```bash
-gh release download hackathon-v2 --pattern 'continuum-release-envelope-v1.json*'
+gh release download hackathon-v4 --pattern 'continuum-release-envelope-v1.json*'
 sha256sum -c continuum-release-envelope-v1.json.sha256
 ```
 

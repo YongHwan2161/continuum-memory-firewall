@@ -1,0 +1,1 @@
+ALTER TABLE proposed_actions ENABLE ROW LEVEL SECURITY
