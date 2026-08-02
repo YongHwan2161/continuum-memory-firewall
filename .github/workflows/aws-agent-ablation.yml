@@ -67,7 +67,18 @@ jobs:
           echo "CONTINUUM_INSTANCE_ID=$instance_id" >>"$GITHUB_ENV"
           echo "CONTINUUM_ABLATION_EVIDENCE_KEY=$evidence_key" >>"$GITHUB_ENV"
       - name: Deploy exact-head episode runtime and least-privilege model policy
-        run: ./scripts/deploy_mcp_host.sh
+        shell: bash
+        run: |
+          stack_status="$(aws cloudformation describe-stacks \
+            --region "$AWS_REGION" \
+            --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+            --query 'Stacks[0].StackStatus' --output text)"
+          if [[ "$stack_status" == "UPDATE_ROLLBACK_FAILED" || \
+                "$stack_status" == "UPDATE_ROLLBACK_COMPLETE" ]]; then
+            ./scripts/deploy_mcp_host_direct_recovery.sh
+          else
+            ./scripts/deploy_mcp_host.sh
+          fi
       - name: Grant one-command migration read and exact evidence write
         shell: bash
         run: |
