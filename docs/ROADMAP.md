@@ -61,6 +61,13 @@ not select the vector index, without overstating a production-scale speedup.
 **Goal:** extend database idempotency into an operationally reliable side-effect
 workflow without claiming impossible exactly-once network delivery.
 
+**Completed 2026-08-02 for the bounded synthetic adapter:** migrations 29–30,
+the transactional outbox worker, and participant-cluster crash injection now
+cover before-send, idempotent after-send, before-ack, and non-idempotent
+after-send uncertainty. The first three converge with zero duplicate effects;
+the last terminates as `ambiguous` without blind resend or memory promotion.
+A real provider capability contract remains P3 production follow-up.
+
 Implement:
 
 - transactional outbox creation in the same transaction as the authoritative
@@ -86,6 +93,12 @@ Exit criteria:
 ## Priority 3 — P4 evaluation and submission evidence
 
 **Goal:** turn the implementation into a judge-friendly, measurable submission.
+
+**In progress:** the 36-case three-arm live ablation is complete and retained
+with paired results, stable failure codes, zero leakage, and zero false
+promotion. Continuum materially beat stateless, while its one-case advantage
+over raw-RAG is statistically unresolved. Judge UX and replacement video work
+remain open.
 
 Implement:
 
