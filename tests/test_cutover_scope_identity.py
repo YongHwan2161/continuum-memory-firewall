@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import unittest
 
-from scripts.cutover_scope_identity import _secret_payload, _verify_role_options_empty
+from scripts.cutover_scope_identity import (
+    _secret_payload,
+    _verify_role_creation_denied,
+)
 
 
 class SecretPropagationTests(unittest.TestCase):
@@ -33,17 +36,11 @@ class SecretPropagationTests(unittest.TestCase):
             _secret_payload(BrokenClient(), "secret", sleep=lambda _value: None)
 
 
-class RoleOptionVerificationTests(unittest.TestCase):
-    class Result:
-        def __init__(self, rows):
-            self.rows = rows
-
-        def fetchall(self):
-            return self.rows
-
+class RoleCapabilityVerificationTests(unittest.TestCase):
     class Connection:
-        def __init__(self, rows):
-            self.rows = rows
+        def __init__(self, error=None):
+            self.error = error
+            self.executed = []
 
         def __enter__(self):
             return self
@@ -51,34 +48,38 @@ class RoleOptionVerificationTests(unittest.TestCase):
         def __exit__(self, *_args):
             return None
 
-        def execute(self, _statement, _params):
-            return RoleOptionVerificationTests.Result(self.rows)
+        def execute(self, statement):
+            self.executed.append(statement)
+            if self.error is not None:
+                raise self.error
 
-    def test_empty_options_are_required_for_both_identities(self) -> None:
-        rows = [("continuum_migrator", []), ("continuum_control", [])]
-        connect = lambda: self.Connection(rows)
-        self.assertTrue(
-            _verify_role_options_empty(
-                connect,
-                ("continuum_migrator", "continuum_control"),
-            )
-        )
+        def rollback(self):
+            return None
 
-    def test_elevated_or_missing_role_fails_closed(self) -> None:
-        elevated = lambda: self.Connection(
-            [("continuum_migrator", ["CREATEROLE"]), ("continuum_control", [])]
-        )
-        with self.assertRaisesRegex(RuntimeError, "still elevated"):
-            _verify_role_options_empty(
-                elevated,
-                ("continuum_migrator", "continuum_control"),
-            )
-        missing = lambda: self.Connection([("continuum_migrator", [])])
-        with self.assertRaisesRegex(RuntimeError, "incomplete"):
-            _verify_role_options_empty(
-                missing,
-                ("continuum_migrator", "continuum_control"),
-            )
+    def test_role_and_user_creation_are_both_denied(self) -> None:
+        class Denied(Exception):
+            sqlstate = "42501"
+
+        connections = []
+
+        def connect():
+            connection = self.Connection(Denied())
+            connections.append(connection)
+            return connection
+
+        self.assertTrue(_verify_role_creation_denied(connect))
+        self.assertEqual(len(connections), 2)
+
+    def test_unexpected_creation_capability_fails_closed(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "can still create"):
+            _verify_role_creation_denied(lambda: self.Connection())
+
+    def test_non_privilege_error_is_not_hidden(self) -> None:
+        class Fatal(Exception):
+            sqlstate = "08006"
+
+        with self.assertRaises(Fatal):
+            _verify_role_creation_denied(lambda: self.Connection(Fatal()))
 
 
 if __name__ == "__main__":
