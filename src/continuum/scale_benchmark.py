@@ -212,11 +212,34 @@ def _redacted_plan(connection: Any, query_vector: str, *, limit: int) -> dict[st
     plan = "\n".join(str(row[0]) for row in rows)
     return {
         "expected_index": INDEX_NAME,
-        "optimizer_selected_index": INDEX_NAME in plan,
+        "index_name_rendered": INDEX_NAME in plan,
         "reports_vector_search": "vector search" in plan.casefold(),
         "reports_full_scan": "FULL SCAN" in plan.upper(),
         "line_count": len(rows),
         "redacted_sha256": hashlib.sha256(plan.encode("utf-8")).hexdigest(),
+    }
+
+
+def _index_contract(connection: Any) -> dict[str, Any]:
+    rows = connection.execute(
+        f"""
+        SELECT column_name, seq_in_index, visible, implicit
+        FROM [SHOW INDEXES FROM {TABLE_NAME}]
+        WHERE index_name = %s
+        ORDER BY seq_in_index
+        """,
+        (INDEX_NAME,),
+    ).fetchall()
+    declared = [row for row in rows if not bool(row[3])]
+    columns = [str(row[0]) for row in declared]
+    return {
+        "expected_index": INDEX_NAME,
+        "present": bool(rows),
+        "visible": bool(rows) and all(bool(row[2]) for row in rows),
+        "columns": columns,
+        "prefix_and_vector_match": columns
+        == ["tenant_id", "incident_id", "embedding"],
+        "implicit_column_count": len(rows) - len(declared),
     }
 
 
@@ -262,6 +285,9 @@ def _benchmark_scale(
         )
         exact_results[row_id] = rows
         exact_latencies.append(latency)
+
+    with connect() as connection:
+        index_contract = _index_contract(connection)
 
     beam_reports: list[dict[str, Any]] = []
     for beam in beams:
@@ -335,6 +361,7 @@ def _benchmark_scale(
         "insert_seconds_incremental": round(insert_seconds, 3),
         "index_build_and_analyze_seconds": round(index_build_seconds, 3),
         "exact_primary_scan_ms": summarize_latency_ms(exact_latencies),
+        "index_contract": index_contract,
         "beams": beam_reports,
     }
 
@@ -346,8 +373,16 @@ def validate_report(report: dict[str, Any]) -> None:
     ]:
         raise RuntimeError("both 10k and 50k scale reports are required")
     for scale in scales:
+        contract = scale["index_contract"]
+        if not (
+            contract["present"]
+            and contract["visible"]
+            and contract["prefix_and_vector_match"]
+        ):
+            raise RuntimeError("the synthetic vector index contract is invalid")
         for beam in scale["beams"]:
-            if not beam["query_plan"]["optimizer_selected_index"]:
+            plan = beam["query_plan"]
+            if not plan["reports_vector_search"] or plan["reports_full_scan"]:
                 raise RuntimeError("CockroachDB did not naturally select the ANN index")
             if beam["cross_scope_leaked_rows"] != 0:
                 raise RuntimeError("synthetic prefix-scope leakage detected")
@@ -416,13 +451,24 @@ def run_benchmark(
         "beam_sizes": list(beams),
         "scales": reports,
     }
-    validate_report(report)
     report["gate"] = {
-        "status": "PASS",
-        "natural_ann_selected_at_all_scales": True,
-        "cross_scope_leakage_zero": True,
+        "status": "HOLD",
+        "natural_ann_selected_at_all_scales": False,
+        "cross_scope_leakage_zero": False,
         "minimum_recall_at_10": 0.75,
     }
+    try:
+        validate_report(report)
+    except RuntimeError as error:
+        report["gate"]["reason"] = str(error)
+    else:
+        report["gate"].update(
+            {
+                "status": "PASS",
+                "natural_ann_selected_at_all_scales": True,
+                "cross_scope_leakage_zero": True,
+            }
+        )
     return report
 
 
@@ -473,6 +519,8 @@ def main() -> None:
         encoding="utf-8",
     )
     print(json.dumps(report, separators=(",", ":"), sort_keys=True))
+    if report["gate"]["status"] != "PASS":
+        raise SystemExit(str(report["gate"].get("reason", "benchmark gate failed")))
 
 
 if __name__ == "__main__":
