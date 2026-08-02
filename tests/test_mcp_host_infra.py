@@ -145,6 +145,8 @@ class McpHostInfrastructureTests(unittest.TestCase):
         self.assertIn("duplicate_effects_zero", workflow)
         self.assertIn("after_send_non_idempotent", workflow)
         self.assertIn("temporary outbox capability remains attached", workflow)
+        self.assertIn("deploy_mcp_host_direct_recovery.sh", workflow)
+        self.assertIn("UPDATE_ROLLBACK_FAILED", workflow)
 
     def test_bootstrap_waits_for_the_restarted_service(self):
         script = (ROOT / "scripts" / "bootstrap_mcp_host.sh").read_text(
