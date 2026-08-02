@@ -106,7 +106,7 @@
                 {
                   "Sid": "RuntimeOperations",
                   "Effect": "Allow",
-                  "Action": ["ec2:Describe*", "ec2:CreateTags", "ssm:GetParameter", "ssm:SendCommand", "ssm:GetCommandInvocation", "lambda:GetFunction", "lambda:InvokeFunction", "logs:DescribeLogGroups", "logs:FilterLogEvents", "bedrock:ListFoundationModels", "bedrock:InvokeModel", "cognito-idp:*", "budgets:ViewBudget", "budgets:ModifyBudget", "sts:GetCallerIdentity"],
+                  "Action": ["ec2:Describe*", "ec2:CreateTags", "ec2:DeleteTags", "ssm:GetParameter", "ssm:SendCommand", "ssm:GetCommandInvocation", "lambda:GetFunction", "lambda:InvokeFunction", "logs:DescribeLogGroups", "logs:FilterLogEvents", "bedrock:ListFoundationModels", "bedrock:InvokeModel", "cognito-idp:*", "budgets:ViewBudget", "budgets:ModifyBudget", "sts:GetCallerIdentity"],
                   "Resource": "*"
                 }
               ]

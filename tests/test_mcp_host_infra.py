@@ -132,6 +132,8 @@ class McpHostInfrastructureTests(unittest.TestCase):
         self.assertIn("temporary ablation capability remains attached", workflow)
         self.assertIn("false_canonical_promotions", workflow)
         self.assertIn("cross_scope_leak_count", workflow)
+        self.assertIn("deploy_mcp_host_direct_recovery.sh", workflow)
+        self.assertIn("UPDATE_ROLLBACK_FAILED", workflow)
 
     def test_bootstrap_waits_for_the_restarted_service(self):
         script = (ROOT / "scripts" / "bootstrap_mcp_host.sh").read_text(
