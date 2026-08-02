@@ -1,0 +1,143 @@
+name: aws-agent-pressure
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: continuum-agent-pressure
+  cancel-in-progress: false
+
+jobs:
+  pressure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          role-session-name: continuum-agent-pressure
+      - name: Prove dedicated deployment role
+        run: ./scripts/assert_deployer_identity.sh
+      - name: Resolve fixed-egress host and grant one-command secret read
+        shell: bash
+        run: |
+          instance_id="$(aws cloudformation describe-stacks \
+            --region ap-southeast-1 \
+            --stack-name continuum-authenticated-mcp \
+            --query "Stacks[0].Outputs[?OutputKey=='InstanceId'].OutputValue | [0]" \
+            --output text)"
+          instance_role_arn="$(aws cloudformation describe-stacks \
+            --region ap-southeast-1 \
+            --stack-name continuum-authenticated-mcp \
+            --query "Stacks[0].Outputs[?OutputKey=='RuntimeRoleArn'].OutputValue | [0]" \
+            --output text)"
+          migrator_arn="$(aws secretsmanager describe-secret \
+            --region ap-southeast-1 \
+            --secret-id continuum/cockroach/sql-migrator \
+            --query ARN --output text)"
+          test -n "$instance_id" && test "$instance_id" != None
+          instance_role_name="${instance_role_arn##*/}"
+          policy="$(jq -cn --arg migrator "$migrator_arn" \
+            '{Version:"2012-10-17",Statement:[{Effect:"Allow",Action:"secretsmanager:GetSecretValue",Resource:$migrator}]}')"
+          aws iam put-role-policy \
+            --role-name "$instance_role_name" \
+            --policy-name ContinuumAgentPressureSecretRead \
+            --policy-document "$policy"
+          echo "CONTINUUM_INSTANCE_ID=$instance_id" >>"$GITHUB_ENV"
+          echo "CONTINUUM_INSTANCE_ROLE_NAME=$instance_role_name" >>"$GITHUB_ENV"
+          sleep 10
+      - name: Run 10 25 and 50 concurrent agents through fixed egress
+        shell: bash
+        run: |
+          script_b64="$(base64 -w0 src/continuum/agent_pressure.py)"
+          command_text="set -eu
+          script=/run/continuum-agent-pressure.py
+          report=/run/continuum-agent-pressure.json
+          trap 'rm -f -- \"\$script\" \"\$report\"' EXIT
+          printf '%s' '$script_b64' | base64 -d >\"\$script\"
+          chmod 0600 \"\$script\"
+          cd /opt/continuum
+          /opt/continuum/.venv/bin/python \"\$script\" \
+            --region ap-southeast-1 \
+            --secret-id continuum/cockroach/sql-migrator \
+            --ca-cert /opt/continuum/cockroach-ca.crt \
+            --source-head '$GITHUB_SHA' \
+            --output \"\$report\""
+          parameters="$(jq -cn --arg command "$command_text" '{commands:[$command]}')"
+          command_id="$(aws ssm send-command \
+            --region ap-southeast-1 \
+            --instance-ids "$CONTINUUM_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment 'Bounded synthetic concurrent-agent pressure proof' \
+            --parameters "$parameters" \
+            --query 'Command.CommandId' --output text)"
+          status=Pending
+          for attempt in $(seq 1 120); do
+            status="$(aws ssm get-command-invocation \
+              --region ap-southeast-1 \
+              --command-id "$command_id" \
+              --instance-id "$CONTINUUM_INSTANCE_ID" \
+              --query Status --output text)"
+            case "$status" in
+              Success|Failed|Cancelled|TimedOut) break ;;
+            esac
+            sleep 5
+          done
+          aws ssm get-command-invocation \
+            --region ap-southeast-1 \
+            --command-id "$command_id" \
+            --instance-id "$CONTINUUM_INSTANCE_ID" \
+            --query StandardOutputContent --output text \
+            >"$RUNNER_TEMP/agent-pressure.json"
+          if [[ "$status" != Success ]]; then
+            aws ssm get-command-invocation \
+              --region ap-southeast-1 \
+              --command-id "$command_id" \
+              --instance-id "$CONTINUUM_INSTANCE_ID" \
+              --query '{Status:Status,ResponseCode:ResponseCode,Error:StandardErrorContent}' \
+              --output table
+            exit 1
+          fi
+          jq -e '
+            .gate.status == "PASS" and
+            .gate.all_operations_completed == true and
+            .gate.exactly_one_action_owner_per_level == true and
+            .gate.cross_scope_leakage_zero == true and
+            .gate.pool_recovery_passed == true and
+            .gate.synthetic_rows_cleaned == true and
+            ([.levels[].concurrent_agents] == [10,25,50])
+          ' "$RUNNER_TEMP/agent-pressure.json" >/dev/null
+          report_sha="$(sha256sum "$RUNNER_TEMP/agent-pressure.json" | cut -d' ' -f1)"
+          echo "agent_pressure_report_sha256=$report_sha"
+          jq '{source_head,claim_boundary,gate,levels:[.levels[]|{concurrent_agents,operations,throughput_ops_per_second,latency_ms,outcomes,cross_scope_leaked_rows,durable_action_claims,gate}],recoveries}' \
+            "$RUNNER_TEMP/agent-pressure.json"
+      - name: Upload immutable pressure report
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: continuum-agent-pressure-${{ github.sha }}
+          path: ${{ runner.temp }}/agent-pressure.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Revoke one-command secret read
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${CONTINUUM_INSTANCE_ROLE_NAME:-}" ]]; then
+            aws iam delete-role-policy \
+              --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+              --policy-name ContinuumAgentPressureSecretRead || true
+            if aws iam get-role-policy \
+              --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+              --policy-name ContinuumAgentPressureSecretRead >/dev/null 2>&1; then
+              echo "temporary pressure secret read remains attached" >&2
+              exit 1
+            fi
+            echo "agent_pressure_secret_read_absent=true"
+          fi
