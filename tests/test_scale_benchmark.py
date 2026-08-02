@@ -40,12 +40,20 @@ class ScaleBenchmarkTest(unittest.TestCase):
             "scales": [
                 {
                     "row_count": scale,
+                    "index_contract": {
+                        "present": True,
+                        "visible": True,
+                        "prefix_and_vector_match": True,
+                    },
                     "beams": [
                         {
                             "beam_size": beam,
                             "recall_by_k": {"10": 1.0},
                             "cross_scope_leaked_rows": 0,
-                            "query_plan": {"optimizer_selected_index": True},
+                            "query_plan": {
+                                "reports_vector_search": True,
+                                "reports_full_scan": False,
+                            },
                         }
                         for beam in DEFAULT_BEAMS
                     ],
@@ -55,7 +63,7 @@ class ScaleBenchmarkTest(unittest.TestCase):
         }
         validate_report(report)
         report["scales"][1]["beams"][0]["query_plan"][
-            "optimizer_selected_index"
+            "reports_vector_search"
         ] = False
         with self.assertRaisesRegex(RuntimeError, "naturally select"):
             validate_report(report)

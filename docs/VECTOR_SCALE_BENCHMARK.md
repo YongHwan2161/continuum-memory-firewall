@@ -33,6 +33,8 @@ the temporary IAM policy in an `always()` step.
 The live gate fails unless:
 
 - both 10k and 50k reports exist;
-- CockroachDB naturally selects the prefixed vector index at every beam;
+- `SHOW INDEXES` verifies the expected visible prefix/vector contract and the
+  natural redacted plan reports a vector-search operator without a full scan at
+  every beam (CockroachDB does not always render the index name in this plan);
 - Recall@10 is at least 0.75 at every scale and beam; and
 - no foreign-scope row is returned.
