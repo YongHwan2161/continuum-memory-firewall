@@ -71,9 +71,12 @@ configured public HTTPS host and origin.
 - accepted-result thresholds and durable retrieval evidence.
 
 The live managed-cloud slice uses Bedrock Titan Text Embeddings v2 at 512
-dimensions and retains explicit model identity. Its versioned four-query
-evaluation measured Recall@3 = 1.0 and zero cross-scope leakage. That bounded
-result supports the competition demo but is not a broad production benchmark.
+dimensions and retains explicit model identity. Its versioned 60-query suite
+covers paraphrase, terse, typo, negation, misleading-scope, and multi-intent
+variants. The exact live run measured Recall@1 = 0.8667, Recall@3 = 0.9833,
+Recall@5 = 1.0, zero returned cross-scope documents, p50 = 250.306 ms, and
+p95 = 282.87 ms. That bounded result supports the competition demo but is not
+a broad production benchmark.
 
 ## Deployment acceptance gate
 
@@ -87,7 +90,8 @@ A production or competition deployment is not complete until:
    verified;
 6. citation URLs resolve to durable reviewer-visible content.
 
-The 2026-08-01 competition deployment closes gates 1–4 and verifies database
-TLS, secret injection, bounded HTTP handling, budget alerts, and fixed SQL
-egress. Production pooling and durable reviewer-visible live-memory pages remain
-separate hardening work rather than implied by that deployment.
+The 2026-08-02 competition deployment closes gates 1–5 and verifies database
+TLS, secret injection, bounded HTTP handling, per-identity pools, budget alerts,
+fixed SQL egress, audited caller bindings, and redacted query-plan/index
+evidence. Durable reviewer-visible per-memory pages remain separate hardening
+work rather than implied by that deployment.

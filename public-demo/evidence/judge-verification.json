@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
-  "generated_at": "2026-08-02T01:00:03+09:00",
+  "schema_version": 2,
+  "generated_at": "2026-08-02T01:49:59+09:00",
   "claim_boundary": "Read-only public verification of one exact live Titan, CockroachDB RLS, OIDC MCP, CI, and Devpost submission evidence set.",
   "submission": {
     "id": 1121568,
@@ -11,11 +11,12 @@
   },
   "source": {
     "repository": "YongHwan2161/continuum-memory-firewall",
-    "deployment_head_sha": "581b627128ebe5b38f534151ea21c15b5eae1150",
-    "workflow_run_id": 30707078339,
-    "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30707078339",
-    "workflow_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/runs/30707078339",
-    "artifact_sha256": "cea2660524b2b8995b45252b1ec7d129f03d391301cfb81c70494ad84cae29dc"
+    "deployment_head_sha": "972d003915051147ac4ed1d3b7b8fd204ffe88dd",
+    "workflow_run_id": 30708752765,
+    "workflow_attempt": 2,
+    "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30708752765/attempts/2",
+    "workflow_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/runs/30708752765",
+    "artifact_sha256": "189f33c4359b27e245518759d226973339c8ed97cd2d52b5622eb7016d48bd21"
   },
   "evaluation": {
     "dataset": "adversarial-semantic-retrieval-v2",
@@ -32,9 +33,9 @@
     "cross_scope_leakage_rate": 0.0,
     "latency_ms": {
       "count": 60,
-      "p50": 249.07,
-      "p95": 284.084,
-      "max": 301.88
+      "p50": 250.306,
+      "p95": 282.87,
+      "max": 293.519
     },
     "variant_counts": {
       "misleading-scope": 10,
@@ -43,6 +44,19 @@
       "paraphrase": 10,
       "terse": 10,
       "typo": 10
+    },
+    "query_plan": {
+      "runtime_sql_identity": "continuum_scope_75c9873c721b5a2f",
+      "expected_index": "canonical_memories_embedding_idx",
+      "index_present": true,
+      "index_visible": true,
+      "index_columns": ["tenant_id", "incident_id", "embedding"],
+      "prefix_columns_match": true,
+      "optimizer_selected_index": false,
+      "plan_reports_full_scan": false,
+      "plan_line_count": 25,
+      "redacted_plan_sha256": "311ace71343e76919f09a1f5c485d52a24683d6d5c6220aaf42c939ae6dd0f04",
+      "note": "The cost-based optimizer did not select ANN for this intentionally tiny 20-document evaluation corpus; index metadata and the redacted natural plan are reported without overstating production-scale speedup."
     }
   },
   "runtime": {
@@ -59,7 +73,16 @@
     "all_visible_audits_in_scope": true,
     "forbidden_memory_visible": false,
     "denied_sql_checks": ["row_security_off", "canonical_update"],
-    "temporary_migration_capability_absent": true
+    "temporary_migration_capability_absent": true,
+    "migration_version": 15,
+    "authorization_mode": "audited-tenant-control-plane",
+    "database_connections": "bounded-pools-1-4",
+    "tenant_control_plane_active": true,
+    "control_plane_memory_denied": true,
+    "control_plane_bootstrap_options_revoked": true,
+    "control_plane_and_migrator_role_options_empty": true,
+    "binding_version": 1,
+    "binding_event": "bound"
   },
   "public_demo": {
     "url": "https://yonghwan2161.github.io/continuum-memory-firewall/",
