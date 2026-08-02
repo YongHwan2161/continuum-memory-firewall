@@ -18,6 +18,9 @@ identifier, or private participant information.
 - `continuum-memory-firewall-demo.mp4` — sub-three-minute, 1280×720 narrated
   demo assembled from the proof frames, live SQL result, and measured metrics.
 - `DEMO_NARRATION.md` — narration source.
+- `DEMO_NARRATION_V2.md` — 90–120 second narration for the rebuilt judge path:
+  verifier, authorization architecture, 60-query evaluation, isolation denial,
+  representative-scale ANN proof, and key rotation.
 
 The browser console is an executable simulation of the policy and concurrency
 contract. The OIDC, RLS, Titan, Recall@3, and leakage statements shown in its
@@ -37,3 +40,21 @@ python scripts/build_demo_video.py `
 ```
 
 The WAV is a disposable build input and is intentionally not committed.
+
+The current video is rebuilt only after the public demo and read-only verifier
+are live. Capture those two pages without credentials, generate the disposable
+WAV from `DEMO_NARRATION_V2.md`, then run:
+
+```powershell
+python scripts/build_demo_video_v2.py `
+  --judge-evidence public-demo/evidence/judge-verification.json `
+  --scale-evidence public-demo/evidence/vector-scale.json `
+  --demo-screenshot build/demo-v2/demo.png `
+  --verifier-screenshot build/demo-v2/verifier.png `
+  --narration-wav build/demo-v2/narration.wav `
+  --output build/demo-v2/continuum-memory-firewall-demo-v2.mp4
+```
+
+The builder fails closed unless the scale evidence is `PASS` and the narration
+duration is between 90 and 120 seconds. The output remains a release artifact;
+the source, narration, and rebuild command are the reviewed repository inputs.

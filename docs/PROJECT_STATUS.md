@@ -51,7 +51,7 @@ evidence, and explicit non-claims.
 | AWS service use | Live deployment evidenced | Lambda, EC2, Elastic IP, SSM, Secrets Manager, S3, CloudWatch Logs, CloudFormation, Cognito, Bedrock, IAM OIDC, and AWS Budgets are active; the USD 10 budget retains forecast-at-80% and actual-at-100% email alerts |
 | AWS deployment authority | Keyless dedicated role | GitHub Actions assumes `continuum-hackathon-deployer` through an immutable numeric OIDC subject for this repository branch. Sessions last at most one hour; explicit denies block self-modification and bootstrap-stack mutation; the AWS Root console session is logged out |
 | Exactly-once external effect | Not guaranteed | The database claim is idempotent; an external provider call and acknowledgement are not yet coordinated |
-| Database connection and plan evidence | Implemented and live-verified | Lazy bounded pools use min 1/max 4 separately for the control-plane and scope SQL identities; health exposes numeric configuration only. Redacted EXPLAIN and SHOW INDEXES prove the scoped prefix contract without emitting vectors or SQL data |
+| Database connection and plan evidence | Implemented and live-verified | Lazy bounded pools use min 1/max 4 separately for the control-plane and scope SQL identities. Exact 10k/50k synthetic ground truth versus natural ANN proved the four-column prefix, vector-search operator, no full scan, zero foreign rows, and the full `1/32/128/512` Recall/latency curve |
 | Production security and resilience | Partial | Minimum IAM, audited caller-derived SQL identities, RLS, TLS, fixed egress, short-lived JWTs, bounded pools, semantic embeddings, and negative-capability tests are live; multi-region failover and worker-crash reconciliation are not complete |
 
 ## Evidence
@@ -114,6 +114,10 @@ evidence, and explicit non-claims.
   [2026-08-02-control-plane-eval-pooling-live.md](evidence/2026-08-02-control-plane-eval-pooling-live.md)
 - One-click public judge verifier:
   <https://yonghwan2161.github.io/continuum-memory-firewall/verify.html>
+- Exact-head 10k/50k vector benchmark workflow:
+  <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30735058404>
+- Byte-identical vector-scale evidence summary:
+  [2026-08-02-vector-scale-live.md](evidence/2026-08-02-vector-scale-live.md)
 
 `main` is the authoritative code. The linked workflows cover the reviewed P2B
 and migration implementation commits; the pull request records final-head
@@ -158,9 +162,9 @@ highest-value work before the submission deadline is:
 1. **Protect the judge path:** keep the demo, authenticated MCP, fixed egress,
    OIDC branch subject, and public video live; recheck them before material
    submission edits.
-2. **Add representative-scale ANN evidence:** retain the 60-query relevance and
-   leakage suite, but load enough non-sensitive vectors for CockroachDB's
-   cost-based optimizer to select the vector index naturally and compare plans.
+2. **Bind the release:** publish the reviewed public demo, current video,
+   deployment, RLS/control-plane checksums, vector report, key rotation, and
+   Devpost receipt as one immutable GitHub release envelope.
 3. **Harden beyond the competition slice:** add durable reviewer-visible
    per-memory pages, scheduled provider-key retirement, multi-region failover,
    and outbox reconciliation.
@@ -175,11 +179,9 @@ The exact commands and stop conditions are in
   failure. Cockroach Cloud still requires a user-authenticated Console/ccloud
   session to mint and retire provider API keys, so fully unattended provider
   rotation is not claimed.
-- The 60-query suite is meaningfully adversarial but still synthetic and small;
-  it is competition evidence, not a statistically broad production benchmark.
-- The vector index exists with the correct tenant/incident prefix contract, but
-  the natural redacted plan did not select ANN for the intentionally tiny
-  20-document corpus. Representative-scale plan and load evidence remains.
+- The 60-query semantic suite and 10k/50k random-vector benchmark are meaningful
+  competition evidence but are not a statistically broad production workload.
+  “First pass” includes a fresh SQL connection, not a server cache flush.
 - Live memory citation URLs do not yet provide durable reviewer-visible
   per-memory detail pages.
 - The Devpost entry is submitted and editable while submissions remain open.

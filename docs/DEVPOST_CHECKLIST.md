@@ -29,7 +29,8 @@ complete attestations and organizer agreements.
 
 - [x] Logged-out interactive proof console deployed:
       <https://yonghwan2161.github.io/continuum-memory-firewall/>
-- [x] Proof console explicitly labelled as a simulation rather than a live cloud claim
+- [x] Simulated policy interactions are labelled separately from live,
+      exact-receipt metric and verifier claims
 - [x] Reviewer demo URL opens without a sign-in gate; Browser verification on
       2026-07-29 exercised rejection and failover controls
 - [x] CockroachDB transaction integration tests run in GitHub Actions
@@ -39,7 +40,7 @@ complete attestations and organizer agreements.
 - [x] Read-only standard MCP `search`/`fetch` contract and protocol tests included
 - [x] Participant-owned CockroachDB Basic cluster provisioned on AWS Singapore
       with the free-resource monthly limits and a fixed AWS egress `/32`
-- [x] Live cluster state rechecked on 2026-08-02: migration version 15,
+- [x] Live cluster state rechecked on 2026-08-02: migration version 17,
       CockroachDB RLS on three scope-bearing tables, least-privilege negative
       tests, and exactly one AWS Elastic IP `/32` SQL rule
 - [x] Functional cloud-backed application demo URL:
@@ -53,12 +54,18 @@ complete attestations and organizer agreements.
 - [x] Five-minute Cognito caller identity, audited caller binding, matching SQL
       role, Titan v2 semantic evaluation, RLS, and remote cross-scope denial;
       60 queries measured Recall@1/3/5 = 0.8667/0.9833/1.0 with zero leaked
-      documents and p50/p95 = 250.306/282.87 ms; see
+      documents and p50/p95 = 248.149/279.012 ms; see
       [2026-08-02-control-plane-eval-pooling-live.md](evidence/2026-08-02-control-plane-eval-pooling-live.md)
 - [x] One-click read-only judge verifier checks exact workflow/head, live MCP
       health, Devpost Submitted, control-plane denial, bounded pools, RLS, and
       vector-index metadata:
       <https://yonghwan2161.github.io/continuum-memory-firewall/verify.html>
+- [x] Byte-identical 10k/50k non-sensitive vector benchmark report proves the
+      complete `1/32/128/512` beam trade-off, natural vector-search plan, no
+      full scan, and zero foreign rows; at 50k/beam 512 Recall@10 was 0.96875
+      and warm p50/p95 was 216.445/314.273 ms; run
+      <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30735058404>
+      and [evidence](evidence/2026-08-02-vector-scale-live.md)
 - [x] CockroachDB Cloud Managed MCP evidenced on 2026-07-31 through the private
       AWS worker: `list_databases` returned the `continuum` database
 - [x] Second CockroachDB Managed MCP read tool evidenced: `list_tables` returned
@@ -91,16 +98,15 @@ complete attestations and organizer agreements.
       Devpost submission `1121568` returned `Submitted`
 - [x] Architecture diagram distinguishes locally implemented, live deployed,
       and planned application components
-- [x] Secret-free 72-second narrated demo video generated at
-      [docs/demo/continuum-memory-firewall-demo.mp4](demo/continuum-memory-firewall-demo.mp4)
+- [ ] Updated secret-free 90–120 second narrated demo generated from the live
+      verifier and 10k/50k evidence
 - [x] Secret-free screenshots captured for the live overview, policy rejection,
       and one-owner failover in [docs/demo/](demo/)
-- [x] Demo video uploaded publicly to YouTube and embedded on Devpost:
-      <https://youtu.be/raad44nJj5I>
+- [ ] Updated demo uploaded publicly to YouTube and embedded on Devpost
 - [x] Problem, approach, architecture, and technical challenge narrative
       rendered on the public Devpost project page
-- [x] Measured retrieval/isolation results recorded; broader latency and
-      production-quality statistics remain explicit non-claims
+- [x] Measured 60-query and 10k/50k retrieval/isolation results recorded;
+      production-quality generalization remains an explicit non-claim
 - [x] Final technology inventory limited to deployed/tested components in
       `PROJECT_STATUS.md` and copied into Devpost
 - [x] Repository, demo, video, and documentation links tested without project
