@@ -47,6 +47,15 @@ def configure_scope_read_policies(
     audit_policy = f"continuum_audit_select_{suffix}"
     candidate_policy = f"continuum_candidate_select_{suffix}"
     action_policy = f"continuum_action_select_{suffix}"
+    episode_policy_names = {
+        table_name: f"continuum_{table_name}_select_{suffix}"
+        for table_name in (
+            "agent_runs",
+            "retrieved_citations",
+            "proposed_actions",
+            "outcome_evidence",
+        )
+    }
     connect = psycopg_connection_factory(migrator_database_url)
     from psycopg import sql
 
@@ -99,6 +108,7 @@ def configure_scope_read_policies(
         for table_name, policy_name in (
             ("memory_candidates", candidate_policy),
             ("action_attempts", action_policy),
+            *episode_policy_names.items(),
         ):
             table = sql.Identifier("public", table_name)
             connection.execute(
@@ -135,6 +145,7 @@ def configure_scope_read_policies(
             audit_policy,
             candidate_policy,
             action_policy,
+            *episode_policy_names.values(),
         ],
     }
 

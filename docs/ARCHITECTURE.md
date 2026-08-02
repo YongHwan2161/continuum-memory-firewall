@@ -5,6 +5,9 @@ boundaries. Current implementation state belongs in
 [PROJECT_STATUS.md](PROJECT_STATUS.md); implementation order belongs in
 [ROADMAP.md](ROADMAP.md).
 
+The outcome-learning extension adds an explicit episode boundary. See
+[EPISODE_CONTRACT.md](EPISODE_CONTRACT.md) for the model/tool authority contract.
+
 ## Authority model
 
 Continuum distinguishes observations from durable authority:
