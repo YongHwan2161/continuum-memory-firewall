@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
 import math
@@ -55,6 +56,8 @@ class AblationObservation:
     proposed_action_type: str | None
     promoted_memory_id: str | None
     cross_scope_leak_count: int = 0
+    failure_code: str | None = None
+    model_turns: int = 0
 
 
 FAMILIES: tuple[Mapping[str, str], ...] = (
@@ -321,6 +324,9 @@ def summarize_ablation(
             for row in rows
         )
         leaks = sum(row.cross_scope_leak_count for row in rows)
+        failure_codes = Counter(
+            row.failure_code for row in rows if row.failure_code is not None
+        )
         metrics[arm.value] = {
             "ambiguous": ambiguous,
             "canonical_promotions": promotions,
@@ -328,7 +334,13 @@ def summarize_ablation(
             "cross_scope_leak_count": leaks,
             "failed": failed,
             "false_canonical_promotions": false_promotions,
+            "completed_orchestration_cases": len(rows) - sum(failure_codes.values()),
+            "failure_codes": dict(sorted(failure_codes.items())),
             "latency_ms": summarize_latency_ms([row.latency_ms for row in rows]),
+            "mean_model_turns": round(
+                sum(row.model_turns for row in rows) / len(rows),
+                6,
+            ),
             "mean_tool_calls": round(
                 sum(row.tool_calls for row in rows) / len(rows),
                 6,
