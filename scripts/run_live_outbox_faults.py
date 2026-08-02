@@ -12,6 +12,7 @@ from uuid import uuid4
 
 import boto3
 
+from continuum.aws_secrets import get_secret_string_with_backoff
 from continuum.episode import (
     AgentArm,
     CockroachEpisodeStore,
@@ -34,7 +35,7 @@ INITIAL_HEAD = "0" * 64
 
 
 def _database_url(client: Any, secret_id: str) -> str:
-    value = client.get_secret_value(SecretId=secret_id)["SecretString"]
+    value = get_secret_string_with_backoff(client, secret_id)
     try:
         payload = json.loads(value)
     except json.JSONDecodeError:
