@@ -99,15 +99,15 @@ complete attestations and organizer agreements.
 - [x] Architecture diagram distinguishes locally implemented, live deployed,
       and planned application components
 - [x] Updated secret-free 90–120 second narrated demo generated from the live
-      verifier and 10k/50k evidence
+      incident, verifier, 10k/50k ANN, and 10/25/50-agent pressure evidence
 - [x] Secret-free screenshots captured for the live overview, policy rejection,
       and one-owner failover in [docs/demo/](demo/)
 - [x] Updated demo uploaded publicly to YouTube and embedded on Devpost:
-      <https://youtu.be/H1hCZrC6ab8>; 99.7 seconds; SHA-256
-      `ae63e843d6da1b532c59e6b85ed6a1cbf15e94aa6983f7cb748b08c0b51863fb`
+      <https://youtu.be/ik76Q8Z8IoA>; 109.081 seconds; SHA-256
+      `870094a0ec515da6b4edb8c476407624ba358d97677b41da6b551cb2f8440f4b`
 - [x] Problem, approach, architecture, and technical challenge narrative
       rendered on the public Devpost project page
-- [x] Measured 60-query and 10k/50k retrieval/isolation results recorded;
+- [x] Measured 60-query, 10k/50k, and 10/25/50-agent results recorded;
       production-quality generalization remains an explicit non-claim
 - [x] Final technology inventory limited to deployed/tested components in
       `PROJECT_STATUS.md` and copied into Devpost
