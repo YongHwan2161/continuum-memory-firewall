@@ -65,6 +65,46 @@ def tool_use(identifier, name, value):
 
 
 class OrchestratorTests(unittest.TestCase):
+    def test_run_adds_seed_metadata_without_allowing_reserved_override(self):
+        model = FakeModel(
+            [
+                response(
+                    tool_use(
+                        "t1",
+                        "propose_inspect_service",
+                        {
+                            "action_key": "checkout:inspect:seeded:v1",
+                            "parameters": {"service": "checkout"},
+                            "rationale": "inspect without memory",
+                            "citation_memory_ids": [],
+                        },
+                    )
+                )
+            ]
+        )
+        orchestrator = AgentOrchestrator(
+            store=InMemoryEpisodeStore(),
+            model=model,
+            model_id="amazon.nova-micro-v1:0",
+        )
+        orchestrator.run(
+            tenant_id=TENANT_ID,
+            incident_id=INCIDENT_ID,
+            arm=AgentArm.STATELESS,
+            incident={"symptom": "slow checkout"},
+            memory_tools=None,
+            request_metadata={"continuum_evaluation_seed": "101"},
+        )
+        metadata = model.calls[0]["requestMetadata"]
+        self.assertEqual(metadata["continuum_evaluation_seed"], "101")
+        self.assertEqual(metadata["continuum_arm"], "stateless")
+
+        with self.assertRaisesRegex(ValueError, "reserved keys"):
+            orchestrator._request_metadata(
+                {"continuum_arm": "stateless"},
+                {"continuum_arm": "continuum"},
+            )
+
     def test_memory_arm_may_propose_after_an_explicit_cold_start_search(self):
         class EmptyMemoryTools:
             def search(self, *, query, limit):

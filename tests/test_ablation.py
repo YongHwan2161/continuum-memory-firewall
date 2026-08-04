@@ -114,6 +114,73 @@ class AblationTests(unittest.TestCase):
             report["arms"]["continuum"]["failure_codes"],
             {"MODEL_REJECTED": 1},
         )
+        comparison = report["paired_comparisons"]["continuum_vs_stateless"]
+        self.assertEqual(comparison["pairs"], 36)
+        self.assertEqual(comparison["first_wins"], 14)
+        self.assertEqual(comparison["first_losses"], 0)
+
+    def test_five_seed_summary_covers_180_paired_trials_per_arm(self):
+        cases = build_competition_cases()
+        seeds = (101, 203, 307, 409, 503)
+        observations = []
+        for arm in AgentArm:
+            for seed in seeds:
+                for index, case in enumerate(cases):
+                    threshold = {
+                        AgentArm.STATELESS: 9,
+                        AgentArm.RAW_RAG: 20,
+                        AgentArm.CONTINUUM: 24,
+                    }[arm]
+                    succeeded = index < threshold
+                    observations.append(
+                        AblationObservation(
+                            arm=arm,
+                            case_id=case.case_id,
+                            family=case.family,
+                            variant=case.variant,
+                            outcome_status=(
+                                OutcomeStatus.SUCCEEDED
+                                if succeeded
+                                else OutcomeStatus.FAILED
+                            ),
+                            latency_ms=100.0 + index,
+                            tool_calls=1,
+                            cited_memory_ids=(),
+                            proposed_action_type=(
+                                case.expected.action_type if succeeded else None
+                            ),
+                            promoted_memory_id=(
+                                f"memory-{arm.value}-{seed}-{index}"
+                                if succeeded
+                                else None
+                            ),
+                            failure_code=None if succeeded else "MODEL_REJECTED",
+                            model_turns=1,
+                            seed=seed,
+                        )
+                    )
+
+        report = summarize_ablation(cases, observations, seeds=seeds)
+
+        self.assertEqual(report["schema_version"], 2)
+        self.assertEqual(report["methodology"]["seed_count"], 5)
+        self.assertEqual(report["methodology"]["case_count_per_arm"], 180)
+        self.assertEqual(report["arms"]["continuum"]["cases"], 180)
+        comparison = report["paired_comparisons"]["continuum_vs_raw_rag"]
+        self.assertEqual(comparison["pairs"], 180)
+        self.assertEqual(comparison["first_wins"], 20)
+        self.assertEqual(comparison["first_losses"], 0)
+        interval = comparison[
+            "paired_cluster_bootstrap_95_percentage_points"
+        ]
+        self.assertEqual(interval["clusters"], 36)
+        self.assertEqual(interval["resamples"], 10_000)
+        self.assertEqual(
+            report["arms"]["continuum"]["failure_causes"]["MODEL_REJECTED"][
+                "count"
+            ],
+            60,
+        )
 
     def test_summary_rejects_missing_arm_cases(self):
         cases = build_competition_cases()

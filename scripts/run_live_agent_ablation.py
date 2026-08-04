@@ -1,4 +1,4 @@
-"""Run the 36-case Bedrock/CockroachDB three-arm outcome ablation."""
+"""Run five paired 36-case Bedrock/CockroachDB three-arm replications."""
 
 from __future__ import annotations
 
@@ -41,6 +41,17 @@ from continuum.store import (
 
 
 INITIAL_HEAD = "0" * 64
+DEFAULT_SEEDS = (101, 203, 307, 409, 503)
+
+
+def _parse_seeds(value: str) -> tuple[int, ...]:
+    try:
+        seeds = tuple(int(item.strip()) for item in value.split(","))
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("seeds must be comma-separated integers") from exc
+    if len(seeds) != 5 or len(set(seeds)) != 5:
+        raise argparse.ArgumentTypeError("exactly five unique seeds are required")
+    return seeds
 
 
 def _database_url(client: Any, secret_id: str) -> str:
@@ -157,6 +168,12 @@ def main() -> None:
     parser.add_argument("--agent-region", default="ap-southeast-2")
     parser.add_argument("--agent-model", default="amazon.nova-micro-v1:0")
     parser.add_argument("--ca-cert", default="/opt/continuum/cockroach-ca.crt")
+    parser.add_argument(
+        "--seeds",
+        type=_parse_seeds,
+        default=DEFAULT_SEEDS,
+        help="exactly five unique paired-replication identifiers",
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
@@ -176,14 +193,15 @@ def main() -> None:
 
     evaluation_id = str(uuid4())
     evaluation_tenant = str(uuid4())
-    scopes: dict[tuple[AgentArm, str], str] = {}
-    for arm in AgentArm:
-        for family in sorted({case.family for case in cases}):
-            scopes[(arm, family)] = _create_incident(
-                connect,
-                tenant_id=evaluation_tenant,
-                service_name=f"ablation-{arm.value}-{family}",
-            )
+    scopes: dict[tuple[int, AgentArm, str], str] = {}
+    for seed in args.seeds:
+        for arm in AgentArm:
+            for family in sorted({case.family for case in cases}):
+                scopes[(seed, arm, family)] = _create_incident(
+                    connect,
+                    tenant_id=evaluation_tenant,
+                    service_name=f"ablation-{seed}-{arm.value}-{family}",
+                )
     denied_incident = _create_incident(
         connect,
         tenant_id=evaluation_tenant,
@@ -203,83 +221,12 @@ def main() -> None:
     )
 
     observations: list[AblationObservation] = []
-    for arm in AgentArm:
-        for case in cases:
-            incident_id = scopes[(arm, case.family)]
-            if arm is AgentArm.RAW_RAG:
-                for injection in case.raw_injections:
-                    _append_baseline_memory(
-                        connect=connect,
-                        retrieval=retrieval_store,
-                        embedder=embedder,
-                        tenant_id=evaluation_tenant,
-                        incident_id=incident_id,
-                        memory_key=f"{evaluation_id}:{injection.injection_id}",
-                        payload={
-                            "proposed_action": injection.proposed_action,
-                            "provenance": injection.provenance,
-                            "summary": injection.text,
-                            "type": "raw_rag_unverified_injection_v1",
-                        },
-                    )
-            tools = None
-            if arm is not AgentArm.STATELESS:
-                tools = RetrievalStoreTools(
-                    store=retrieval_store,
-                    embedder=embedder,
-                    tenant_id=evaluation_tenant,
-                    incident_id=incident_id,
-                    min_similarity=-1.0,
-                )
-            orchestrator = AgentOrchestrator(
-                store=episode_store,
-                model=model,
-                model_id=args.agent_model,
-            )
-            started = time.perf_counter_ns()
-            result = None
-            promoted_memory_id = None
-            outcome_status = OutcomeStatus.FAILED
-            failure_code = None
-            failed_model_turns = 0
-            failed_tool_calls = 0
-            try:
-                result = orchestrator.run(
-                    tenant_id=evaluation_tenant,
-                    incident_id=incident_id,
-                    arm=arm,
-                    incident=case.incident,
-                    memory_tools=tools,
-                )
-                if result.proposal is not None and result.proposal_id is not None:
-                    episode_store.approve_proposal(
-                        proposal_id=result.proposal_id,
-                        actor="policy:synthetic-ablation-v1",
-                        reason="allowlisted non-production synthetic action",
-                    )
-                    observed_at = datetime.now(timezone.utc)
-                    provider_outcome = provider.execute(
-                        case=case,
-                        proposal=result.proposal,
-                        idempotency_key=(
-                            f"{evaluation_id}:{arm.value}:{case.case_id}"
-                        ),
-                        observed_at=observed_at,
-                    )
-                    outcome_status = provider_outcome.status
-                    outcome_result = episode_store.record_outcome_and_promote(
-                        proposal_id=result.proposal_id,
-                        outcome=provider_outcome,
-                    )
-                    promoted_memory_id = outcome_result.memory_id
-                    if outcome_result.memory_id is not None:
-                        retrieval_store.index_memory(
-                            tenant_id=evaluation_tenant,
-                            incident_id=incident_id,
-                            memory_id=outcome_result.memory_id,
-                            embedder=embedder,
-                        )
-                    if arm is AgentArm.RAW_RAG:
+    for seed in args.seeds:
+        for arm in AgentArm:
+            for case in cases:
+                incident_id = scopes[(seed, arm, case.family)]
+                if arm is AgentArm.RAW_RAG:
+                    for injection in case.raw_injections:
                         _append_baseline_memory(
                             connect=connect,
                             retrieval=retrieval_store,
@@ -287,56 +234,153 @@ def main() -> None:
                             tenant_id=evaluation_tenant,
                             incident_id=incident_id,
                             memory_key=(
-                                f"{evaluation_id}:raw:{case.case_id}"
+                                f"{evaluation_id}:{seed}:{injection.injection_id}"
                             ),
                             payload={
-                                "case_id": case.case_id,
-                                "outcome_status": provider_outcome.status.value,
-                                "proposed_action": {
-                                    "action_type": result.proposal.action_type,
-                                    "parameters": dict(result.proposal.parameters),
-                                },
-                                "provenance": "raw_model_episode",
-                                "summary": result.proposal.rationale,
-                                "type": "raw_rag_append_all_v1",
+                                "proposed_action": injection.proposed_action,
+                                "provenance": injection.provenance,
+                                "summary": injection.text,
+                                "type": "raw_rag_unverified_injection_v1",
                             },
                         )
-            except OrchestrationError as exc:
-                outcome_status = OutcomeStatus.FAILED
-                failure_code = exc.code
-                failed_model_turns = exc.model_turns
-                failed_tool_calls = exc.tool_calls
-            latency_ms = (time.perf_counter_ns() - started) / 1_000_000
-            cited = () if result is None else tuple(
-                citation.memory_id for citation in result.citations
-            )
-            observations.append(
-                AblationObservation(
-                    arm=arm,
-                    case_id=case.case_id,
-                    family=case.family,
-                    variant=case.variant,
-                    outcome_status=outcome_status,
-                    latency_ms=latency_ms,
-                    tool_calls=(
-                        failed_tool_calls if result is None else result.tool_calls
-                    ),
-                    cited_memory_ids=cited,
-                    proposed_action_type=(
-                        None
-                        if result is None or result.proposal is None
-                        else result.proposal.action_type
-                    ),
-                    promoted_memory_id=promoted_memory_id,
-                    cross_scope_leak_count=int(forbidden_memory_id in cited),
-                    failure_code=failure_code,
-                    model_turns=(
-                        failed_model_turns if result is None else result.model_turns
-                    ),
+                tools = None
+                if arm is not AgentArm.STATELESS:
+                    tools = RetrievalStoreTools(
+                        store=retrieval_store,
+                        embedder=embedder,
+                        tenant_id=evaluation_tenant,
+                        incident_id=incident_id,
+                        min_similarity=-1.0,
+                    )
+                orchestrator = AgentOrchestrator(
+                    store=episode_store,
+                    model=model,
+                    model_id=args.agent_model,
                 )
-            )
+                started = time.perf_counter_ns()
+                result = None
+                promoted_memory_id = None
+                outcome_status = OutcomeStatus.FAILED
+                failure_code = None
+                failure_cause = None
+                failed_model_turns = 0
+                failed_tool_calls = 0
+                try:
+                    result = orchestrator.run(
+                        tenant_id=evaluation_tenant,
+                        incident_id=incident_id,
+                        arm=arm,
+                        incident=case.incident,
+                        memory_tools=tools,
+                        request_metadata={"continuum_evaluation_seed": str(seed)},
+                    )
+                    if result.proposal is not None and result.proposal_id is not None:
+                        episode_store.approve_proposal(
+                            proposal_id=result.proposal_id,
+                            actor="policy:synthetic-ablation-v2",
+                            reason="allowlisted non-production synthetic action",
+                        )
+                        observed_at = datetime.now(timezone.utc)
+                        provider_outcome = provider.execute(
+                            case=case,
+                            proposal=result.proposal,
+                            idempotency_key=(
+                                f"{evaluation_id}:{seed}:{arm.value}:{case.case_id}"
+                            ),
+                            observed_at=observed_at,
+                        )
+                        outcome_status = provider_outcome.status
+                        if provider_outcome.status is not OutcomeStatus.SUCCEEDED:
+                            evidence = provider_outcome.evidence
+                            if (
+                                evidence.get("proposed_action_type")
+                                != evidence.get("expected_action_type")
+                            ):
+                                failure_cause = "PROVIDER_ACTION_TYPE_MISMATCH"
+                            elif (
+                                evidence.get("proposed_resource")
+                                != evidence.get("expected_resource")
+                            ):
+                                failure_cause = "PROVIDER_RESOURCE_MISMATCH"
+                            elif provider_outcome.status is OutcomeStatus.AMBIGUOUS:
+                                failure_cause = "PROVIDER_AMBIGUOUS"
+                            else:
+                                failure_cause = "PROVIDER_REJECTED"
+                        outcome_result = episode_store.record_outcome_and_promote(
+                            proposal_id=result.proposal_id,
+                            outcome=provider_outcome,
+                        )
+                        promoted_memory_id = outcome_result.memory_id
+                        if outcome_result.memory_id is not None:
+                            retrieval_store.index_memory(
+                                tenant_id=evaluation_tenant,
+                                incident_id=incident_id,
+                                memory_id=outcome_result.memory_id,
+                                embedder=embedder,
+                            )
+                        if arm is AgentArm.RAW_RAG:
+                            _append_baseline_memory(
+                                connect=connect,
+                                retrieval=retrieval_store,
+                                embedder=embedder,
+                                tenant_id=evaluation_tenant,
+                                incident_id=incident_id,
+                                memory_key=(
+                                    f"{evaluation_id}:{seed}:raw:{case.case_id}"
+                                ),
+                                payload={
+                                    "case_id": case.case_id,
+                                    "outcome_status": provider_outcome.status.value,
+                                    "proposed_action": {
+                                        "action_type": result.proposal.action_type,
+                                        "parameters": dict(result.proposal.parameters),
+                                    },
+                                    "provenance": "raw_model_episode",
+                                    "summary": result.proposal.rationale,
+                                    "type": "raw_rag_append_all_v1",
+                                },
+                            )
+                    else:
+                        failure_cause = "NO_ACTION_PROPOSED"
+                except OrchestrationError as exc:
+                    outcome_status = OutcomeStatus.FAILED
+                    failure_code = exc.code
+                    failure_cause = exc.code
+                    failed_model_turns = exc.model_turns
+                    failed_tool_calls = exc.tool_calls
+                latency_ms = (time.perf_counter_ns() - started) / 1_000_000
+                cited = () if result is None else tuple(
+                    citation.memory_id for citation in result.citations
+                )
+                observations.append(
+                    AblationObservation(
+                        arm=arm,
+                        case_id=case.case_id,
+                        family=case.family,
+                        variant=case.variant,
+                        outcome_status=outcome_status,
+                        latency_ms=latency_ms,
+                        tool_calls=(
+                            failed_tool_calls if result is None else result.tool_calls
+                        ),
+                        cited_memory_ids=cited,
+                        proposed_action_type=(
+                            None
+                            if result is None or result.proposal is None
+                            else result.proposal.action_type
+                        ),
+                        promoted_memory_id=promoted_memory_id,
+                        cross_scope_leak_count=int(forbidden_memory_id in cited),
+                        failure_code=failure_code,
+                        failure_cause=failure_cause,
+                        model_turns=(
+                            failed_model_turns if result is None else result.model_turns
+                        ),
+                        seed=seed,
+                    )
+                )
 
-    report = dict(summarize_ablation(cases, observations))
+    report = dict(summarize_ablation(cases, observations, seeds=args.seeds))
     report.update(
         {
             "agent_model": args.agent_model,
@@ -348,6 +392,10 @@ def main() -> None:
             "migration_version": migration.current_version,
             "provider": "continuum-synthetic-verifier-v1",
             "retained_for_judge_evidence": True,
+            "seed_semantics": (
+                "paired independent episode-state replication IDs; Bedrock Converse "
+                "does not expose a model RNG seed"
+            ),
             "synthetic_non_effecting": True,
             "observations": [
                 {
@@ -363,7 +411,9 @@ def main() -> None:
                     "promoted": row.promoted_memory_id is not None,
                     "cross_scope_leak_count": row.cross_scope_leak_count,
                     "failure_code": row.failure_code,
+                    "failure_cause": row.failure_cause,
                     "model_turns": row.model_turns,
+                    "seed": row.seed,
                 }
                 for row in observations
             ],
