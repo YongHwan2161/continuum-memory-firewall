@@ -1,0 +1,94 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Durable non-production provider sandbox for Continuum outbox proofs",
+  "Parameters": {
+    "DeploymentBucket": {"Type": "String"},
+    "DeploymentKey": {"Type": "String"}
+  },
+  "Resources": {
+    "SandboxReceiptTable": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [
+          {"AttributeName": "idempotency_key", "AttributeType": "S"}
+        ],
+        "KeySchema": [
+          {"AttributeName": "idempotency_key", "KeyType": "HASH"}
+        ],
+        "SSESpecification": {"SSEEnabled": true},
+        "TimeToLiveSpecification": {
+          "AttributeName": "expires_at",
+          "Enabled": true
+        },
+        "Tags": [
+          {"Key": "Project", "Value": "continuum-memory-firewall"},
+          {"Key": "Environment", "Value": "sandbox"}
+        ]
+      }
+    },
+    "SandboxProviderRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [{
+            "Effect": "Allow",
+            "Principal": {"Service": "lambda.amazonaws.com"},
+            "Action": "sts:AssumeRole"
+          }]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ],
+        "Policies": [{
+          "PolicyName": "OneSandboxReceiptTable",
+          "PolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [{
+              "Effect": "Allow",
+              "Action": ["dynamodb:GetItem", "dynamodb:PutItem"],
+              "Resource": {"Fn::GetAtt": ["SandboxReceiptTable", "Arn"]}
+            }]
+          }
+        }],
+        "Tags": [
+          {"Key": "Project", "Value": "continuum-memory-firewall"},
+          {"Key": "Environment", "Value": "sandbox"}
+        ]
+      }
+    },
+    "SandboxProviderFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "FunctionName": "continuum-action-sandbox-provider",
+        "Description": "Non-effecting idempotency and receipt reconciliation sandbox",
+        "Architectures": ["x86_64"],
+        "Runtime": "python3.12",
+        "Handler": "continuum.aws_sandbox_provider_handler.handler",
+        "MemorySize": 128,
+        "Timeout": 10,
+        "ReservedConcurrentExecutions": 2,
+        "Role": {"Fn::GetAtt": ["SandboxProviderRole", "Arn"]},
+        "Code": {
+          "S3Bucket": {"Ref": "DeploymentBucket"},
+          "S3Key": {"Ref": "DeploymentKey"}
+        },
+        "Environment": {
+          "Variables": {
+            "CONTINUUM_SANDBOX_RECEIPT_TABLE": {"Ref": "SandboxReceiptTable"}
+          }
+        },
+        "Tags": [
+          {"Key": "Project", "Value": "continuum-memory-firewall"},
+          {"Key": "Environment", "Value": "sandbox"}
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "FunctionName": {"Value": {"Ref": "SandboxProviderFunction"}},
+    "FunctionArn": {"Value": {"Fn::GetAtt": ["SandboxProviderFunction", "Arn"]}, "Export": {"Name": "continuum-sandbox-provider-arn"}},
+    "ReceiptTableName": {"Value": {"Ref": "SandboxReceiptTable"}}
+  }
+}

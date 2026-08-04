@@ -14,6 +14,7 @@ from continuum.outbox import (
     InMemoryOutboxStore,
     InjectedCrash,
     OutboxStatus,
+    ProviderCapabilityManifest,
     TransactionalOutboxWorker,
 )
 
@@ -70,7 +71,7 @@ class TransactionalOutboxTests(unittest.TestCase):
         item = self.outbox.enqueue_proposal(
             proposal_id=proposal_id,
             provider=provider.name,
-            provider_supports_idempotency=supports_idempotency,
+            provider_capabilities=provider.capabilities,
             now=NOW,
         )
         return (
@@ -86,16 +87,21 @@ class TransactionalOutboxTests(unittest.TestCase):
 
     def test_enqueue_derives_payload_and_replays_one_row(self) -> None:
         proposal_id = self.proposal()
+        capabilities = ProviderCapabilityManifest(
+            supports_idempotency=True,
+            receipt_lookup=True,
+            reconciliation_timeout=timedelta(seconds=30),
+        )
         first = self.outbox.enqueue_proposal(
             proposal_id=proposal_id,
             provider="fault-provider-v1",
-            provider_supports_idempotency=True,
+            provider_capabilities=capabilities,
             now=NOW,
         )
         replay = self.outbox.enqueue_proposal(
             proposal_id=proposal_id,
             provider="fault-provider-v1",
-            provider_supports_idempotency=True,
+            provider_capabilities=capabilities,
             now=NOW,
         )
 
@@ -120,6 +126,70 @@ class TransactionalOutboxTests(unittest.TestCase):
         completed = worker.process_one(now=NOW + timedelta(seconds=32))
         self.assertEqual(completed.item.status, OutboxStatus.ACKNOWLEDGED)
         self.assertEqual(sum(provider.effect_count.values()), 1)
+
+    def test_receipt_lookup_waits_until_manifest_timeout(self) -> None:
+        provider = InMemoryEffectProvider(
+            name="lookup-only-provider-v1",
+            supports_idempotency=False,
+            receipt_lookup=True,
+            reconciliation_timeout=timedelta(seconds=30),
+            clock=lambda: NOW,
+        )
+        item = self.outbox.enqueue_proposal(
+            proposal_id=self.proposal(suffix="lookup-timeout"),
+            provider=provider.name,
+            provider_capabilities=provider.capabilities,
+            now=NOW,
+        )
+        worker = TransactionalOutboxWorker(
+            outbox=self.outbox,
+            episodes=self.episodes,
+            provider=provider,
+            worker_id="lookup-timeout-worker-v1",
+        )
+        with self.assertRaises(InjectedCrash):
+            worker.process_one(now=NOW, crash_at=CrashPoint.AFTER_SEND)
+        provider._receipts.clear()
+
+        waiting = worker.reconcile(
+            outbox_id=item.outbox_id,
+            now=NOW + timedelta(seconds=29),
+        )
+        self.assertEqual(waiting.item.status, OutboxStatus.DISPATCHING)
+        timed_out = worker.reconcile(
+            outbox_id=item.outbox_id,
+            now=NOW + timedelta(seconds=30),
+        )
+        self.assertEqual(timed_out.item.status, OutboxStatus.AMBIGUOUS)
+        self.assertIsNone(timed_out.promotion.memory_id)
+
+    def test_worker_rejects_capability_manifest_drift(self) -> None:
+        original = InMemoryEffectProvider(
+            name="drift-provider-v1",
+            supports_idempotency=True,
+            clock=lambda: NOW,
+        )
+        item = self.outbox.enqueue_proposal(
+            proposal_id=self.proposal(suffix="manifest-drift"),
+            provider=original.name,
+            provider_capabilities=original.capabilities,
+            now=NOW,
+        )
+        drifted = InMemoryEffectProvider(
+            name=original.name,
+            supports_idempotency=False,
+            clock=lambda: NOW,
+        )
+        worker = TransactionalOutboxWorker(
+            outbox=self.outbox,
+            episodes=self.episodes,
+            provider=drifted,
+            worker_id="manifest-drift-worker-v1",
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "capabilities do not match"):
+            worker.process_one(now=NOW)
+        self.assertEqual(self.outbox.get(item.outbox_id).status, OutboxStatus.LEASED)
 
     def test_crash_after_send_is_idempotently_reconciled(self) -> None:
         worker, provider, outbox_id = self.worker(

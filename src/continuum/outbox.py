@@ -59,6 +59,36 @@ class InjectedCrash(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
+class ProviderCapabilityManifest:
+    """Immutable provider guarantees captured with each outbox dispatch."""
+
+    supports_idempotency: bool
+    receipt_lookup: bool
+    reconciliation_timeout: timedelta
+
+    def __post_init__(self) -> None:
+        seconds = self.reconciliation_timeout.total_seconds()
+        if seconds < 0 or seconds > 3600 or not seconds.is_integer():
+            raise ValueError(
+                "reconciliation_timeout must be whole seconds between 0 and 3600"
+            )
+        if not self.receipt_lookup and seconds != 0:
+            raise ValueError("reconciliation_timeout requires receipt_lookup")
+
+    @property
+    def reconciliation_timeout_seconds(self) -> int:
+        return int(self.reconciliation_timeout.total_seconds())
+
+    def as_evidence(self) -> Mapping[str, Any]:
+        return {
+            "supports_idempotency": self.supports_idempotency,
+            "receipt_lookup": self.receipt_lookup,
+            "reconciliation_timeout_seconds": self.reconciliation_timeout_seconds,
+            "schema_version": 1,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class OutboxItem:
     outbox_id: str
     proposal_id: str
@@ -68,12 +98,13 @@ class OutboxItem:
     provider: str
     idempotency_key: str
     action_payload: Mapping[str, Any]
-    provider_supports_idempotency: bool
+    provider_capabilities: ProviderCapabilityManifest
     status: OutboxStatus
     attempt_count: int
     next_attempt_at: datetime
     lease_owner: str | None = None
     lease_expires_at: datetime | None = None
+    dispatch_started_at: datetime | None = None
     provider_outcome_status: OutcomeStatus | None = None
     provider_observed_at: datetime | None = None
     provider_verified_at: datetime | None = None
@@ -90,7 +121,7 @@ class DispatchResult:
 
 class ActionProvider(Protocol):
     name: str
-    supports_idempotency: bool
+    capabilities: ProviderCapabilityManifest
 
     def send(
         self,
@@ -108,7 +139,7 @@ class OutboxStore(Protocol):
         *,
         proposal_id: str,
         provider: str,
-        provider_supports_idempotency: bool,
+        provider_capabilities: ProviderCapabilityManifest,
         now: datetime | None = None,
     ) -> OutboxItem: ...
 
@@ -203,7 +234,7 @@ def _proposal_payload(action_key: str, action_type: str, parameters: Mapping[str
 
 
 def _item_from_row(row: Any) -> OutboxItem:
-    evidence = row[21]
+    evidence = row[23]
     return OutboxItem(
         outbox_id=str(row[0]),
         proposal_id=str(row[1]),
@@ -213,19 +244,24 @@ def _item_from_row(row: Any) -> OutboxItem:
         provider=row[5],
         idempotency_key=row[6],
         action_payload=row[7],
-        provider_supports_idempotency=bool(row[8]),
-        status=OutboxStatus(row[9]),
-        attempt_count=int(row[10]),
-        next_attempt_at=row[11],
-        lease_owner=row[12],
-        lease_expires_at=row[13],
-        provider_outcome_status=(
-            None if row[16] is None else OutcomeStatus(row[16])
+        provider_capabilities=ProviderCapabilityManifest(
+            supports_idempotency=bool(row[8]),
+            receipt_lookup=bool(row[9]),
+            reconciliation_timeout=timedelta(seconds=int(row[10])),
         ),
-        provider_observed_at=row[17],
-        provider_verified_at=row[18],
-        provider_receipt_id=row[19],
-        receipt_digest=row[20],
+        status=OutboxStatus(row[11]),
+        attempt_count=int(row[12]),
+        next_attempt_at=row[13],
+        lease_owner=row[14],
+        lease_expires_at=row[15],
+        dispatch_started_at=row[16],
+        provider_outcome_status=(
+            None if row[18] is None else OutcomeStatus(row[18])
+        ),
+        provider_observed_at=row[19],
+        provider_verified_at=row[20],
+        provider_receipt_id=row[21],
+        receipt_digest=row[22],
         response_evidence=evidence,
     )
 
@@ -241,6 +277,8 @@ OUTBOX_SELECT = """
         idempotency_key,
         action_payload,
         provider_supports_idempotency,
+        provider_receipt_lookup,
+        provider_reconciliation_timeout_seconds,
         status,
         attempt_count,
         next_attempt_at,
@@ -278,7 +316,7 @@ class CockroachOutboxStore:
         *,
         proposal_id: str,
         provider: str,
-        provider_supports_idempotency: bool,
+        provider_capabilities: ProviderCapabilityManifest,
         now: datetime | None = None,
     ) -> OutboxItem:
         provider = _validate_provider(provider)
@@ -342,8 +380,7 @@ class CockroachOutboxStore:
                     if (
                         item.provider != provider
                         or item.idempotency_key != idempotency_key
-                        or item.provider_supports_idempotency
-                        is not provider_supports_idempotency
+                        or item.provider_capabilities != provider_capabilities
                         or item.action_payload != action_payload
                     ):
                         raise RuntimeError("outbox replay does not match durable dispatch")
@@ -362,13 +399,15 @@ class CockroachOutboxStore:
                         idempotency_key,
                         action_payload,
                         provider_supports_idempotency,
+                        provider_receipt_lookup,
+                        provider_reconciliation_timeout_seconds,
                         status,
                         next_attempt_at,
                         created_at,
                         updated_at
                     )
                     VALUES (
-                        %s, %s, %s, %s, %s, %s, %s::JSONB, %s,
+                        %s, %s, %s, %s, %s, %s, %s::JSONB, %s, %s, %s,
                         'pending', %s, %s, %s
                     )
                     RETURNING outbox_id::STRING
@@ -381,7 +420,9 @@ class CockroachOutboxStore:
                         provider,
                         idempotency_key,
                         json.dumps(action_payload, ensure_ascii=False),
-                        provider_supports_idempotency,
+                        provider_capabilities.supports_idempotency,
+                        provider_capabilities.receipt_lookup,
+                        provider_capabilities.reconciliation_timeout_seconds,
                         created_at,
                         created_at,
                         created_at,
@@ -688,7 +729,7 @@ class InMemoryOutboxStore:
         *,
         proposal_id: str,
         provider: str,
-        provider_supports_idempotency: bool,
+        provider_capabilities: ProviderCapabilityManifest,
         now: datetime | None = None,
     ) -> OutboxItem:
         provider = _validate_provider(provider)
@@ -698,8 +739,7 @@ class InMemoryOutboxStore:
             prior = self.items[prior_id]
             if (
                 prior.provider != provider
-                or prior.provider_supports_idempotency
-                is not provider_supports_idempotency
+                or prior.provider_capabilities != provider_capabilities
             ):
                 raise RuntimeError("outbox replay does not match durable dispatch")
             return prior
@@ -729,7 +769,7 @@ class InMemoryOutboxStore:
                 proposal_id=proposal_id,
             ),
             action_payload=payload,
-            provider_supports_idempotency=provider_supports_idempotency,
+            provider_capabilities=provider_capabilities,
             status=OutboxStatus.PENDING,
             attempt_count=0,
             next_attempt_at=created_at,
@@ -782,7 +822,11 @@ class InMemoryOutboxStore:
             or item.lease_expires_at < now
         ):
             raise RuntimeError("outbox lease is absent or expired")
-        item = replace(item, status=OutboxStatus.DISPATCHING)
+        item = replace(
+            item,
+            status=OutboxStatus.DISPATCHING,
+            dispatch_started_at=now,
+        )
         self.items[outbox_id] = item
         return item
 
@@ -945,13 +989,30 @@ class TransactionalOutboxWorker:
             item = self.outbox.requeue_expired(outbox_id=outbox_id, now=now)
             return DispatchResult(item=item)
         if item.status is OutboxStatus.DISPATCHING:
-            if not (
-                item.provider_supports_idempotency
-                and self.provider.supports_idempotency
-            ):
+            capabilities = item.provider_capabilities
+            outcome = None
+            if capabilities.receipt_lookup:
+                outcome = self.provider.lookup(idempotency_key=item.idempotency_key)
+                if outcome is None:
+                    if item.dispatch_started_at is None:
+                        raise RuntimeError(
+                            "dispatching outbox row has no dispatch_started_at"
+                        )
+                    reconcile_after = (
+                        item.dispatch_started_at
+                        + capabilities.reconciliation_timeout
+                    )
+                    if now < reconcile_after:
+                        return DispatchResult(item=item)
+            if outcome is None and capabilities.supports_idempotency:
+                outcome = self.provider.send(
+                    action_payload=item.action_payload,
+                    idempotency_key=item.idempotency_key,
+                )
+            if outcome is None:
                 evidence = {
-                    "idempotency_contract": False,
-                    "reason_code": "PROVIDER_IDEMPOTENCY_UNAVAILABLE_AFTER_DISPATCH",
+                    "provider_capabilities": capabilities.as_evidence(),
+                    "reason_code": "PROVIDER_EFFECT_UNKNOWN_AFTER_RECONCILIATION_TIMEOUT",
                     "schema_version": 1,
                 }
                 ambiguous = ProviderOutcome(
@@ -967,16 +1028,10 @@ class TransactionalOutboxWorker:
                 item = self.outbox.mark_ambiguous(
                     outbox_id=outbox_id,
                     evidence=evidence,
-                    error_code="IDEMPOTENCY_UNAVAILABLE",
+                    error_code="RECONCILIATION_TIMEOUT",
                     now=now,
                 )
                 return DispatchResult(item=item, promotion=promotion)
-            outcome = self.provider.lookup(idempotency_key=item.idempotency_key)
-            if outcome is None:
-                outcome = self.provider.send(
-                    action_payload=item.action_payload,
-                    idempotency_key=item.idempotency_key,
-                )
             item = self.outbox.store_sent(
                 outbox_id=outbox_id,
                 outcome=outcome,
@@ -1015,6 +1070,10 @@ class TransactionalOutboxWorker:
     def _require_provider(self, item: OutboxItem) -> None:
         if item.provider != self.provider.name:
             raise RuntimeError("worker provider does not match durable outbox provider")
+        if item.provider_capabilities != self.provider.capabilities:
+            raise RuntimeError(
+                "worker provider capabilities do not match durable outbox manifest"
+            )
 
 
 class InMemoryEffectProvider:
@@ -1025,10 +1084,18 @@ class InMemoryEffectProvider:
         *,
         name: str = "continuum-fault-provider-v1",
         supports_idempotency: bool,
+        receipt_lookup: bool | None = None,
+        reconciliation_timeout: timedelta = timedelta(0),
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self.name = _validate_provider(name)
-        self.supports_idempotency = supports_idempotency
+        if receipt_lookup is None:
+            receipt_lookup = supports_idempotency
+        self.capabilities = ProviderCapabilityManifest(
+            supports_idempotency=supports_idempotency,
+            receipt_lookup=receipt_lookup,
+            reconciliation_timeout=reconciliation_timeout,
+        )
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._receipts: dict[str, ProviderOutcome] = {}
         self.effect_count: dict[str, int] = {}
@@ -1041,7 +1108,7 @@ class InMemoryEffectProvider:
     ) -> ProviderOutcome:
         if len(idempotency_key) > MAX_IDEMPOTENCY_KEY_LENGTH:
             raise ValueError("idempotency key is too long")
-        if self.supports_idempotency and idempotency_key in self._receipts:
+        if self.capabilities.supports_idempotency and idempotency_key in self._receipts:
             return self._receipts[idempotency_key]
         count = self.effect_count.get(idempotency_key, 0) + 1
         self.effect_count[idempotency_key] = count
@@ -1060,11 +1127,14 @@ class InMemoryEffectProvider:
             observed_at=observed_at,
             verified_at=observed_at,
         )
-        if self.supports_idempotency:
+        if (
+            self.capabilities.supports_idempotency
+            or self.capabilities.receipt_lookup
+        ):
             self._receipts[idempotency_key] = outcome
         return outcome
 
     def lookup(self, *, idempotency_key: str) -> ProviderOutcome | None:
-        if not self.supports_idempotency:
+        if not self.capabilities.receipt_lookup:
             return None
         return self._receipts.get(idempotency_key)

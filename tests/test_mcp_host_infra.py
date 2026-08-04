@@ -150,6 +150,36 @@ class McpHostInfrastructureTests(unittest.TestCase):
         self.assertIn("deploy_mcp_host_direct_recovery.sh", workflow)
         self.assertIn("UPDATE_ROLLBACK_FAILED", workflow)
 
+    def test_sandbox_provider_is_durable_bounded_and_main_only(self):
+        template = json.loads(
+            (ROOT / "infra" / "aws" / "sandbox-provider-template.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        resources = template["Resources"]
+        table = resources["SandboxReceiptTable"]["Properties"]
+        self.assertEqual(table["BillingMode"], "PAY_PER_REQUEST")
+        self.assertTrue(table["SSESpecification"]["SSEEnabled"])
+        self.assertTrue(table["TimeToLiveSpecification"]["Enabled"])
+        function = resources["SandboxProviderFunction"]["Properties"]
+        self.assertEqual(function["ReservedConcurrentExecutions"], 2)
+        role_policy = resources["SandboxProviderRole"]["Properties"]["Policies"][
+            0
+        ]["PolicyDocument"]["Statement"][0]
+        self.assertEqual(
+            set(role_policy["Action"]), {"dynamodb:GetItem", "dynamodb:PutItem"}
+        )
+        self.assertEqual(
+            role_policy["Resource"], {"Fn::GetAtt": ["SandboxReceiptTable", "Arn"]}
+        )
+        workflow = (
+            ROOT / ".github" / "workflows" / "aws-sandbox-provider-proof.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("environment: continuum-production", workflow)
+        self.assertIn('test "$GITHUB_REF" = "refs/heads/main"', workflow)
+        self.assertIn("logical_effect_count == 1", workflow)
+        self.assertIn("receipt_lookup_matched == true", workflow)
+
     def test_bootstrap_waits_for_the_restarted_service(self):
         script = (ROOT / "scripts" / "bootstrap_mcp_host.sh").read_text(
             encoding="utf-8"

@@ -76,12 +76,20 @@ The worker commits `dispatching` before it crosses the provider boundary and
 commits the provider response before it acknowledges the episode.
 
 - A crash before send expires back to `pending`; no provider effect exists.
-- A crash after send is reconciled with the same deterministic idempotency key
-  only when both the durable provider contract and the adapter support it.
-- Without provider idempotency, an after-send crash becomes `ambiguous`; the
-  worker never blindly resends and no canonical memory is promoted.
+- Each outbox row freezes a capability manifest: `supports_idempotency`,
+  `receipt_lookup`, and a bounded `reconciliation_timeout`. A worker whose live
+  adapter differs from that durable manifest is rejected before dispatch.
+- A crash after send first uses receipt lookup when declared. Before the
+  timeout it remains `dispatching`; after the timeout it resends only when the
+  frozen manifest guarantees idempotency.
+- Without a found receipt or provider idempotency, an after-send crash becomes
+  `ambiguous`; the worker never blindly resends and no canonical memory is
+  promoted.
 - A crash after receipt persistence but before acknowledgement reuses the
   durable receipt and the idempotent outcome-promotion transaction.
 
-This proves zero duplicate effects for the idempotent test provider. It does
-not claim generic exactly-once semantics for arbitrary external systems.
+The AWS sandbox adapter crosses a real Lambda boundary and stores receipts in
+an encrypted, TTL-bounded DynamoDB table. Its manifest declares idempotent
+send, receipt lookup, and a 30-second reconciliation timeout. The adapter is
+non-production and non-effecting; this does not claim generic exactly-once
+semantics for arbitrary external systems.
