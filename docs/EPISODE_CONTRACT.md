@@ -23,18 +23,20 @@ request only:
 - `search_memory(query, limit)`;
 - `fetch_memory(memory_id)`, limited to an ID returned by the current run's
   search;
-- `propose_action(...)`, limited to server-maintained action policies.
+- action-specific proposal tools such as `propose_restart_service(...)`, each
+  generated from one server-maintained action policy.
 
 No tool accepts tenant or incident identifiers. The server injects scope into
-the retrieval adapter. `propose_action` only writes a proposal; it cannot call a
-provider, enqueue delivery, approve destructive work, record success, or
-promote canonical memory.
+the retrieval adapter. A `propose_*` tool only writes a proposal; it cannot
+call a provider, enqueue delivery, approve destructive work, record success,
+or promote canonical memory. Its name fixes the action type and its closed
+parameter schema omits every field owned by another action.
 
 Tool availability is an explicit episode phase machine, not one broad
 allowlist. A memory arm receives only `search_memory` on its first turn. An
-empty search closes retrieval and exposes only `propose_action`; a non-empty
-search exposes `fetch_memory` and `propose_action`; after one fetch, only
-`propose_action` remains. Repeated search/fetch and any tool not exposed in the
+empty search closes retrieval and exposes only action-specific `propose_*`
+tools; a non-empty search exposes `fetch_memory` and those proposal tools;
+after one fetch, only the proposal tools remain. Repeated search/fetch and any tool not exposed in the
 current phase fail closed. This prevents an unconstrained model choice from
 turning a cold start into an invalid fetch loop.
 

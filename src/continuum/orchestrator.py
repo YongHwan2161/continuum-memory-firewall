@@ -1,7 +1,8 @@
 """Bounded Bedrock tool-calling orchestration for Continuum episodes.
 
 Bedrock requests client-side tool use; this module executes only scoped memory
-reads.  ``propose_action`` is a durable proposal, not an external side effect.
+reads. Action-specific proposal tools create durable proposals, not external
+side effects.
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ MAX_TOOL_RESULT_BYTES = 24 * 1024
 SYSTEM_PROMPT = """You are a bounded incident-response planning agent.
 You may search and fetch memory only through the supplied tools. Tenant and
 incident scope are owned by the server and are never caller-selectable. You may
-finish only by calling propose_action. A proposal is not execution. Cite every
+finish only by calling one supplied propose_* tool. A proposal is not execution. Cite every
 memory that materially supports a non-stateless proposal. Never invent a
 provider receipt or claim that an action succeeded."""
 
@@ -81,8 +82,24 @@ class BedrockRuntime(Protocol):
 class ActionPolicy:
     action_type: str
     risk_class: RiskClass
-    allowed_parameters: frozenset[str]
+    parameter_properties: Mapping[str, Mapping[str, Any]]
     required_parameters: frozenset[str] = frozenset()
+
+    @property
+    def tool_name(self) -> str:
+        return f"propose_{self.action_type}"
+
+    @property
+    def allowed_parameters(self) -> frozenset[str]:
+        return frozenset(self.parameter_properties)
+
+    def parameter_schema(self) -> Mapping[str, Any]:
+        return {
+            "type": "object",
+            "properties": dict(self.parameter_properties),
+            "required": sorted(self.required_parameters),
+            "additionalProperties": False,
+        }
 
     def validate_parameters(self, value: object) -> Mapping[str, Any]:
         if not isinstance(value, Mapping):
@@ -111,19 +128,30 @@ DEFAULT_ACTION_POLICIES: Mapping[str, ActionPolicy] = {
     "restart_service": ActionPolicy(
         action_type="restart_service",
         risk_class=RiskClass.REVERSIBLE,
-        allowed_parameters=frozenset({"service", "reason", "max_unavailable"}),
+        parameter_properties={
+            "service": {"type": "string", "minLength": 1},
+            "reason": {"type": "string"},
+            "max_unavailable": {"type": "integer", "minimum": 1},
+        },
         required_parameters=frozenset({"service"}),
     ),
     "invalidate_cache": ActionPolicy(
         action_type="invalidate_cache",
         risk_class=RiskClass.REVERSIBLE,
-        allowed_parameters=frozenset({"cache", "scope", "reason"}),
+        parameter_properties={
+            "cache": {"type": "string", "minLength": 1},
+            "scope": {"type": "string"},
+            "reason": {"type": "string"},
+        },
         required_parameters=frozenset({"cache"}),
     ),
     "inspect_service": ActionPolicy(
         action_type="inspect_service",
         risk_class=RiskClass.READ_ONLY,
-        allowed_parameters=frozenset({"service", "check"}),
+        parameter_properties={
+            "service": {"type": "string", "minLength": 1},
+            "check": {"type": "string"},
+        },
         required_parameters=frozenset({"service"}),
     ),
 }
@@ -181,6 +209,15 @@ class AgentOrchestrator:
         self._action_policies = dict(action_policies)
         if not self._action_policies:
             raise ValueError("at least one action policy is required")
+        self._proposal_tools: dict[str, ActionPolicy] = {}
+        for action_type, policy in self._action_policies.items():
+            if action_type != policy.action_type:
+                raise ValueError("action policy key must match action_type")
+            if not re.fullmatch(r"[a-z][a-z0-9_]{0,47}", action_type):
+                raise ValueError("action_type is not safe for a Bedrock tool name")
+            if policy.tool_name in self._proposal_tools:
+                raise ValueError("proposal tool names must be unique")
+            self._proposal_tools[policy.tool_name] = policy
         self._max_model_turns = max_model_turns
         self._max_tool_calls = max_tool_calls
 
@@ -361,11 +398,12 @@ class AgentOrchestrator:
                     result = self._fetch(memory_tools, tool_input, citations)
                     fetch_performed = True
                     tool_result_blocks.append(self._tool_result(tool_use_id, result))
-                elif name == "propose_action":
+                elif name in self._proposal_tools:
                     if terminal is not None:
                         raise OrchestrationError("model proposed more than one action")
                     terminal = self._proposal(
                         arm,
+                        self._proposal_tools[name],
                         tool_input,
                         citations,
                         search_attempted=search_attempted,
@@ -422,41 +460,9 @@ class AgentOrchestrator:
         has_search_hits: bool,
         fetch_performed: bool,
     ) -> list[Mapping[str, Any]]:
-        propose_tool: Mapping[str, Any] = {
-            "toolSpec": {
-                "name": "propose_action",
-                "description": "Propose, but never execute, one allowlisted action.",
-                "inputSchema": {
-                    "json": {
-                        "type": "object",
-                        "properties": {
-                            "action_key": {"type": "string"},
-                            "action_type": {
-                                "type": "string",
-                                "enum": sorted(self._action_policies),
-                            },
-                            "parameters": {"type": "object"},
-                            "rationale": {"type": "string"},
-                            "citation_memory_ids": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "maxItems": 20,
-                            },
-                        },
-                        "required": [
-                            "action_key",
-                            "action_type",
-                            "parameters",
-                            "rationale",
-                            "citation_memory_ids",
-                        ],
-                        "additionalProperties": False,
-                    }
-                },
-            }
-        }
+        proposal_tools = [self._proposal_tool(policy) for policy in self._proposal_tools.values()]
         if arm is AgentArm.STATELESS:
-            return [propose_tool]
+            return proposal_tools
         if not search_attempted:
             return [
                 {
@@ -499,8 +505,41 @@ class AgentOrchestrator:
                     }
                 }
             )
-        tools.append(propose_tool)
+        tools.extend(proposal_tools)
         return tools
+
+    @staticmethod
+    def _proposal_tool(policy: ActionPolicy) -> Mapping[str, Any]:
+        return {
+            "toolSpec": {
+                "name": policy.tool_name,
+                "description": (
+                    f"Propose, but never execute, the {policy.action_type} action."
+                ),
+                "inputSchema": {
+                    "json": {
+                        "type": "object",
+                        "properties": {
+                            "action_key": {"type": "string", "minLength": 1},
+                            "parameters": policy.parameter_schema(),
+                            "rationale": {"type": "string", "minLength": 1},
+                            "citation_memory_ids": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "maxItems": 20,
+                            },
+                        },
+                        "required": [
+                            "action_key",
+                            "parameters",
+                            "rationale",
+                            "citation_memory_ids",
+                        ],
+                        "additionalProperties": False,
+                    }
+                },
+            }
+        }
 
     def _search(
         self,
@@ -564,6 +603,7 @@ class AgentOrchestrator:
     def _proposal(
         self,
         arm: AgentArm,
+        policy: ActionPolicy,
         value: Mapping[str, Any],
         citations: Mapping[str, RetrievedCitation],
         *,
@@ -571,16 +611,12 @@ class AgentOrchestrator:
     ) -> ProposedAction:
         expected = {
             "action_key",
-            "action_type",
             "parameters",
             "rationale",
             "citation_memory_ids",
         }
         if set(value) != expected:
             raise OrchestrationError("action proposal fields do not match contract")
-        action_type = value.get("action_type")
-        if not isinstance(action_type, str) or action_type not in self._action_policies:
-            raise OrchestrationError("action type is not allowlisted")
         action_key = value.get("action_key")
         rationale = value.get("rationale")
         cited = value.get("citation_memory_ids")
@@ -601,11 +637,10 @@ class AgentOrchestrator:
             raise OrchestrationError("stateless proposal cannot cite memory")
         if not set(cited_ids).issubset(citations):
             raise OrchestrationError("proposal cites memory not returned by search")
-        policy = self._action_policies[action_type]
         parameters = policy.validate_parameters(value.get("parameters"))
         return ProposedAction(
             action_key=action_key.strip(),
-            action_type=action_type,
+            action_type=policy.action_type,
             parameters=parameters,
             rationale=rationale.strip(),
             citation_memory_ids=cited_ids,
