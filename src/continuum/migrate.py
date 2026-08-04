@@ -177,6 +177,8 @@ EXPECTED_COLUMNS = {
         "idempotency_key",
         "action_payload",
         "provider_supports_idempotency",
+        "provider_receipt_lookup",
+        "provider_reconciliation_timeout_seconds",
         "status",
         "attempt_count",
         "next_attempt_at",

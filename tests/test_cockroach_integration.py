@@ -2,6 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 import json
 import os
+import time
 import unittest
 from urllib.parse import quote, urlsplit, urlunsplit
 from uuid import uuid4
@@ -269,6 +270,19 @@ class CockroachIntegrationTests(unittest.TestCase):
         self.assertEqual(getattr(raised.exception, "sqlstate", None), "23503")
 
     def test_transactional_outbox_reconciles_or_fails_ambiguous(self):
+        def crash_after_send(worker: TransactionalOutboxWorker, now: datetime) -> None:
+            for _attempt in range(5):
+                try:
+                    result = worker.process_one(
+                        now=now,
+                        crash_at=CrashPoint.AFTER_SEND,
+                    )
+                except InjectedCrash:
+                    return
+                self.assertIsNone(result)
+                time.sleep(0.05)
+            self.fail("outbox row remained unavailable after bounded polling")
+
         def approved_proposal(suffix: str) -> str:
             run = self.episodes.start_run(
                 tenant_id=TENANT_ID,
@@ -306,7 +320,7 @@ class CockroachIntegrationTests(unittest.TestCase):
         safe_item = self.outbox.enqueue_proposal(
             proposal_id=approved_proposal("idempotent"),
             provider=idempotent.name,
-            provider_supports_idempotency=True,
+            provider_capabilities=idempotent.capabilities,
             now=NOW,
         )
         safe_worker = TransactionalOutboxWorker(
@@ -315,8 +329,7 @@ class CockroachIntegrationTests(unittest.TestCase):
             provider=idempotent,
             worker_id="integration-safe-worker",
         )
-        with self.assertRaises(InjectedCrash):
-            safe_worker.process_one(now=NOW, crash_at=CrashPoint.AFTER_SEND)
+        crash_after_send(safe_worker, NOW)
         safe_result = safe_worker.reconcile(
             outbox_id=safe_item.outbox_id,
             now=NOW + timedelta(seconds=1),
@@ -330,7 +343,7 @@ class CockroachIntegrationTests(unittest.TestCase):
         ambiguous_item = self.outbox.enqueue_proposal(
             proposal_id=approved_proposal("ambiguous"),
             provider=non_idempotent.name,
-            provider_supports_idempotency=False,
+            provider_capabilities=non_idempotent.capabilities,
             now=NOW + timedelta(seconds=2),
         )
         ambiguous_worker = TransactionalOutboxWorker(
@@ -339,11 +352,7 @@ class CockroachIntegrationTests(unittest.TestCase):
             provider=non_idempotent,
             worker_id="integration-ambiguous-worker",
         )
-        with self.assertRaises(InjectedCrash):
-            ambiguous_worker.process_one(
-                now=NOW + timedelta(seconds=2),
-                crash_at=CrashPoint.AFTER_SEND,
-            )
+        crash_after_send(ambiguous_worker, NOW + timedelta(seconds=2))
         ambiguous_result = ambiguous_worker.reconcile(
             outbox_id=ambiguous_item.outbox_id,
             now=NOW + timedelta(seconds=3),

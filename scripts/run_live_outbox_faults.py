@@ -160,7 +160,7 @@ def main() -> None:
         item = outbox.enqueue_proposal(
             proposal_id=proposal_id,
             provider=provider.name,
-            provider_supports_idempotency=supports_idempotency,
+            provider_capabilities=provider.capabilities,
             now=now,
         )
         worker = TransactionalOutboxWorker(
@@ -207,7 +207,7 @@ def main() -> None:
                 "case": case_name,
                 "duplicate_effects": max(0, effects - 1),
                 "logical_effects": effects,
-                "provider_supports_idempotency": supports_idempotency,
+                "provider_capabilities": provider.capabilities.as_evidence(),
                 "terminal_outbox_status": completed.item.status.value,
                 "terminal_outcome_status": (
                     None
