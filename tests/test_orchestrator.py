@@ -79,10 +79,9 @@ class OrchestratorTests(unittest.TestCase):
                 response(
                     tool_use(
                         "t2",
-                        "propose_action",
+                        "propose_inspect_service",
                         {
                             "action_key": "cold-start:inspect:v1",
-                            "action_type": "inspect_service",
                             "parameters": {"service": "checkout"},
                             "rationale": "No memory matched; inspect first.",
                             "citation_memory_ids": [],
@@ -113,7 +112,14 @@ class OrchestratorTests(unittest.TestCase):
             for item in model.calls[1]["toolConfig"]["tools"]
         }
         self.assertEqual(first_names, {"search_memory"})
-        self.assertEqual(second_names, {"propose_action"})
+        self.assertEqual(
+            second_names,
+            {
+                "propose_inspect_service",
+                "propose_invalidate_cache",
+                "propose_restart_service",
+            },
+        )
 
     def test_search_then_propose_is_persisted_without_execution(self):
         model = FakeModel(
@@ -122,10 +128,9 @@ class OrchestratorTests(unittest.TestCase):
                 response(
                     tool_use(
                         "t2",
-                        "propose_action",
+                        "propose_invalidate_cache",
                         {
                             "action_key": "checkout:invalidate:v1",
-                            "action_type": "invalidate_cache",
                             "parameters": {"cache": "checkout"},
                             "rationale": "A cited successful episode matches.",
                             "citation_memory_ids": [MEMORY_ID],
@@ -162,7 +167,12 @@ class OrchestratorTests(unittest.TestCase):
         }
         self.assertEqual(
             second_names,
-            {"fetch_memory", "propose_action"},
+            {
+                "fetch_memory",
+                "propose_inspect_service",
+                "propose_invalidate_cache",
+                "propose_restart_service",
+            },
         )
         self.assertEqual(model.calls[0]["toolConfig"]["toolChoice"], {"any": {}})
         search_schema = first_tools[0]["toolSpec"]["inputSchema"]["json"]
@@ -207,10 +217,9 @@ class OrchestratorTests(unittest.TestCase):
                 response(
                     tool_use(
                         "t3",
-                        "propose_action",
+                        "propose_invalidate_cache",
                         {
                             "action_key": "checkout:invalidate:fetched:v1",
-                            "action_type": "invalidate_cache",
                             "parameters": {"cache": "checkout"},
                             "rationale": "Fetched successful memory matches.",
                             "citation_memory_ids": [MEMORY_ID],
@@ -240,8 +249,17 @@ class OrchestratorTests(unittest.TestCase):
             exposed,
             [
                 {"search_memory"},
-                {"fetch_memory", "propose_action"},
-                {"propose_action"},
+                {
+                    "fetch_memory",
+                    "propose_inspect_service",
+                    "propose_invalidate_cache",
+                    "propose_restart_service",
+                },
+                {
+                    "propose_inspect_service",
+                    "propose_invalidate_cache",
+                    "propose_restart_service",
+                },
             ],
         )
         self.assertEqual(result.tool_calls, 3)
@@ -278,10 +296,9 @@ class OrchestratorTests(unittest.TestCase):
                 response(
                     tool_use(
                         "t1",
-                        "propose_action",
+                        "propose_restart_service",
                         {
                             "action_key": "x",
-                            "action_type": "restart_service",
                             "parameters": {"service": "checkout", "shell": "rm -rf /"},
                             "rationale": "test",
                             "citation_memory_ids": [],
@@ -309,10 +326,9 @@ class OrchestratorTests(unittest.TestCase):
                 response(
                     tool_use(
                         "t1",
-                        "propose_action",
+                        "propose_inspect_service",
                         {
                             "action_key": "checkout:inspect:v1",
-                            "action_type": "inspect_service",
                             "parameters": {"service": "checkout"},
                             "rationale": "inspect without memory",
                             "citation_memory_ids": [],
@@ -336,8 +352,71 @@ class OrchestratorTests(unittest.TestCase):
             item["toolSpec"]["name"]
             for item in model.calls[0]["toolConfig"]["tools"]
         }
-        self.assertEqual(names, {"propose_action"})
+        self.assertEqual(
+            names,
+            {
+                "propose_inspect_service",
+                "propose_invalidate_cache",
+                "propose_restart_service",
+            },
+        )
         self.assertEqual(result.proposal.citation_memory_ids, ())
+
+    def test_each_proposal_tool_schema_excludes_other_action_parameters(self):
+        model = FakeModel(
+            [
+                response(
+                    tool_use(
+                        "t1",
+                        "propose_inspect_service",
+                        {
+                            "action_key": "checkout:inspect:v2",
+                            "parameters": {"service": "checkout"},
+                            "rationale": "inspect without memory",
+                            "citation_memory_ids": [],
+                        },
+                    )
+                )
+            ]
+        )
+        AgentOrchestrator(
+            store=InMemoryEpisodeStore(),
+            model=model,
+            model_id="amazon.nova-micro-v1:0",
+        ).run(
+            tenant_id=TENANT_ID,
+            incident_id=INCIDENT_ID,
+            arm=AgentArm.STATELESS,
+            incident={"symptom": "slow checkout"},
+            memory_tools=None,
+        )
+
+        schemas = {
+            item["toolSpec"]["name"]: item["toolSpec"]["inputSchema"]["json"]
+            for item in model.calls[0]["toolConfig"]["tools"]
+        }
+        restart_parameters = schemas["propose_restart_service"]["properties"][
+            "parameters"
+        ]
+        cache_parameters = schemas["propose_invalidate_cache"]["properties"][
+            "parameters"
+        ]
+        inspect_parameters = schemas["propose_inspect_service"]["properties"][
+            "parameters"
+        ]
+        self.assertEqual(
+            set(restart_parameters["properties"]),
+            {"service", "reason", "max_unavailable"},
+        )
+        self.assertEqual(
+            set(cache_parameters["properties"]), {"cache", "scope", "reason"}
+        )
+        self.assertEqual(
+            set(inspect_parameters["properties"]), {"service", "check"}
+        )
+        self.assertFalse(restart_parameters["additionalProperties"])
+        self.assertFalse(cache_parameters["additionalProperties"])
+        self.assertFalse(inspect_parameters["additionalProperties"])
 
 
 if __name__ == "__main__":
