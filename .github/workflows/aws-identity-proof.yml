@@ -2,9 +2,6 @@ name: aws-identity-proof
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - agent/north-star-security-semantic
 
 permissions:
   id-token: write
@@ -13,6 +10,7 @@ permissions:
 jobs:
   prove-keyless-deployer:
     runs-on: ubuntu-latest
+    environment: continuum-production
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4

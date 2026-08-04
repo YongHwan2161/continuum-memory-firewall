@@ -2,11 +2,6 @@ name: aws-live-identity
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - agent/north-star-security-semantic
-    paths:
-      - .github/workflows/aws-live-identity.yml
 
 permissions:
   id-token: write
@@ -19,6 +14,7 @@ concurrency:
 jobs:
   deploy-budget-and-caller-identity:
     runs-on: ubuntu-latest
+    environment: continuum-production
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4

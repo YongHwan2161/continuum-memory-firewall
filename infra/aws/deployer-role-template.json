@@ -4,7 +4,7 @@
   "Parameters": {
     "GitHubSubject": {
       "Type": "String",
-      "Default": "repo:YongHwan2161@116191051/continuum-memory-firewall@1311611994:ref:refs/heads/agent/north-star-security-semantic"
+      "Default": "repo:YongHwan2161@116191051/continuum-memory-firewall@1311611994:environment:continuum-production"
     }
   },
   "Resources": {
@@ -102,6 +102,27 @@
                   "Effect": "Deny",
                   "Action": "iam:*",
                   "Resource": {"Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/continuum-hackathon-deployer"}
+                },
+                {
+                  "Sid": "ProjectSandboxLambdaLifecycle",
+                  "Effect": "Allow",
+                  "Action": ["lambda:CreateFunction", "lambda:DeleteFunction", "lambda:GetFunction", "lambda:GetFunctionConfiguration", "lambda:UpdateFunctionCode", "lambda:UpdateFunctionConfiguration", "lambda:PutFunctionConcurrency", "lambda:DeleteFunctionConcurrency", "lambda:TagResource", "lambda:UntagResource"],
+                  "Resource": {"Fn::Sub": "arn:${AWS::Partition}:lambda:*:${AWS::AccountId}:function:continuum-*"}
+                },
+                {
+                  "Sid": "ProjectSandboxTableCreate",
+                  "Effect": "Allow",
+                  "Action": "dynamodb:CreateTable",
+                  "Resource": "*",
+                  "Condition": {
+                    "StringEquals": {"aws:RequestTag/Project": "continuum-memory-firewall"}
+                  }
+                },
+                {
+                  "Sid": "ProjectSandboxTableLifecycle",
+                  "Effect": "Allow",
+                  "Action": ["dynamodb:DeleteTable", "dynamodb:DescribeTable", "dynamodb:DescribeTimeToLive", "dynamodb:ListTagsOfResource", "dynamodb:TagResource", "dynamodb:UntagResource", "dynamodb:UpdateTable", "dynamodb:UpdateTimeToLive"],
+                  "Resource": {"Fn::Sub": "arn:${AWS::Partition}:dynamodb:*:${AWS::AccountId}:table/continuum-*"}
                 },
                 {
                   "Sid": "RuntimeOperations",
