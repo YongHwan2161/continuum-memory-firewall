@@ -229,6 +229,7 @@ class AgentOrchestrator:
         arm: AgentArm,
         incident: Mapping[str, Any],
         memory_tools: ScopedMemoryTools | None,
+        request_metadata: Mapping[str, str] | None = None,
     ) -> OrchestrationResult:
         if arm is AgentArm.STATELESS and memory_tools is not None:
             raise ValueError("stateless arm must not receive memory tools")
@@ -247,6 +248,7 @@ class AgentOrchestrator:
                 arm=arm,
                 incident=incident,
                 memory_tools=memory_tools,
+                request_metadata=request_metadata,
             )
         except Exception:
             try:
@@ -266,6 +268,7 @@ class AgentOrchestrator:
         arm: AgentArm,
         incident: Mapping[str, Any],
         memory_tools: ScopedMemoryTools | None,
+        request_metadata: Mapping[str, str] | None,
     ) -> OrchestrationResult:
         progress = {"model_turns": 0, "tool_calls": 0}
         try:
@@ -274,6 +277,7 @@ class AgentOrchestrator:
                 arm=arm,
                 incident=incident,
                 memory_tools=memory_tools,
+                request_metadata=request_metadata,
                 progress=progress,
             )
         except OrchestrationError as exc:
@@ -290,6 +294,7 @@ class AgentOrchestrator:
         arm: AgentArm,
         incident: Mapping[str, Any],
         memory_tools: ScopedMemoryTools | None,
+        request_metadata: Mapping[str, str] | None,
         progress: dict[str, int],
     ) -> OrchestrationResult:
         input_text = json.dumps(
@@ -332,10 +337,13 @@ class AgentOrchestrator:
                         "temperature": 0,
                         "topP": 0.9,
                     },
-                    requestMetadata={
-                        "continuum_arm": arm.value,
-                        "continuum_run": run.run_id,
-                    },
+                    requestMetadata=self._request_metadata(
+                        {
+                            "continuum_arm": arm.value,
+                            "continuum_run": run.run_id,
+                        },
+                        request_metadata,
+                    ),
                 )
             except OrchestrationError:
                 raise
@@ -451,6 +459,25 @@ class AgentOrchestrator:
             final_text="model turn budget exhausted",
         )
         raise OrchestrationError("model turn budget exceeded")
+
+    @staticmethod
+    def _request_metadata(
+        base: Mapping[str, str],
+        extra: Mapping[str, str] | None,
+    ) -> Mapping[str, str]:
+        metadata = dict(base)
+        if extra is not None:
+            if len(extra) > 8:
+                raise ValueError("request metadata has too many entries")
+            for key, value in extra.items():
+                if key in metadata:
+                    raise ValueError("request metadata cannot override reserved keys")
+                if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", key):
+                    raise ValueError("request metadata key is invalid")
+                if not isinstance(value, str) or len(value) > 256:
+                    raise ValueError("request metadata value is invalid")
+                metadata[key] = value
+        return metadata
 
     def _tool_specs(
         self,

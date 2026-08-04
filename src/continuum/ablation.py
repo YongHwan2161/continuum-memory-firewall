@@ -6,6 +6,7 @@ from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
 import math
+import random
 from typing import Any, Mapping, Sequence
 
 from continuum.episode import (
@@ -57,7 +58,9 @@ class AblationObservation:
     promoted_memory_id: str | None
     cross_scope_leak_count: int = 0
     failure_code: str | None = None
+    failure_cause: str | None = None
     model_turns: int = 0
+    seed: int = 0
 
 
 FAMILIES: tuple[Mapping[str, str], ...] = (
@@ -292,12 +295,103 @@ def _wilson_interval(successes: int, total: int) -> Mapping[str, float]:
     }
 
 
+def _exact_paired_p_value(wins: int, losses: int) -> float:
+    discordant = wins + losses
+    if discordant == 0:
+        return 1.0
+    tail = sum(
+        math.comb(discordant, index)
+        for index in range(0, min(wins, losses) + 1)
+    ) / (2**discordant)
+    return round(min(1.0, 2 * tail), 6)
+
+
+def _paired_cluster_bootstrap_interval(
+    *,
+    cases: Sequence[AblationCase],
+    seeds: Sequence[int],
+    first: Mapping[tuple[int, str], bool],
+    second: Mapping[tuple[int, str], bool],
+    random_seed: int,
+    resamples: int = 10_000,
+) -> Mapping[str, Any]:
+    case_ids = sorted(case.case_id for case in cases)
+    rng = random.Random(random_seed)
+    differences: list[float] = []
+    denominator = len(case_ids) * len(seeds)
+    for _ in range(resamples):
+        sampled = [rng.choice(case_ids) for _ in case_ids]
+        difference = sum(
+            int(first[(seed, case_id)]) - int(second[(seed, case_id)])
+            for case_id in sampled
+            for seed in seeds
+        )
+        differences.append(100 * difference / denominator)
+    differences.sort()
+    lower_index = int(math.floor(0.025 * (resamples - 1)))
+    upper_index = int(math.ceil(0.975 * (resamples - 1)))
+    return {
+        "lower": round(differences[lower_index], 3),
+        "upper": round(differences[upper_index], 3),
+        "cluster": "base_case_id_across_seeds",
+        "clusters": len(case_ids),
+        "resamples": resamples,
+    }
+
+
+def _paired_comparison(
+    *,
+    cases: Sequence[AblationCase],
+    seeds: Sequence[int],
+    first_name: str,
+    second_name: str,
+    first: Mapping[tuple[int, str], bool],
+    second: Mapping[tuple[int, str], bool],
+    random_seed: int,
+) -> Mapping[str, Any]:
+    keys = sorted(first)
+    if keys != sorted(second):
+        raise ValueError("paired comparison populations do not match")
+    wins = sum(first[key] and not second[key] for key in keys)
+    losses = sum(second[key] and not first[key] for key in keys)
+    ties = len(keys) - wins - losses
+    difference = sum(int(first[key]) - int(second[key]) for key in keys)
+    return {
+        "first_arm": first_name,
+        "second_arm": second_name,
+        "pairs": len(keys),
+        "first_wins": wins,
+        "first_losses": losses,
+        "ties": ties,
+        "difference_percentage_points": round(100 * difference / len(keys), 3),
+        "exact_two_sided_p": _exact_paired_p_value(wins, losses),
+        "paired_cluster_bootstrap_95_percentage_points": (
+            _paired_cluster_bootstrap_interval(
+                cases=cases,
+                seeds=seeds,
+                first=first,
+                second=second,
+                random_seed=random_seed,
+            )
+        ),
+    }
+
+
 def summarize_ablation(
     cases: Sequence[AblationCase],
     observations: Sequence[AblationObservation],
+    *,
+    seeds: Sequence[int] | None = None,
 ) -> Mapping[str, Any]:
     validate_ablation_population(cases)
-    expected_ids = {case.case_id for case in cases}
+    if seeds is None:
+        seeds = sorted({row.seed for row in observations}) or [0]
+    normalized_seeds = tuple(int(seed) for seed in seeds)
+    if not normalized_seeds or len(set(normalized_seeds)) != len(normalized_seeds):
+        raise ValueError("ablation seeds must be non-empty and unique")
+    expected_ids = {
+        (seed, case.case_id) for seed in normalized_seeds for case in cases
+    }
     by_arm: dict[AgentArm, list[AblationObservation]] = {
         arm: [] for arm in AgentArm
     }
@@ -305,8 +399,8 @@ def summarize_ablation(
         by_arm[observation.arm].append(observation)
     metrics: dict[str, Mapping[str, Any]] = {}
     for arm, rows in by_arm.items():
-        row_ids = [row.case_id for row in rows]
-        if len(rows) != len(cases) or set(row_ids) != expected_ids:
+        row_ids = [(row.seed, row.case_id) for row in rows]
+        if len(rows) != len(expected_ids) or set(row_ids) != expected_ids:
             raise ValueError(f"arm {arm.value} does not cover the identical case population")
         if len(set(row_ids)) != len(row_ids):
             raise ValueError(f"arm {arm.value} contains duplicate case observations")
@@ -327,6 +421,27 @@ def summarize_ablation(
         failure_codes = Counter(
             row.failure_code for row in rows if row.failure_code is not None
         )
+        failure_causes = Counter(
+            row.failure_cause or row.failure_code
+            for row in rows
+            if row.failure_cause is not None or row.failure_code is not None
+        )
+        failure_causes_by_seed = {
+            str(seed): dict(
+                sorted(
+                    Counter(
+                        row.failure_cause or row.failure_code
+                        for row in rows
+                        if row.seed == seed
+                        and (
+                            row.failure_cause is not None
+                            or row.failure_code is not None
+                        )
+                    ).items()
+                )
+            )
+            for seed in normalized_seeds
+        }
         metrics[arm.value] = {
             "ambiguous": ambiguous,
             "canonical_promotions": promotions,
@@ -336,6 +451,14 @@ def summarize_ablation(
             "false_canonical_promotions": false_promotions,
             "completed_orchestration_cases": len(rows) - sum(failure_codes.values()),
             "failure_codes": dict(sorted(failure_codes.items())),
+            "failure_causes": {
+                code: {
+                    "count": count,
+                    "rate": round(count / len(rows), 6),
+                }
+                for code, count in sorted(failure_causes.items())
+            },
+            "failure_causes_by_seed": failure_causes_by_seed,
             "latency_ms": summarize_latency_ms([row.latency_ms for row in rows]),
             "mean_model_turns": round(
                 sum(row.model_turns for row in rows) / len(rows),
@@ -348,15 +471,36 @@ def summarize_ablation(
             "provider_success_rate": round(successes / len(rows), 6),
             "provider_successes": successes,
             "provider_success_wilson_95": _wilson_interval(successes, len(rows)),
+            "provider_success_by_seed": {
+                str(seed): {
+                    "successes": sum(
+                        row.outcome_status is OutcomeStatus.SUCCEEDED
+                        for row in rows
+                        if row.seed == seed
+                    ),
+                    "cases": len(cases),
+                }
+                for seed in normalized_seeds
+            },
         }
     continuum_rate = metrics[AgentArm.CONTINUUM.value]["provider_success_rate"]
     stateless_rate = metrics[AgentArm.STATELESS.value]["provider_success_rate"]
     raw_rate = metrics[AgentArm.RAW_RAG.value]["provider_success_rate"]
+    success_by_arm = {
+        arm: {
+            (row.seed, row.case_id): row.outcome_status is OutcomeStatus.SUCCEEDED
+            for row in rows
+        }
+        for arm, rows in by_arm.items()
+    }
     report = {
-        "schema_version": 1,
+        "schema_version": 2,
         "methodology": {
             "arms": [arm.value for arm in AgentArm],
-            "case_count_per_arm": len(cases),
+            "case_count_per_seed": len(cases),
+            "case_count_per_arm": len(expected_ids),
+            "seed_count": len(normalized_seeds),
+            "seeds": list(normalized_seeds),
             "case_ids_sha_basis": "sorted UTF-8 case IDs",
             "families": len({case.family for case in cases}),
             "primary_metric": "verified provider receipt success rate",
@@ -366,6 +510,35 @@ def summarize_ablation(
         "continuum_lift_percentage_points": {
             "vs_raw_rag": round((continuum_rate - raw_rate) * 100, 3),
             "vs_stateless": round((continuum_rate - stateless_rate) * 100, 3),
+        },
+        "paired_comparisons": {
+            "continuum_vs_stateless": _paired_comparison(
+                cases=cases,
+                seeds=normalized_seeds,
+                first_name=AgentArm.CONTINUUM.value,
+                second_name=AgentArm.STATELESS.value,
+                first=success_by_arm[AgentArm.CONTINUUM],
+                second=success_by_arm[AgentArm.STATELESS],
+                random_seed=2026080401,
+            ),
+            "continuum_vs_raw_rag": _paired_comparison(
+                cases=cases,
+                seeds=normalized_seeds,
+                first_name=AgentArm.CONTINUUM.value,
+                second_name=AgentArm.RAW_RAG.value,
+                first=success_by_arm[AgentArm.CONTINUUM],
+                second=success_by_arm[AgentArm.RAW_RAG],
+                random_seed=2026080402,
+            ),
+            "raw_rag_vs_stateless": _paired_comparison(
+                cases=cases,
+                seeds=normalized_seeds,
+                first_name=AgentArm.RAW_RAG.value,
+                second_name=AgentArm.STATELESS.value,
+                first=success_by_arm[AgentArm.RAW_RAG],
+                second=success_by_arm[AgentArm.STATELESS],
+                random_seed=2026080403,
+            ),
         },
         "variant_counts": {
             variant: sum(case.variant == variant for case in cases)

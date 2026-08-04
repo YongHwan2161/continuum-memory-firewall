@@ -47,8 +47,9 @@ instead.
 
 `continuum.ablation` defines 36 non-sensitive synthetic recurrences across six
 incident families and six variants: explicit seed, paraphrase, similar meaning,
-poison pressure, stale pressure, and later recurrence. The exact same ordered
-case IDs are run through:
+poison pressure, stale pressure, and later recurrence. Five independent episode
+state replications run the exact same ordered case IDs through each arm, for
+180 observations per arm and 540 total observations:
 
 1. `stateless`: Nova receives no memory tools;
 2. `raw_rag`: Nova retrieves append-all model episodes plus untrusted/stale
@@ -64,18 +65,30 @@ proposals must cite returned memory. Tool exposure follows the phase machine in
 continue retrieval after a fetch.
 
 The primary metric is provider-receipt success rate, not model text agreement.
-The denominator is all 36 eligible cases in every arm. The report also includes
-Wilson 95% intervals, p50/p95 end-to-end latency, tool calls, failed and
-ambiguous outcomes, canonical promotions, false promotions, and cross-scope
-leaks. It also reports stable orchestration failure-code counts and actual
-model-turn/tool-call progress for rejected cases, rather than representing all
-rejections as zero work. The release gate requires 36 observations in each
-arm, zero promotion of failed/ambiguous outcomes, and zero cross-scope leakage.
-It does not require a preselected lift; any measured lift or regression is
-reported as observed.
+The denominator is all 180 eligible cases in every arm. The five identifiers are
+replication IDs, not a claim that Bedrock Converse exposes an RNG seed: every
+replication receives a fresh CockroachDB incident scope while the identifier is
+retained only as Bedrock request metadata and evidence lineage. This prevents
+memory carry-over between replications without pretending to control provider
+sampling.
+
+The report includes Wilson 95% intervals, p50/p95 end-to-end latency, tool calls,
+failed and ambiguous outcomes, canonical promotions, false promotions, and
+cross-scope leaks. Pairwise arm differences are computed on all 180 matched
+observations. The two-sided exact sign test uses discordant pairs; a deterministic
+10,000-resample paired cluster bootstrap resamples the 36 base incidents and
+keeps their five replications together, avoiding falsely treating repeated
+incidents as 180 independent semantic cases. Failure-cause totals and per-seed
+distributions distinguish orchestration rejection, no proposal, action mismatch,
+resource mismatch, provider rejection, and ambiguous outcome where applicable.
+
+The release gate requires 180 observations in each arm, all three 180-pair
+comparisons, zero promotion of failed/ambiguous outcomes, and zero cross-scope
+leakage. It does not require a preselected lift; any measured lift or regression
+is reported as observed.
 
 The provider is explicitly non-effecting and synthetic. It issues deterministic
 idempotent receipts only when the proposal action and target match the labeled
 case. This supports causal product comparison without claiming a production
-remediation API. The live workflow retains the full 108-observation JSON as a
+remediation API. The live workflow retains the full 540-observation JSON as a
 private GitHub Actions artifact and emits only redacted aggregate evidence.

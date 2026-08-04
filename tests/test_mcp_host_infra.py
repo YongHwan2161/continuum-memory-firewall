@@ -133,6 +133,11 @@ class McpHostInfrastructureTests(unittest.TestCase):
         self.assertIn("temporary ablation capability remains attached", workflow)
         self.assertIn("false_canonical_promotions", workflow)
         self.assertIn("cross_scope_leak_count", workflow)
+        self.assertIn("(.observations | length) == 540", workflow)
+        self.assertIn(".methodology.case_count_per_arm == 180", workflow)
+        self.assertIn(".methodology.seed_count == 5", workflow)
+        self.assertIn(".paired_comparisons[].pairs", workflow)
+        self.assertIn("resamples] | all(. == 10000)", workflow)
         self.assertIn("deploy_mcp_host_direct_recovery.sh", workflow)
         self.assertIn("UPDATE_ROLLBACK_FAILED", workflow)
 

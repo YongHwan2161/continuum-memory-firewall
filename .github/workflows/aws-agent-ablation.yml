@@ -15,7 +15,7 @@ jobs:
   live-ablation:
     runs-on: ubuntu-latest
     environment: continuum-production
-    timeout-minutes: 45
+    timeout-minutes: 65
     env:
       AWS_REGION: ap-southeast-1
       CONTINUUM_BEDROCK_REGION: ap-northeast-2
@@ -100,7 +100,7 @@ jobs:
             --policy-name ContinuumAgentAblationOneCommand \
             --policy-document "$policy"
           sleep 10
-      - name: Run 36-case three-arm Bedrock and CockroachDB ablation
+      - name: Run five-seed 180-case-per-arm Bedrock and CockroachDB ablation
         shell: bash
         run: |
           command_text="set -eu
@@ -122,11 +122,11 @@ jobs:
             --region "$AWS_REGION" \
             --instance-ids "$CONTINUUM_INSTANCE_ID" \
             --document-name AWS-RunShellScript \
-            --comment '36-case three-arm outcome-gated agent ablation' \
+            --comment 'five-seed paired outcome-gated agent ablation' \
             --parameters "$parameters" \
             --query 'Command.CommandId' --output text)"
           status=Pending
-          for _attempt in $(seq 1 360); do
+          for _attempt in $(seq 1 600); do
             status="$(aws ssm get-command-invocation \
               --region "$AWS_REGION" \
               --command-id "$command_id" \
@@ -153,17 +153,24 @@ jobs:
             "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_ABLATION_EVIDENCE_KEY" \
             "$report" --region "$AWS_REGION" --only-show-errors
           jq -e '
-            .schema_version == 1 and
-            .migration_version >= 28 and
+            .schema_version == 2 and
+            .migration_version >= 31 and
             .synthetic_non_effecting == true and
-            (.observations | length) == 108 and
+            (.observations | length) == 540 and
             (.arms | keys | sort) == ["continuum","raw_rag","stateless"] and
-            ([.arms[].cases] | all(. == 36)) and
+            .methodology.case_count_per_seed == 36 and
+            .methodology.case_count_per_arm == 180 and
+            .methodology.seed_count == 5 and
+            (.methodology.seeds | length) == 5 and
+            ([.arms[].cases] | all(. == 180)) and
+            ([.paired_comparisons[].pairs] | all(. == 180)) and
+            ([.paired_comparisons[].paired_cluster_bootstrap_95_percentage_points.clusters] | all(. == 36)) and
+            ([.paired_comparisons[].paired_cluster_bootstrap_95_percentage_points.resamples] | all(. == 10000)) and
             ([.arms[].false_canonical_promotions] | all(. == 0)) and
             ([.arms[].cross_scope_leak_count] | all(. == 0))
           ' "$report" >/dev/null
           sha256sum "$report"
-          jq '{schema_version,evaluation_id,generated_at,agent_model,embedding_model,migration_version,arms,continuum_lift_percentage_points,variant_counts}' "$report"
+          jq '{schema_version,evaluation_id,generated_at,agent_model,embedding_model,migration_version,methodology,arms,continuum_lift_percentage_points,paired_comparisons,variant_counts}' "$report"
       - name: Upload private immutable ablation artifact
         uses: actions/upload-artifact@v4
         with:
