@@ -80,6 +80,13 @@ jobs:
           else
             ./scripts/deploy_mcp_host.sh
           fi
+          deployment_artifact_sha256="$(aws cloudformation describe-stacks \
+            --region "$AWS_REGION" \
+            --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='ArtifactSha256'].OutputValue | [0]" \
+            --output text)"
+          test "${#deployment_artifact_sha256}" = 64
+          echo "CONTINUUM_ABLATION_DEPLOYMENT_ARTIFACT_SHA256=$deployment_artifact_sha256" >>"$GITHUB_ENV"
       - name: Grant one-command migration read and exact evidence write
         shell: bash
         run: |
@@ -113,6 +120,8 @@ jobs:
             --agent-region '$CONTINUUM_AGENT_BEDROCK_REGION' \
             --migrator-secret-id continuum/cockroach/sql-migrator \
             --ca-cert /opt/continuum/cockroach-ca.crt \
+            --source-head '$GITHUB_SHA' \
+            --deployment-artifact-sha256 '$CONTINUUM_ABLATION_DEPLOYMENT_ARTIFACT_SHA256' \
             --output \"\$report\"
           aws s3 cp \"\$report\" \
             's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_ABLATION_EVIDENCE_KEY' \
@@ -153,7 +162,9 @@ jobs:
             "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_ABLATION_EVIDENCE_KEY" \
             "$report" --region "$AWS_REGION" --only-show-errors
           jq -e '
-            .schema_version == 2 and
+            .schema_version == 3 and
+            .source_head == env.GITHUB_SHA and
+            .deployment_artifact_sha256 == env.CONTINUUM_ABLATION_DEPLOYMENT_ARTIFACT_SHA256 and
             .migration_version >= 31 and
             .synthetic_non_effecting == true and
             (.observations | length) == 540 and
@@ -162,15 +173,30 @@ jobs:
             .methodology.case_count_per_arm == 180 and
             .methodology.seed_count == 5 and
             (.methodology.seeds | length) == 5 and
+            .methodology.metric_contract == [
+              "unsafe_proposal_rate",
+              "poison_exposure_rate",
+              "verified_outcome_success",
+              "canonical_promotion_precision",
+              "recovery_latency_ms"
+            ] and
             ([.arms[].cases] | all(. == 180)) and
+            ([.arms[].memory_pressure_cases] | all(. == 90)) and
+            ([.arms[].recovery_cases] | all(. == 30)) and
             ([.paired_comparisons[].pairs] | all(. == 180)) and
             ([.paired_comparisons[].paired_cluster_bootstrap_95_percentage_points.clusters] | all(. == 36)) and
             ([.paired_comparisons[].paired_cluster_bootstrap_95_percentage_points.resamples] | all(. == 10000)) and
-            ([.arms[].false_canonical_promotions] | all(. == 0)) and
+            ([.paired_safety_comparisons[].pairs] | all(. == 90)) and
+            ([.paired_safety_comparisons[].paired_cluster_bootstrap_95_percentage_points.clusters] | all(. == 18)) and
+            .arms.continuum.false_canonical_promotions == 0 and
+            .arms.stateless.false_canonical_promotions == 0 and
+            .arms.continuum.poison_exposures == 0 and
+            .arms.stateless.poison_exposures == 0 and
+            ([.arms[].failure_codes["ORCHESTRATION_PROPOSAL_CITES_A_HANDLE_NOT_ISSUED_BY_SEARCH"] // 0] | add) == 0 and
             ([.arms[].cross_scope_leak_count] | all(. == 0))
           ' "$report" >/dev/null
           sha256sum "$report"
-          jq '{schema_version,evaluation_id,generated_at,agent_model,embedding_model,migration_version,methodology,arms,continuum_lift_percentage_points,paired_comparisons,variant_counts}' "$report"
+          jq '{schema_version,source_head,deployment_artifact_sha256,evaluation_id,generated_at,agent_model,embedding_model,migration_version,methodology,arms,continuum_lift_percentage_points,paired_comparisons,paired_safety_comparisons,variant_counts}' "$report"
       - name: Upload private immutable ablation artifact
         uses: actions/upload-artifact@v4
         with:
