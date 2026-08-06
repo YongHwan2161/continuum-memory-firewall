@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import argparse
+from copy import deepcopy
 from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
 import re
-from typing import Any
+from typing import Any, Mapping
 
 
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
@@ -28,6 +29,44 @@ VECTOR_CONTRACT_MIGRATIONS = (
     "0016_create_model_scoped_vector_index.sql",
     "0017_drop_incomplete_vector_index.sql",
 )
+ENVELOPE_ASSET = "continuum-release-envelope-v2.json"
+SANDBOX_ASSET = "sandbox-provider-proof.json"
+ABLATION_ASSET = "agent-ablation-v3.json"
+
+
+def build_public_ablation_aggregate(
+    report: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Return the exact non-observation projection safe for public judges."""
+
+    fields = (
+        "schema_version",
+        "source_head",
+        "deployment_artifact_sha256",
+        "evaluation_id",
+        "generated_at",
+        "agent_model",
+        "agent_region",
+        "embedding_model",
+        "embedding_region",
+        "migration_version",
+        "provider",
+        "retained_for_judge_evidence",
+        "seed_semantics",
+        "synthetic_non_effecting",
+        "methodology",
+        "arms",
+        "continuum_lift_percentage_points",
+        "paired_comparisons",
+        "paired_safety_comparisons",
+        "variant_counts",
+    )
+    missing = [field for field in fields if field not in report]
+    if missing:
+        raise RuntimeError(
+            "ablation report is missing public fields: " + ", ".join(missing)
+        )
+    return {field: deepcopy(report[field]) for field in fields}
 
 
 def sha256_bytes(value: bytes) -> str:
@@ -61,10 +100,16 @@ def build_envelope(
     judge: dict[str, Any],
     scale: dict[str, Any],
     pressure: dict[str, Any],
+    sandbox: dict[str, Any],
+    ablation: dict[str, Any],
+    ablation_aggregate: dict[str, Any],
     *,
     judge_bytes: bytes,
     scale_bytes: bytes,
     pressure_bytes: bytes,
+    sandbox_bytes: bytes,
+    ablation_bytes: bytes,
+    ablation_aggregate_bytes: bytes,
     repo_root: Path,
     repository: str,
     commit_sha: str,
@@ -73,8 +118,8 @@ def build_envelope(
     release_tag: str,
     generated_at: str | None = None,
 ) -> dict[str, Any]:
-    if judge.get("schema_version") != 4:
-        raise RuntimeError("judge evidence schema 4 is required")
+    if judge.get("schema_version") != 5:
+        raise RuntimeError("judge evidence schema 5 is required")
     if not SHA_PATTERN.fullmatch(commit_sha):
         raise RuntimeError("release commit must be a full lowercase SHA")
     if workflow_run_id < 1 or not workflow_url.startswith("https://github.com/"):
@@ -88,6 +133,9 @@ def build_envelope(
     runtime = judge["runtime"]
     submission = judge["submission"]
     managed = judge["managed_mcp"]
+    lineage = judge["lineage"]
+    sandbox_reference = judge["sandbox_provider"]
+    ablation_reference = judge["agent_ablation"]
     release_reference = judge["release_envelope"]
     scales = scale.get("scales", [])
     beams = [beam for item in scales for beam in item.get("beams", [])]
@@ -98,6 +146,24 @@ def build_envelope(
     scale_sha = sha256_bytes(repository_text_bytes(scale_bytes))
     pressure_sha = sha256_bytes(repository_text_bytes(pressure_bytes))
     judge_sha = sha256_bytes(repository_text_bytes(judge_bytes))
+    sandbox_sha = sha256_bytes(repository_text_bytes(sandbox_bytes))
+    ablation_sha = sha256_bytes(repository_text_bytes(ablation_bytes))
+    ablation_aggregate_sha = sha256_bytes(
+        repository_text_bytes(ablation_aggregate_bytes)
+    )
+    public_ablation = build_public_ablation_aggregate(ablation)
+    ablation_arms = ablation.get("arms", {})
+    continuum_metrics = ablation_arms.get("continuum", {})
+    raw_metrics = ablation_arms.get("raw_rag", {})
+    stateless_metrics = ablation_arms.get("stateless", {})
+    grounding_failure_code = (
+        "ORCHESTRATION_PROPOSAL_CITES_A_HANDLE_NOT_ISSUED_BY_SEARCH"
+    )
+    grounding_failures = sum(
+        int(metrics.get("failure_codes", {}).get(grounding_failure_code, 0))
+        for metrics in ablation_arms.values()
+        if isinstance(metrics, Mapping)
+    )
     checks = {
         "submission_receipt_bound": (
             int(submission.get("id", 0)) > 0
@@ -119,7 +185,106 @@ def build_envelope(
                 is not None
             )
         ),
-        "migration_version_is_17": int(runtime.get("migration_version", 0)) >= 17,
+        "baseline_lineage_bound": (
+            lineage.get("baseline_runtime_sha")
+            == "1291e2707880700492fe1d7cd431bcba03d68b4c"
+            and lineage.get("baseline_documentation_sha")
+            == "2a94b4653ab0efe6f2ddeb8701ab05bdbaf403e1"
+            and lineage.get("candidate_runtime_sha")
+            == source.get("deployment_head_sha")
+            and lineage.get("candidate_runtime_sha")
+            == ablation_reference.get("head_sha")
+        ),
+        "runtime_matches_ablation": (
+            source.get("workflow_run_id") == ablation_reference.get("workflow_run_id")
+            and source.get("deployment_head_sha") == ablation.get("source_head")
+            and source.get("artifact_sha256")
+            == ablation.get("deployment_artifact_sha256")
+        ),
+        "sandbox_artifact_bound": (
+            int(sandbox_reference.get("workflow_run_id", 0)) > 0
+            and int(sandbox_reference.get("artifact_id", 0)) > 0
+            and sandbox_reference.get("head_sha")
+            == lineage.get("baseline_runtime_sha")
+            and sandbox_reference.get("artifact_name")
+            == f"aws-sandbox-provider-proof-{lineage.get('baseline_runtime_sha')}"
+            and SHA256_PATTERN.fullmatch(
+                sandbox_reference.get("artifact_archive_sha256", "")
+            )
+            is not None
+            and sandbox_sha == sandbox_reference.get("report_sha256")
+            and sandbox.get("source_head") == sandbox_reference.get("head_sha")
+        ),
+        "sandbox_contract_passed": (
+            sandbox.get("schema_version") == 1
+            and sandbox.get("send_count") == 2
+            and sandbox.get("logical_effect_count") == 1
+            and sandbox.get("receipt_lookup_matched") is True
+            and sandbox.get("gate", {}).get("idempotency") == "PASS"
+            and sandbox.get("gate", {}).get("receipt_lookup") == "PASS"
+            and sandbox.get("gate", {}).get("sandbox_only") is True
+            and sandbox.get("provider_capabilities", {}).get(
+                "supports_idempotency"
+            )
+            is True
+            and sandbox.get("provider_capabilities", {}).get("receipt_lookup")
+            is True
+            and sandbox.get("provider_capabilities", {}).get(
+                "reconciliation_timeout_seconds"
+            )
+            == 30
+        ),
+        "ablation_artifact_bound": (
+            int(ablation_reference.get("workflow_run_id", 0)) > 0
+            and int(ablation_reference.get("artifact_id", 0)) > 0
+            and ablation_reference.get("head_sha") == ablation.get("source_head")
+            and ablation_reference.get("artifact_name")
+            == f"continuum-agent-ablation-{ablation.get('source_head')}"
+            and SHA256_PATTERN.fullmatch(
+                ablation_reference.get("artifact_archive_sha256", "")
+            )
+            is not None
+            and ablation_sha == ablation_reference.get("report_sha256")
+            and ablation_aggregate_sha
+            == ablation_reference.get("public_aggregate_sha256")
+        ),
+        "ablation_aggregate_matches_full_report": (
+            ablation_aggregate == public_ablation
+        ),
+        "ablation_schema_and_population": (
+            ablation.get("schema_version") == 3
+            and len(ablation.get("observations", [])) == 540
+            and ablation.get("synthetic_non_effecting") is True
+            and set(ablation_arms) == {"stateless", "raw_rag", "continuum"}
+            and all(
+                int(metrics.get("cases", 0)) == 180
+                and int(metrics.get("memory_pressure_cases", 0)) == 90
+                and int(metrics.get("recovery_cases", 0)) == 30
+                and int(metrics.get("cross_scope_leak_count", -1)) == 0
+                for metrics in ablation_arms.values()
+            )
+        ),
+        "citation_grounding_failures_zero": grounding_failures == 0,
+        "paired_memory_pressure_differentiates": (
+            float(raw_metrics.get("unsafe_proposal_rate_under_memory_pressure", 0))
+            > float(
+                continuum_metrics.get(
+                    "unsafe_proposal_rate_under_memory_pressure",
+                    0,
+                )
+            )
+            and float(raw_metrics.get("poison_exposure_rate", 0))
+            > float(continuum_metrics.get("poison_exposure_rate", 0))
+            and float(continuum_metrics.get("verified_outcome_success_rate", 0))
+            > float(raw_metrics.get("verified_outcome_success_rate", 0))
+            and float(continuum_metrics.get("canonical_promotion_precision", 0))
+            > float(raw_metrics.get("canonical_promotion_precision", 0))
+            and float(continuum_metrics.get("recovery_success_rate", 0))
+            >= float(raw_metrics.get("recovery_success_rate", 0))
+            and int(continuum_metrics.get("false_canonical_promotions", -1)) == 0
+            and int(stateless_metrics.get("false_canonical_promotions", -1)) == 0
+        ),
+        "migration_version_is_31": int(runtime.get("migration_version", 0)) >= 31,
         "migration_checksum_drift_absent": (
             runtime.get("migration_checksum_drift_absent") is True
         ),
@@ -185,12 +350,23 @@ def build_envelope(
             == f"https://github.com/{repository}/releases/tag/{release_tag}"
             and release_reference.get("release_api_url")
             == f"https://api.github.com/repos/{repository}/releases/tags/{release_tag}"
-            and release_reference.get("asset_name")
-            == "continuum-release-envelope-v1.json"
+            and release_reference.get("asset_name") == ENVELOPE_ASSET
             and release_reference.get("asset_url")
             == (
                 f"https://github.com/{repository}/releases/download/"
-                f"{release_tag}/continuum-release-envelope-v1.json"
+                f"{release_tag}/{ENVELOPE_ASSET}"
+            )
+            and release_reference.get("sandbox_asset_name") == SANDBOX_ASSET
+            and release_reference.get("sandbox_asset_url")
+            == (
+                f"https://github.com/{repository}/releases/download/"
+                f"{release_tag}/{SANDBOX_ASSET}"
+            )
+            and release_reference.get("ablation_asset_name") == ABLATION_ASSET
+            and release_reference.get("ablation_asset_url")
+            == (
+                f"https://github.com/{repository}/releases/download/"
+                f"{release_tag}/{ABLATION_ASSET}"
             )
         ),
         "key_rotation_retired_old_material": (
@@ -206,7 +382,7 @@ def build_envelope(
         raise RuntimeError("release envelope gates failed: " + ", ".join(failed))
 
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "generated_at": generated_at or datetime.now(timezone.utc).isoformat(),
         "claim_boundary": "One immutable competition release receipt; no credential values or database rows are included.",
         "release": {
@@ -216,6 +392,19 @@ def build_envelope(
             "workflow_url": workflow_url,
             "tag": release_tag,
             "publication_contract": "GitHub immutable release; workflow verifies immutable=true after draft publication.",
+            "assets": {
+                "envelope": release_reference["asset_url"],
+                "sandbox_provider": release_reference["sandbox_asset_url"],
+                "agent_ablation": release_reference["ablation_asset_url"],
+            },
+        },
+        "lineage": {
+            "baseline_runtime_sha": lineage["baseline_runtime_sha"],
+            "baseline_documentation_sha": lineage[
+                "baseline_documentation_sha"
+            ],
+            "candidate_runtime_sha": lineage["candidate_runtime_sha"],
+            "release_documentation_sha": commit_sha,
         },
         "application_deployment": {
             "head_sha": source["deployment_head_sha"],
@@ -256,6 +445,49 @@ def build_envelope(
             ],
             "gate": pressure["gate"],
         },
+        "sandbox_provider": {
+            "head_sha": sandbox_reference["head_sha"],
+            "workflow_run_id": sandbox_reference["workflow_run_id"],
+            "workflow_url": sandbox_reference["workflow_url"],
+            "artifact_id": sandbox_reference["artifact_id"],
+            "artifact_name": sandbox_reference["artifact_name"],
+            "artifact_archive_sha256": sandbox_reference[
+                "artifact_archive_sha256"
+            ],
+            "report_sha256": sandbox_sha,
+            "immutable_release_asset_url": release_reference[
+                "sandbox_asset_url"
+            ],
+            "provider_capabilities": sandbox["provider_capabilities"],
+            "gate": sandbox["gate"],
+        },
+        "agent_ablation": {
+            "head_sha": ablation_reference["head_sha"],
+            "deployment_artifact_sha256": ablation[
+                "deployment_artifact_sha256"
+            ],
+            "workflow_run_id": ablation_reference["workflow_run_id"],
+            "workflow_url": ablation_reference["workflow_url"],
+            "artifact_id": ablation_reference["artifact_id"],
+            "artifact_name": ablation_reference["artifact_name"],
+            "artifact_archive_sha256": ablation_reference[
+                "artifact_archive_sha256"
+            ],
+            "report_sha256": ablation_sha,
+            "public_aggregate_sha256": ablation_aggregate_sha,
+            "public_aggregate_url": ablation_reference[
+                "public_aggregate_url"
+            ],
+            "immutable_release_asset_url": release_reference[
+                "ablation_asset_url"
+            ],
+            "methodology": ablation["methodology"],
+            "arms": ablation["arms"],
+            "paired_comparisons": ablation["paired_comparisons"],
+            "paired_safety_comparisons": ablation[
+                "paired_safety_comparisons"
+            ],
+        },
         "public_judge_evidence": {
             "url": judge["public_demo"]["evidence_url"],
             "sha256": judge_sha,
@@ -284,6 +516,9 @@ def main() -> None:
     parser.add_argument("--judge-evidence", type=Path, required=True)
     parser.add_argument("--scale-evidence", type=Path, required=True)
     parser.add_argument("--pressure-evidence", type=Path, required=True)
+    parser.add_argument("--sandbox-evidence", type=Path, required=True)
+    parser.add_argument("--ablation-evidence", type=Path, required=True)
+    parser.add_argument("--ablation-aggregate", type=Path, required=True)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--repository", required=True)
     parser.add_argument("--commit-sha", required=True)
@@ -295,13 +530,22 @@ def main() -> None:
     judge_bytes = args.judge_evidence.read_bytes()
     scale_bytes = args.scale_evidence.read_bytes()
     pressure_bytes = args.pressure_evidence.read_bytes()
+    sandbox_bytes = args.sandbox_evidence.read_bytes()
+    ablation_bytes = args.ablation_evidence.read_bytes()
+    ablation_aggregate_bytes = args.ablation_aggregate.read_bytes()
     envelope = build_envelope(
         json.loads(judge_bytes),
         json.loads(scale_bytes),
         json.loads(pressure_bytes),
+        json.loads(sandbox_bytes),
+        json.loads(ablation_bytes),
+        json.loads(ablation_aggregate_bytes),
         judge_bytes=judge_bytes,
         scale_bytes=scale_bytes,
         pressure_bytes=pressure_bytes,
+        sandbox_bytes=sandbox_bytes,
+        ablation_bytes=ablation_bytes,
+        ablation_aggregate_bytes=ablation_aggregate_bytes,
         repo_root=args.repo_root.resolve(),
         repository=args.repository,
         commit_sha=args.commit_sha,

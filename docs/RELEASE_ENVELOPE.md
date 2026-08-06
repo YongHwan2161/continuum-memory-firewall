@@ -1,17 +1,18 @@
 # Immutable competition release envelope
 
-`hackathon-v4` is the current proof unit for the competition build. It is
+`hackathon-v5` is the next proof unit for the competition build. It is
 published only by `.github/workflows/release-envelope.yml` after every
 fail-closed gate passes.
 
-`hackathon-v1` through `hackathon-v3` remain immutable audit history. Version 4
-binds the final Devpost version 13 timestamp after removing the mutable release
-tag from its project links. The stable public verifier is now the sole resolver
-for the current immutable release, avoiding a timestamp/tag update cycle.
+`hackathon-v1` through `hackathon-v4` remain immutable audit history. Version 5
+adds the citation-handle and paired memory-pressure candidate while preserving
+the prior live runtime (`1291e27`) and documentation (`2a94b46`) as explicit
+baseline lineage rather than silently relabeling them as the new candidate.
 
 The envelope binds:
 
 - the exact reviewed release commit and release workflow run;
+- the prior live runtime/documentation SHAs and the new exact deployed candidate;
 - the SHA-256 of the public judge evidence document consumed by the builder;
 - the exact application deployment head, run, artifact SHA-256, migration
   version, checksum-drift result, and tenant-binding version/event;
@@ -20,8 +21,17 @@ The envelope binds:
 - the exact 10k/50k synthetic benchmark head, workflow, report SHA-256,
   four-point beam grid, natural vector-search plans, and zero scope leakage;
 - the Managed MCP key-rotation run and old-key retirement receipt; and
+- the real AWS sandbox provider run, Actions artifact ID/archive digest, exact
+  report SHA-256, idempotency manifest, and receipt-lookup gate;
+- the full 540-observation paired ablation run, deployment artifact SHA-256,
+  Actions artifact receipt, public aggregate checksum, citation-grounding gate,
+  and all five pre-registered safety/outcome metrics; and
 - the Devpost submission ID, updated project timestamp, public project URL,
   current video URL, duration, and local-render SHA-256.
+
+The immutable release carries the exact sandbox JSON and full ablation JSON as
+release assets in addition to the envelope. This keeps judge evidence available
+after the shorter-lived GitHub Actions artifacts expire.
 
 At publication time, the workflow re-reads the application, vector benchmark,
 and Managed MCP rotation runs through the GitHub API. Each referenced run must
@@ -44,8 +54,8 @@ asset state, and SHA-256 digest. A judge can independently download the envelope
 and validate its sidecar without trusting the public page:
 
 ```bash
-gh release download hackathon-v4 --pattern 'continuum-release-envelope-v1.json*'
-sha256sum -c continuum-release-envelope-v1.json.sha256
+gh release download hackathon-v5 --pattern 'continuum-release-envelope-v2.json*'
+sha256sum -c continuum-release-envelope-v2.json.sha256
 ```
 
 GitHub documents that immutable releases automatically receive a release
@@ -57,7 +67,7 @@ generates signed SLSA build provenance with `actions/attest@v4`, and verifies it
 in the same run. Consumers can verify that exact downloaded asset with:
 
 ```bash
-gh attestation verify continuum-release-envelope-v1.json \
+gh attestation verify continuum-release-envelope-v2.json \
   --repo YongHwan2161/continuum-memory-firewall
 ```
 

@@ -4,7 +4,11 @@ import json
 from pathlib import Path
 import unittest
 
-from scripts.build_release_envelope import build_envelope, repository_text_bytes
+from scripts.build_release_envelope import (
+    build_envelope,
+    build_public_ablation_aggregate,
+    repository_text_bytes,
+)
 
 
 class ReleaseEnvelopeTests(unittest.TestCase):
@@ -54,16 +58,117 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         self.pressure_bytes = (
             json.dumps(self.pressure, sort_keys=True) + "\n"
         ).encode()
+        self.sandbox = {
+            "schema_version": 1,
+            "source_head": "1291e2707880700492fe1d7cd431bcba03d68b4c",
+            "send_count": 2,
+            "logical_effect_count": 1,
+            "receipt_lookup_matched": True,
+            "provider_capabilities": {
+                "supports_idempotency": True,
+                "receipt_lookup": True,
+                "reconciliation_timeout_seconds": 30,
+            },
+            "gate": {
+                "idempotency": "PASS",
+                "receipt_lookup": "PASS",
+                "sandbox_only": True,
+            },
+        }
+        self.sandbox_bytes = (
+            json.dumps(self.sandbox, sort_keys=True) + "\n"
+        ).encode()
+        arm_base = {
+            "cases": 180,
+            "memory_pressure_cases": 90,
+            "recovery_cases": 30,
+            "cross_scope_leak_count": 0,
+            "failure_codes": {},
+            "false_canonical_promotions": 0,
+            "unsafe_proposal_rate_under_memory_pressure": 0.0,
+            "poison_exposure_rate": 0.0,
+            "verified_outcome_success_rate": 0.98,
+            "canonical_promotion_precision": 1.0,
+            "recovery_success_rate": 1.0,
+        }
+        self.ablation = {
+            "schema_version": 3,
+            "source_head": "a" * 40,
+            "deployment_artifact_sha256": "c" * 64,
+            "evaluation_id": "evaluation-1",
+            "generated_at": "2026-08-07T00:00:00Z",
+            "agent_model": "amazon.nova-micro-v1:0",
+            "agent_region": "ap-southeast-2",
+            "embedding_model": "amazon.titan-embed-text-v2:0/512",
+            "embedding_region": "ap-northeast-2",
+            "migration_version": 31,
+            "provider": "continuum-synthetic-verifier-v1",
+            "retained_for_judge_evidence": True,
+            "seed_semantics": "paired isolated episode-state replications",
+            "synthetic_non_effecting": True,
+            "methodology": {
+                "case_count_per_arm": 180,
+                "metric_contract": [
+                    "unsafe_proposal_rate",
+                    "poison_exposure_rate",
+                    "verified_outcome_success",
+                    "canonical_promotion_precision",
+                    "recovery_latency_ms",
+                ],
+            },
+            "arms": {
+                "stateless": {**arm_base, "verified_outcome_success_rate": 0.4},
+                "raw_rag": {
+                    **arm_base,
+                    "unsafe_proposal_rate_under_memory_pressure": 0.3,
+                    "poison_exposure_rate": 0.8,
+                    "verified_outcome_success_rate": 0.7,
+                    "canonical_promotion_precision": 0.7,
+                    "recovery_success_rate": 0.8,
+                    "false_canonical_promotions": 40,
+                },
+                "continuum": dict(arm_base),
+            },
+            "continuum_lift_percentage_points": {
+                "vs_raw_rag": 28.0,
+                "vs_stateless": 58.0,
+            },
+            "paired_comparisons": {"continuum_vs_raw_rag": {"pairs": 180}},
+            "paired_safety_comparisons": {
+                "continuum_vs_raw_rag_poison_exposure": {"pairs": 90}
+            },
+            "variant_counts": {
+                "conflict_pressure": 6,
+                "explicit_seed": 6,
+                "paraphrase": 6,
+                "poison_pressure": 6,
+                "recovery": 6,
+                "stale_pressure": 6,
+            },
+            "observations": [{} for _ in range(540)],
+        }
+        self.ablation_bytes = (
+            json.dumps(self.ablation, sort_keys=True) + "\n"
+        ).encode()
+        self.ablation_aggregate = build_public_ablation_aggregate(self.ablation)
+        self.ablation_aggregate_bytes = (
+            json.dumps(self.ablation_aggregate, sort_keys=True) + "\n"
+        ).encode()
         from scripts.build_release_envelope import sha256_bytes
 
         self.judge = {
-            "schema_version": 4,
+            "schema_version": 5,
             "source": {
                 "workflow_run_id": 10,
                 "workflow_attempt": 1,
                 "workflow_url": "https://github.com/o/r/actions/runs/10",
                 "deployment_head_sha": "a" * 40,
                 "artifact_sha256": "c" * 64,
+            },
+            "lineage": {
+                "baseline_runtime_sha": "1291e2707880700492fe1d7cd431bcba03d68b4c",
+                "baseline_documentation_sha": "2a94b4653ab0efe6f2ddeb8701ab05bdbaf403e1",
+                "candidate_runtime_sha": "a" * 40,
             },
             "vector_scale": {
                 "workflow_run_id": 11,
@@ -79,7 +184,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
                 "workflow_artifact_sha256": "9" * 64,
             },
             "runtime": {
-                "migration_version": 17,
+                "migration_version": 31,
                 "migration_checksum_drift_absent": True,
                 "authorization_mode": "audited-tenant-control-plane",
                 "binding_version": 1,
@@ -100,6 +205,28 @@ class ReleaseEnvelopeTests(unittest.TestCase):
                 "old_provider_key_deleted": True,
                 "temporary_github_secret_deleted": True,
             },
+            "sandbox_provider": {
+                "workflow_run_id": 15,
+                "workflow_url": "https://github.com/o/r/actions/runs/15",
+                "head_sha": "1291e2707880700492fe1d7cd431bcba03d68b4c",
+                "artifact_id": 150,
+                "artifact_name": "aws-sandbox-provider-proof-1291e2707880700492fe1d7cd431bcba03d68b4c",
+                "artifact_archive_sha256": "8" * 64,
+                "report_sha256": sha256_bytes(self.sandbox_bytes),
+            },
+            "agent_ablation": {
+                "workflow_run_id": 10,
+                "workflow_url": "https://github.com/o/r/actions/runs/10",
+                "head_sha": "a" * 40,
+                "artifact_id": 160,
+                "artifact_name": "continuum-agent-ablation-" + "a" * 40,
+                "artifact_archive_sha256": "7" * 64,
+                "report_sha256": sha256_bytes(self.ablation_bytes),
+                "public_aggregate_sha256": sha256_bytes(
+                    self.ablation_aggregate_bytes
+                ),
+                "public_aggregate_url": "https://demo.example.test/evidence/ablation.json",
+            },
             "submission": {
                 "id": 1121568,
                 "status": "Submitted",
@@ -113,8 +240,12 @@ class ReleaseEnvelopeTests(unittest.TestCase):
                 "tag": "hackathon-v1",
                 "release_url": "https://github.com/o/r/releases/tag/hackathon-v1",
                 "release_api_url": "https://api.github.com/repos/o/r/releases/tags/hackathon-v1",
-                "asset_url": "https://github.com/o/r/releases/download/hackathon-v1/continuum-release-envelope-v1.json",
-                "asset_name": "continuum-release-envelope-v1.json",
+                "asset_url": "https://github.com/o/r/releases/download/hackathon-v1/continuum-release-envelope-v2.json",
+                "asset_name": "continuum-release-envelope-v2.json",
+                "sandbox_asset_url": "https://github.com/o/r/releases/download/hackathon-v1/sandbox-provider-proof.json",
+                "sandbox_asset_name": "sandbox-provider-proof.json",
+                "ablation_asset_url": "https://github.com/o/r/releases/download/hackathon-v1/agent-ablation-v3.json",
+                "ablation_asset_name": "agent-ablation-v3.json",
             },
             "public_demo": {
                 "url": "https://demo.example.test/",
@@ -129,9 +260,15 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             self.judge,
             self.scale,
             self.pressure,
+            self.sandbox,
+            self.ablation,
+            self.ablation_aggregate,
             judge_bytes=self.judge_bytes,
             scale_bytes=self.scale_bytes,
             pressure_bytes=self.pressure_bytes,
+            sandbox_bytes=self.sandbox_bytes,
+            ablation_bytes=self.ablation_bytes,
+            ablation_aggregate_bytes=self.ablation_aggregate_bytes,
             repo_root=Path(__file__).parents[1],
             repository="o/r",
             commit_sha="d" * 40,
@@ -144,11 +281,21 @@ class ReleaseEnvelopeTests(unittest.TestCase):
     def test_binds_every_release_plane(self) -> None:
         envelope = self.build()
         self.assertEqual(envelope["gates"]["status"], "PASS")
-        self.assertEqual(envelope["application_deployment"]["migration_version"], 17)
+        self.assertEqual(envelope["schema_version"], 2)
+        self.assertEqual(envelope["application_deployment"]["migration_version"], 31)
         self.assertEqual(envelope["vector_benchmark"]["row_counts"], [10_000, 50_000])
         self.assertEqual(envelope["agent_pressure"]["concurrent_agents"], [10, 25, 50])
         self.assertEqual(len(envelope["database_policy"]["rls"]["files"]), 3)
         self.assertEqual(len(envelope["public_judge_evidence"]["sha256"]), 64)
+        self.assertEqual(
+            envelope["lineage"]["baseline_runtime_sha"],
+            "1291e2707880700492fe1d7cd431bcba03d68b4c",
+        )
+        self.assertEqual(
+            envelope["sandbox_provider"]["report_sha256"],
+            self.judge["sandbox_provider"]["report_sha256"],
+        )
+        self.assertEqual(envelope["agent_ablation"]["arms"]["continuum"]["cases"], 180)
 
     def test_scale_checksum_and_leakage_fail_closed(self) -> None:
         self.judge["vector_scale"]["report_sha256"] = "0" * 64
@@ -179,6 +326,25 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         ).sha256(self.pressure_bytes).hexdigest()
         self.pressure["gate"]["pool_recovery_passed"] = False
         with self.assertRaisesRegex(RuntimeError, "pressure_gate"):
+            self.build()
+
+    def test_ablation_projection_and_differentiator_fail_closed(self) -> None:
+        self.ablation_aggregate["arms"]["continuum"]["cases"] = 179
+        with self.assertRaisesRegex(RuntimeError, "aggregate"):
+            self.build()
+        self.ablation_aggregate = build_public_ablation_aggregate(self.ablation)
+        self.ablation_aggregate_bytes = (
+            json.dumps(self.ablation_aggregate, sort_keys=True) + "\n"
+        ).encode()
+        from scripts.build_release_envelope import sha256_bytes
+
+        self.judge["agent_ablation"]["public_aggregate_sha256"] = sha256_bytes(
+            self.ablation_aggregate_bytes
+        )
+        self.ablation["arms"]["raw_rag"][
+            "unsafe_proposal_rate_under_memory_pressure"
+        ] = 0.0
+        with self.assertRaisesRegex(RuntimeError, "differentiates"):
             self.build()
 
 
