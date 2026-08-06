@@ -6,7 +6,7 @@ on:
       release_tag:
         description: New immutable GitHub Release tag
         required: true
-        default: hackathon-v4
+        default: hackathon-v5
 
 permissions:
   actions: read
@@ -34,7 +34,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           judge=public-demo/evidence/judge-verification.json
-          for plane in source vector_scale agent_pressure managed_mcp; do
+          for plane in source vector_scale agent_pressure managed_mcp sandbox_provider agent_ablation; do
             case "$plane" in
               source)
                 run_id="$(jq -r '.source.workflow_run_id' "$judge")"
@@ -52,6 +52,14 @@ jobs:
                 run_id="$(jq -r '.managed_mcp.rotation_workflow_run_id' "$judge")"
                 expected_head=""
                 ;;
+              sandbox_provider)
+                run_id="$(jq -r '.sandbox_provider.workflow_run_id' "$judge")"
+                expected_head="$(jq -r '.sandbox_provider.head_sha' "$judge")"
+                ;;
+              agent_ablation)
+                run_id="$(jq -r '.agent_ablation.workflow_run_id' "$judge")"
+                expected_head="$(jq -r '.agent_ablation.head_sha' "$judge")"
+                ;;
             esac
             receipt="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
             test "$(jq -r '.conclusion' <<<"$receipt")" = success
@@ -59,6 +67,33 @@ jobs:
               test "$(jq -r '.head_sha' <<<"$receipt")" = "$expected_head"
             fi
           done
+      - name: Download and bind exact sandbox and ablation artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          judge=public-demo/evidence/judge-verification.json
+          mkdir -p build/evidence/sandbox build/evidence/ablation
+          for plane in sandbox_provider agent_ablation; do
+            artifact_id="$(jq -r ".$plane.artifact_id" "$judge")"
+            artifact_name="$(jq -r ".$plane.artifact_name" "$judge")"
+            expected_archive="sha256:$(jq -r ".$plane.artifact_archive_sha256" "$judge")"
+            receipt="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id")"
+            test "$(jq -r '.expired' <<<"$receipt")" = false
+            test "$(jq -r '.name' <<<"$receipt")" = "$artifact_name"
+            test "$(jq -r '.digest' <<<"$receipt")" = "$expected_archive"
+            target=build/evidence/sandbox
+            if [ "$plane" = agent_ablation ]; then target=build/evidence/ablation; fi
+            gh run download \
+              "$(jq -r ".$plane.workflow_run_id" "$judge")" \
+              --name "$artifact_name" \
+              --dir "$target"
+          done
+          test "$(sha256sum build/evidence/sandbox/sandbox-provider-proof.json | cut -d' ' -f1)" = \
+            "$(jq -r '.sandbox_provider.report_sha256' "$judge")"
+          test "$(sha256sum build/evidence/ablation/agent-ablation.json | cut -d' ' -f1)" = \
+            "$(jq -r '.agent_ablation.report_sha256' "$judge")"
       - name: Build fail-closed envelope
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
@@ -67,13 +102,25 @@ jobs:
             --judge-evidence public-demo/evidence/judge-verification.json \
             --scale-evidence public-demo/evidence/vector-scale.json \
             --pressure-evidence public-demo/evidence/agent-pressure.json \
+            --sandbox-evidence build/evidence/sandbox/sandbox-provider-proof.json \
+            --ablation-evidence build/evidence/ablation/agent-ablation.json \
+            --ablation-aggregate public-demo/evidence/agent-ablation-v3.json \
             --repo-root . \
             --repository "$GITHUB_REPOSITORY" \
             --commit-sha "$GITHUB_SHA" \
             --workflow-run-id "$GITHUB_RUN_ID" \
             --workflow-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             --release-tag "$RELEASE_TAG" \
-            --output build/release/continuum-release-envelope-v1.json
+            --output build/release/continuum-release-envelope-v2.json
+          cp build/evidence/sandbox/sandbox-provider-proof.json \
+            build/release/sandbox-provider-proof.json
+          cp build/evidence/ablation/agent-ablation.json \
+            build/release/agent-ablation-v3.json
+          (
+            cd build/release
+            sha256sum sandbox-provider-proof.json >sandbox-provider-proof.json.sha256
+            sha256sum agent-ablation-v3.json >agent-ablation-v3.json.sha256
+          )
       - uses: actions/upload-artifact@v4
         with:
           name: continuum-release-envelope-${{ github.sha }}
@@ -86,8 +133,12 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           gh release create "$RELEASE_TAG" \
-            build/release/continuum-release-envelope-v1.json \
-            build/release/continuum-release-envelope-v1.json.sha256 \
+            build/release/continuum-release-envelope-v2.json \
+            build/release/continuum-release-envelope-v2.json.sha256 \
+            build/release/sandbox-provider-proof.json \
+            build/release/sandbox-provider-proof.json.sha256 \
+            build/release/agent-ablation-v3.json \
+            build/release/agent-ablation-v3.json.sha256 \
             --target "$GITHUB_SHA" \
             --draft \
             --title "Continuum Memory Firewall evidence envelope" \
@@ -105,8 +156,10 @@ jobs:
           test "$(jq -r '.immutable' <<<"$release_receipt")" = true
           test "$(jq -r '.tag_name' <<<"$release_receipt")" = "$RELEASE_TAG"
           test "$(jq -r '.target_commitish' <<<"$release_receipt")" = "$GITHUB_SHA"
-          envelope_digest="sha256:$(sha256sum build/release/continuum-release-envelope-v1.json | cut -d' ' -f1)"
-          sidecar_digest="sha256:$(sha256sum build/release/continuum-release-envelope-v1.json.sha256 | cut -d' ' -f1)"
-          test "$(jq -r '.assets[] | select(.name == "continuum-release-envelope-v1.json") | .digest' <<<"$release_receipt")" = "$envelope_digest"
-          test "$(jq -r '.assets[] | select(.name == "continuum-release-envelope-v1.json.sha256") | .digest' <<<"$release_receipt")" = "$sidecar_digest"
+          for path in build/release/*; do
+            name="${path##*/}"
+            expected="sha256:$(sha256sum "$path" | cut -d' ' -f1)"
+            actual="$(jq -r --arg name "$name" '.assets[] | select(.name == $name) | .digest' <<<"$release_receipt")"
+            test "$actual" = "$expected"
+          done
           jq '{id,tag_name,target_commitish,immutable,assets:[.assets[]|{name,state,digest}]}' <<<"$release_receipt"
