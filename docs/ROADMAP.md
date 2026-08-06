@@ -94,11 +94,12 @@ Exit criteria:
 
 **Goal:** turn the implementation into a judge-friendly, measurable submission.
 
-**In progress:** the 36-case three-arm live ablation is complete and retained
-with paired results, stable failure codes, zero leakage, and zero false
-promotion. Continuum materially beat stateless, while its one-case advantage
-over raw-RAG is statistically unresolved. Judge UX and replacement video work
-remain open.
+**In progress:** the five-replication, 180-case-per-arm live ablation is
+complete and retained with paired cluster confidence intervals, stable failure
+distributions, zero leakage, and zero false promotion. Continuum materially
+beat stateless, while its four-case deficit to raw-RAG is statistically
+unresolved. The next evaluation must isolate stale/poison/conflict safety lift;
+judge UX and replacement video work remain open.
 
 Implement:
 

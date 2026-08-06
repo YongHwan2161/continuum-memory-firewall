@@ -160,6 +160,9 @@ The exact-head Cognito, Titan, RLS, and cross-scope evaluation is recorded in
 The representative-scale vector plan, Recall, latency, and isolation proof is
 recorded in
 [10k/50k vector-scale live evidence](docs/evidence/2026-08-02-vector-scale-live.md).
+The main-only OIDC cutover, actual AWS sandbox receipt proof, and
+five-replication 540-observation ablation are recorded in
+[Main OIDC, AWS sandbox, and five-replication evidence](docs/evidence/2026-08-07-main-oidc-sandbox-five-seed-ablation.md).
 
 ## Safety boundary
 
