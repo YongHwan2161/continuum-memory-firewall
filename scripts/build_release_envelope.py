@@ -149,6 +149,7 @@ def build_envelope(
     lineage = judge["lineage"]
     sandbox_reference = judge["sandbox_provider"]
     ablation_reference = judge["agent_ablation"]
+    database_policy_reference = judge["database_policy"]
     release_reference = judge["release_envelope"]
     scales = scale.get("scales", [])
     beams = [beam for item in scales for beam in item.get("beams", [])]
@@ -176,6 +177,15 @@ def build_envelope(
         int(metrics.get("failure_codes", {}).get(grounding_failure_code, 0))
         for metrics in ablation_arms.values()
         if isinstance(metrics, Mapping)
+    )
+    rls_receipt = _migration_receipt(repo_root, RLS_MIGRATIONS)
+    control_plane_receipt = _migration_receipt(
+        repo_root,
+        CONTROL_PLANE_MIGRATIONS,
+    )
+    vector_contract_receipt = _migration_receipt(
+        repo_root,
+        VECTOR_CONTRACT_MIGRATIONS,
     )
     checks = {
         "submission_receipt_bound": (
@@ -278,6 +288,10 @@ def build_envelope(
             )
         ),
         "citation_grounding_failures_zero": grounding_failures == 0,
+        "public_rls_checksum_matches_source": (
+            database_policy_reference.get("rls_combined_sha256")
+            == rls_receipt["combined_sha256"]
+        ),
         "paired_memory_pressure_differentiates": (
             _finite_metric(
                 raw_metrics.get("unsafe_proposal_rate_under_memory_pressure")
@@ -513,9 +527,9 @@ def build_envelope(
         },
         "public_release_reference": release_reference,
         "database_policy": {
-            "rls": _migration_receipt(repo_root, RLS_MIGRATIONS),
-            "tenant_control_plane": _migration_receipt(repo_root, CONTROL_PLANE_MIGRATIONS),
-            "vector_contract": _migration_receipt(repo_root, VECTOR_CONTRACT_MIGRATIONS),
+            "rls": rls_receipt,
+            "tenant_control_plane": control_plane_receipt,
+            "vector_contract": vector_contract_receipt,
         },
         "managed_mcp_key_rotation": managed,
         "devpost": submission,

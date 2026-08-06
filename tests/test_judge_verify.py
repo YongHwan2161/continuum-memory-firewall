@@ -181,6 +181,9 @@ class JudgeVerificationTests(unittest.TestCase):
             "sandbox_asset_url": "https://demo.example.test/sandbox.json",
             "ablation_asset_name": "agent-ablation-v3.json",
         }
+        self.evidence["database_policy"] = {
+            "rls_combined_sha256": "f" * 64,
+        }
         arm = {
             "cases": 180,
             "memory_pressure_cases": 90,
@@ -253,6 +256,9 @@ class JudgeVerificationTests(unittest.TestCase):
                 "schema_version": 2,
                 "lineage": {"candidate_runtime_sha": candidate},
                 "public_judge_evidence": {"schema_version": 5},
+                "database_policy": {
+                    "rls": {"combined_sha256": "f" * 64},
+                },
                 "gates": {"status": "PASS"},
             },
             self.evidence["release_envelope"]["sandbox_asset_url"]: {
