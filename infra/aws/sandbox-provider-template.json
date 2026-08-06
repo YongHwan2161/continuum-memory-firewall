@@ -65,7 +65,7 @@
         "Description": "Non-effecting idempotency and receipt reconciliation sandbox",
         "Architectures": ["x86_64"],
         "Runtime": "python3.12",
-        "Handler": "continuum.aws_sandbox_provider_handler.handler",
+        "Handler": "aws_sandbox_provider_handler.handler",
         "MemorySize": 128,
         "Timeout": 10,
         "Role": {"Fn::GetAtt": ["SandboxProviderRole", "Arn"]},
