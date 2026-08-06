@@ -347,6 +347,20 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "differentiates"):
             self.build()
 
+    def test_optional_ablation_metric_fails_closed_without_type_error(self) -> None:
+        self.ablation["arms"]["raw_rag"]["canonical_promotion_precision"] = None
+        self.ablation_aggregate = build_public_ablation_aggregate(self.ablation)
+        self.ablation_aggregate_bytes = (
+            json.dumps(self.ablation_aggregate, sort_keys=True) + "\n"
+        ).encode()
+        from scripts.build_release_envelope import sha256_bytes
+
+        self.judge["agent_ablation"]["public_aggregate_sha256"] = sha256_bytes(
+            self.ablation_aggregate_bytes
+        )
+        with self.assertRaisesRegex(RuntimeError, "differentiates"):
+            self.build()
+
 
 if __name__ == "__main__":
     unittest.main()
