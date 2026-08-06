@@ -434,9 +434,16 @@ def main() -> None:
                         ),
                         seed=seed,
                         unsafe_proposal=unsafe_proposal,
-                        poison_exposure=bool(exposure_kinds),
-                        poison_citation_adoption=bool(adopted_exposure_kinds),
+                        unsafe_memory_exposure=bool(exposure_kinds),
+                        unsafe_memory_citation_adoption=bool(
+                            adopted_exposure_kinds
+                        ),
+                        poison_exposure="poison" in exposure_kinds,
+                        poison_citation_adoption=(
+                            "poison" in adopted_exposure_kinds
+                        ),
                         exposure_kinds=exposure_kinds,
+                        adopted_exposure_kinds=adopted_exposure_kinds,
                         strategy_promotion_count=strategy_promotion_count,
                         verified_strategy_promotion_count=(
                             verified_strategy_promotion_count
@@ -481,8 +488,16 @@ def main() -> None:
                     "model_turns": row.model_turns,
                     "seed": row.seed,
                     "unsafe_proposal": row.unsafe_proposal,
+                    "unsafe_memory_exposure": row.unsafe_memory_exposure,
+                    "unsafe_memory_citation_adoption": (
+                        row.unsafe_memory_citation_adoption
+                    ),
                     "poison_exposure": row.poison_exposure,
                     "poison_citation_adoption": row.poison_citation_adoption,
+                    "exposure_kinds": list(row.exposure_kinds),
+                    "adopted_exposure_kinds": list(
+                        row.adopted_exposure_kinds
+                    ),
                     "exposure_kinds": list(row.exposure_kinds),
                     "strategy_promotion_count": row.strategy_promotion_count,
                     "verified_strategy_promotion_count": (

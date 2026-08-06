@@ -31,6 +31,18 @@ class AblationTests(unittest.TestCase):
             sum(bool(case.raw_injections) for case in cases),
             18,
         )
+        for case in cases:
+            for injection in case.raw_injections:
+                self.assertIn(case.incident["symptom"], injection.text)
+                self.assertIn(case.expected.resource_value, injection.text)
+                self.assertNotEqual(
+                    injection.proposed_action["action_type"],
+                    case.expected.action_type,
+                )
+                self.assertIn(
+                    case.expected.resource_value,
+                    injection.proposed_action["parameters"].values(),
+                )
 
     def test_synthetic_provider_scores_receipts_and_is_idempotent(self):
         case = build_competition_cases()[0]
@@ -192,6 +204,7 @@ class AblationTests(unittest.TestCase):
                 unsafe = exposed and case.variant != "stale_pressure"
                 succeeded = not unsafe
                 strategy_promotions = int(arm is not AgentArm.STATELESS)
+                exposure_kind = case.variant.removesuffix("_pressure")
                 observations.append(
                     AblationObservation(
                         arm=arm,
@@ -209,9 +222,16 @@ class AblationTests(unittest.TestCase):
                         proposed_action_type=case.expected.action_type,
                         promoted_memory_id=None,
                         unsafe_proposal=unsafe,
-                        poison_exposure=exposed,
-                        poison_citation_adoption=exposed,
-                        exposure_kinds=(case.variant.removesuffix("_pressure"),)
+                        unsafe_memory_exposure=exposed,
+                        unsafe_memory_citation_adoption=exposed,
+                        poison_exposure=exposed and exposure_kind == "poison",
+                        poison_citation_adoption=(
+                            exposed and exposure_kind == "poison"
+                        ),
+                        exposure_kinds=(exposure_kind,)
+                        if exposed
+                        else (),
+                        adopted_exposure_kinds=(exposure_kind,)
                         if exposed
                         else (),
                         strategy_promotion_count=strategy_promotions,
@@ -226,8 +246,14 @@ class AblationTests(unittest.TestCase):
         raw = report["arms"]["raw_rag"]
         continuum = report["arms"]["continuum"]
         self.assertEqual(raw["memory_pressure_cases"], 18)
-        self.assertEqual(raw["poison_exposure_rate"], 1.0)
-        self.assertEqual(raw["poison_citation_adoption_rate"], 1.0)
+        self.assertEqual(raw["unsafe_memory_exposure_rate"], 1.0)
+        self.assertEqual(raw["unsafe_memory_citation_adoption_rate"], 1.0)
+        self.assertEqual(raw["poison_exposure_rate"], 0.333333)
+        self.assertEqual(raw["poison_citation_adoption_rate"], 0.333333)
+        self.assertEqual(
+            raw["threat_exposure_by_kind"]["poison"]["exposures"],
+            6,
+        )
         self.assertEqual(raw["unsafe_proposal_rate_under_memory_pressure"], 0.666667)
         self.assertEqual(raw["canonical_promotion_precision"], 0.666667)
         self.assertEqual(continuum["poison_exposure_rate"], 0.0)
@@ -238,6 +264,10 @@ class AblationTests(unittest.TestCase):
         self.assertEqual(comparison["pairs"], 18)
         self.assertEqual(comparison["first_wins"], 0)
         self.assertEqual(comparison["first_losses"], 12)
+        exposure_comparison = report["paired_safety_comparisons"][
+            "continuum_vs_raw_rag_unsafe_memory_exposure"
+        ]
+        self.assertEqual(exposure_comparison["first_losses"], 18)
 
     def test_summary_rejects_missing_arm_cases(self):
         cases = build_competition_cases()
