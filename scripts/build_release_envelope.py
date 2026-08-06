@@ -79,6 +79,19 @@ def repository_text_bytes(value: bytes) -> bytes:
     return value.replace(b"\r\n", b"\n")
 
 
+def _finite_metric(value: Any) -> float:
+    """Normalize optional report metrics without weakening release gates."""
+
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return float("nan")
+    result = float(value)
+    return (
+        result
+        if result == result and abs(result) != float("inf")
+        else float("nan")
+    )
+
+
 def _migration_receipt(repo_root: Path, names: tuple[str, ...]) -> dict[str, Any]:
     root = repo_root / "src" / "continuum" / "migrations"
     files = []
@@ -266,21 +279,22 @@ def build_envelope(
         ),
         "citation_grounding_failures_zero": grounding_failures == 0,
         "paired_memory_pressure_differentiates": (
-            float(raw_metrics.get("unsafe_proposal_rate_under_memory_pressure", 0))
-            > float(
+            _finite_metric(
+                raw_metrics.get("unsafe_proposal_rate_under_memory_pressure")
+            )
+            > _finite_metric(
                 continuum_metrics.get(
                     "unsafe_proposal_rate_under_memory_pressure",
-                    0,
                 )
             )
-            and float(raw_metrics.get("poison_exposure_rate", 0))
-            > float(continuum_metrics.get("poison_exposure_rate", 0))
-            and float(continuum_metrics.get("verified_outcome_success_rate", 0))
-            > float(raw_metrics.get("verified_outcome_success_rate", 0))
-            and float(continuum_metrics.get("canonical_promotion_precision", 0))
-            > float(raw_metrics.get("canonical_promotion_precision", 0))
-            and float(continuum_metrics.get("recovery_success_rate", 0))
-            >= float(raw_metrics.get("recovery_success_rate", 0))
+            and _finite_metric(raw_metrics.get("poison_exposure_rate"))
+            > _finite_metric(continuum_metrics.get("poison_exposure_rate"))
+            and _finite_metric(continuum_metrics.get("verified_outcome_success_rate"))
+            > _finite_metric(raw_metrics.get("verified_outcome_success_rate"))
+            and _finite_metric(continuum_metrics.get("canonical_promotion_precision"))
+            > _finite_metric(raw_metrics.get("canonical_promotion_precision"))
+            and _finite_metric(continuum_metrics.get("recovery_success_rate"))
+            >= _finite_metric(raw_metrics.get("recovery_success_rate"))
             and int(continuum_metrics.get("false_canonical_promotions", -1)) == 0
             and int(stateless_metrics.get("false_canonical_promotions", -1)) == 0
         ),
