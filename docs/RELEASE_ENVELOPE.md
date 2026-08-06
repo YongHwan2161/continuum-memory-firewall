@@ -17,7 +17,8 @@ The envelope binds:
 - the exact application deployment head, run, artifact SHA-256, migration
   version, checksum-drift result, and tenant-binding version/event;
 - SHA-256 receipts for the RLS, tenant control-plane, and vector-contract
-  migration files;
+  migration files, with the combined RLS checksum repeated on the public judge
+  record and required to match the release checkout;
 - the exact 10k/50k synthetic benchmark head, workflow, report SHA-256,
   four-point beam grid, natural vector-search plans, and zero scope leakage;
 - the Managed MCP key-rotation run and old-key retirement receipt; and

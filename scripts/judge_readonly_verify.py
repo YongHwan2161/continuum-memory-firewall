@@ -299,6 +299,14 @@ def verify_evidence(
                     )
                     == 5
                 ),
+                "rls_checksum_bound": (
+                    evidence.get("database_policy", {}).get(
+                        "rls_combined_sha256"
+                    )
+                    == envelope.get("database_policy", {})
+                    .get("rls", {})
+                    .get("combined_sha256")
+                ),
             }
         )
     return {

@@ -5,6 +5,8 @@ from pathlib import Path
 import unittest
 
 from scripts.build_release_envelope import (
+    RLS_MIGRATIONS,
+    _migration_receipt,
     build_envelope,
     build_public_ablation_aggregate,
     repository_text_bytes,
@@ -229,6 +231,12 @@ class ReleaseEnvelopeTests(unittest.TestCase):
                     self.ablation_aggregate_bytes
                 ),
                 "public_aggregate_url": "https://demo.example.test/evidence/ablation.json",
+            },
+            "database_policy": {
+                "rls_combined_sha256": _migration_receipt(
+                    Path(__file__).parents[1],
+                    RLS_MIGRATIONS,
+                )["combined_sha256"],
             },
             "submission": {
                 "id": 1121568,
