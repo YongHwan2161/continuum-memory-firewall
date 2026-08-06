@@ -58,8 +58,24 @@ jobs:
           echo "CONTINUUM_PACKAGE_BUCKET=${package_bucket}" >> "$GITHUB_ENV"
           echo "CONTINUUM_PACKAGE_KEY=${key}" >> "$GITHUB_ENV"
       - name: Deploy actual Lambda and DynamoDB sandbox
+        shell: bash
         run: |
-          aws cloudformation deploy \
+          set -euo pipefail
+          stack_status=""
+          if stack_status="$(aws cloudformation describe-stacks \
+            --region "$AWS_REGION" \
+            --stack-name "$CONTINUUM_SANDBOX_STACK_NAME" \
+            --query 'Stacks[0].StackStatus' --output text 2>/dev/null)"; then
+            if [[ "$stack_status" == "ROLLBACK_COMPLETE" ]]; then
+              aws cloudformation delete-stack \
+                --region "$AWS_REGION" \
+                --stack-name "$CONTINUUM_SANDBOX_STACK_NAME"
+              aws cloudformation wait stack-delete-complete \
+                --region "$AWS_REGION" \
+                --stack-name "$CONTINUUM_SANDBOX_STACK_NAME"
+            fi
+          fi
+          if ! aws cloudformation deploy \
             --region "$AWS_REGION" \
             --stack-name "$CONTINUUM_SANDBOX_STACK_NAME" \
             --template-file infra/aws/sandbox-provider-template.json \
@@ -71,7 +87,14 @@ jobs:
               Project=continuum-memory-firewall \
               Environment=sandbox \
               SourceHead="$GITHUB_SHA" \
-            --no-fail-on-empty-changeset
+            --no-fail-on-empty-changeset; then
+            aws cloudformation describe-stack-events \
+              --region "$AWS_REGION" \
+              --stack-name "$CONTINUUM_SANDBOX_STACK_NAME" \
+              --query 'StackEvents[?contains(ResourceStatus, `FAILED`)].{LogicalId:LogicalResourceId,Status:ResourceStatus,Reason:ResourceStatusReason}' \
+              --output table || true
+            exit 1
+          fi
       - name: Invoke adapter, replay, and receipt lookup
         env:
           PYTHONPATH: src

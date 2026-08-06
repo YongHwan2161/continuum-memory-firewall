@@ -167,7 +167,9 @@ class McpHostInfrastructureTests(unittest.TestCase):
         self.assertTrue(table["SSESpecification"]["SSEEnabled"])
         self.assertTrue(table["TimeToLiveSpecification"]["Enabled"])
         function = resources["SandboxProviderFunction"]["Properties"]
-        self.assertEqual(function["ReservedConcurrentExecutions"], 2)
+        self.assertNotIn("ReservedConcurrentExecutions", function)
+        self.assertEqual(function["MemorySize"], 128)
+        self.assertEqual(function["Timeout"], 10)
         role_policy = resources["SandboxProviderRole"]["Properties"]["Policies"][
             0
         ]["PolicyDocument"]["Statement"][0]
@@ -184,6 +186,9 @@ class McpHostInfrastructureTests(unittest.TestCase):
         self.assertIn('test "$GITHUB_REF" = "refs/heads/main"', workflow)
         self.assertIn("logical_effect_count == 1", workflow)
         self.assertIn("receipt_lookup_matched == true", workflow)
+        self.assertIn('stack_status" == "ROLLBACK_COMPLETE', workflow)
+        self.assertIn("wait stack-delete-complete", workflow)
+        self.assertIn("describe-stack-events", workflow)
 
     def test_bootstrap_waits_for_the_restarted_service(self):
         script = (ROOT / "scripts" / "bootstrap_mcp_host.sh").read_text(
