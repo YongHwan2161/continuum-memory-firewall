@@ -46,13 +46,14 @@ jobs:
           test -n "$package_bucket"
           test "$package_bucket" != "None"
           stage="$(mktemp -d)"
-          mkdir -p "$stage/continuum"
-          cp src/continuum/__init__.py "$stage/continuum/"
-          cp src/continuum/aws_sandbox_provider_handler.py "$stage/continuum/"
+          cp src/continuum/aws_sandbox_provider_handler.py "$stage/"
           (
             cd "$stage"
-            zip -q -r "$GITHUB_WORKSPACE/sandbox-provider.zip" continuum
+            zip -q "$GITHUB_WORKSPACE/sandbox-provider.zip" \
+              aws_sandbox_provider_handler.py
           )
+          test "$(unzip -Z1 sandbox-provider.zip)" = \
+            "aws_sandbox_provider_handler.py"
           key="sandbox-provider/${GITHUB_SHA}.zip"
           aws s3 cp sandbox-provider.zip "s3://${package_bucket}/${key}" --only-show-errors
           echo "CONTINUUM_PACKAGE_BUCKET=${package_bucket}" >> "$GITHUB_ENV"

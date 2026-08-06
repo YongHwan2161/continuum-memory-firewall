@@ -168,6 +168,9 @@ class McpHostInfrastructureTests(unittest.TestCase):
         self.assertTrue(table["TimeToLiveSpecification"]["Enabled"])
         function = resources["SandboxProviderFunction"]["Properties"]
         self.assertNotIn("ReservedConcurrentExecutions", function)
+        self.assertEqual(
+            function["Handler"], "aws_sandbox_provider_handler.handler"
+        )
         self.assertEqual(function["MemorySize"], 128)
         self.assertEqual(function["Timeout"], 10)
         role_policy = resources["SandboxProviderRole"]["Properties"]["Policies"][
@@ -189,6 +192,11 @@ class McpHostInfrastructureTests(unittest.TestCase):
         self.assertIn('stack_status" == "ROLLBACK_COMPLETE', workflow)
         self.assertIn("wait stack-delete-complete", workflow)
         self.assertIn("describe-stack-events", workflow)
+        self.assertIn(
+            'test "$(unzip -Z1 sandbox-provider.zip)" =',
+            workflow,
+        )
+        self.assertNotIn("cp src/continuum/__init__.py", workflow)
 
     def test_bootstrap_waits_for_the_restarted_service(self):
         script = (ROOT / "scripts" / "bootstrap_mcp_host.sh").read_text(
