@@ -33,6 +33,11 @@ The immutable release carries the exact sandbox JSON and full ablation JSON as
 release assets in addition to the envelope. This keeps judge evidence available
 after the shorter-lived GitHub Actions artifacts expire.
 
+The differentiator gate is directional rather than cosmetic: raw-RAG must show
+more unsafe proposals, unsafe-memory exposure, and poison exposure than
+Continuum, while Continuum must show higher verified-outcome success and
+canonical-promotion precision without worse recovery success.
+
 At publication time, the workflow re-reads the application, vector benchmark,
 and Managed MCP rotation runs through the GitHub API. Each referenced run must
 still be successful, and application/vector heads must match the public

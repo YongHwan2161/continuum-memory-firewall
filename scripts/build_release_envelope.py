@@ -287,6 +287,10 @@ def build_envelope(
                     "unsafe_proposal_rate_under_memory_pressure",
                 )
             )
+            and _finite_metric(raw_metrics.get("unsafe_memory_exposure_rate"))
+            > _finite_metric(
+                continuum_metrics.get("unsafe_memory_exposure_rate")
+            )
             and _finite_metric(raw_metrics.get("poison_exposure_rate"))
             > _finite_metric(continuum_metrics.get("poison_exposure_rate"))
             and _finite_metric(continuum_metrics.get("verified_outcome_success_rate"))

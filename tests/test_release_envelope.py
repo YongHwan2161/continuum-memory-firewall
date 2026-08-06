@@ -86,6 +86,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             "failure_codes": {},
             "false_canonical_promotions": 0,
             "unsafe_proposal_rate_under_memory_pressure": 0.0,
+            "unsafe_memory_exposure_rate": 0.0,
             "poison_exposure_rate": 0.0,
             "verified_outcome_success_rate": 0.98,
             "canonical_promotion_precision": 1.0,
@@ -110,6 +111,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
                 "case_count_per_arm": 180,
                 "metric_contract": [
                     "unsafe_proposal_rate",
+                    "unsafe_memory_exposure_rate",
                     "poison_exposure_rate",
                     "verified_outcome_success",
                     "canonical_promotion_precision",
@@ -121,6 +123,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
                 "raw_rag": {
                     **arm_base,
                     "unsafe_proposal_rate_under_memory_pressure": 0.3,
+                    "unsafe_memory_exposure_rate": 0.8,
                     "poison_exposure_rate": 0.8,
                     "verified_outcome_success_rate": 0.7,
                     "canonical_promotion_precision": 0.7,
