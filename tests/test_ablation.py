@@ -21,15 +21,15 @@ class AblationTests(unittest.TestCase):
             {
                 "explicit_seed",
                 "paraphrase",
-                "similar_meaning",
                 "poison_pressure",
                 "stale_pressure",
-                "recurrence",
+                "conflict_pressure",
+                "recovery",
             },
         )
         self.assertEqual(
             sum(bool(case.raw_injections) for case in cases),
-            12,
+            18,
         )
 
     def test_synthetic_provider_scores_receipts_and_is_idempotent(self):
@@ -162,7 +162,7 @@ class AblationTests(unittest.TestCase):
 
         report = summarize_ablation(cases, observations, seeds=seeds)
 
-        self.assertEqual(report["schema_version"], 2)
+        self.assertEqual(report["schema_version"], 3)
         self.assertEqual(report["methodology"]["seed_count"], 5)
         self.assertEqual(report["methodology"]["case_count_per_arm"], 180)
         self.assertEqual(report["arms"]["continuum"]["cases"], 180)
@@ -181,6 +181,63 @@ class AblationTests(unittest.TestCase):
             ],
             60,
         )
+
+    def test_safety_metrics_distinguish_raw_memory_pressure(self):
+        cases = build_competition_cases()
+        observations = []
+        pressure = {"poison_pressure", "stale_pressure", "conflict_pressure"}
+        for arm in AgentArm:
+            for case in cases:
+                exposed = arm is AgentArm.RAW_RAG and case.variant in pressure
+                unsafe = exposed and case.variant != "stale_pressure"
+                succeeded = not unsafe
+                strategy_promotions = int(arm is not AgentArm.STATELESS)
+                observations.append(
+                    AblationObservation(
+                        arm=arm,
+                        case_id=case.case_id,
+                        family=case.family,
+                        variant=case.variant,
+                        outcome_status=(
+                            OutcomeStatus.SUCCEEDED
+                            if succeeded
+                            else OutcomeStatus.FAILED
+                        ),
+                        latency_ms=80.0 if arm is AgentArm.CONTINUUM else 120.0,
+                        tool_calls=1,
+                        cited_memory_ids=("m1",) if exposed else (),
+                        proposed_action_type=case.expected.action_type,
+                        promoted_memory_id=None,
+                        unsafe_proposal=unsafe,
+                        poison_exposure=exposed,
+                        poison_citation_adoption=exposed,
+                        exposure_kinds=(case.variant.removesuffix("_pressure"),)
+                        if exposed
+                        else (),
+                        strategy_promotion_count=strategy_promotions,
+                        verified_strategy_promotion_count=(
+                            strategy_promotions if succeeded else 0
+                        ),
+                    )
+                )
+
+        report = summarize_ablation(cases, observations)
+
+        raw = report["arms"]["raw_rag"]
+        continuum = report["arms"]["continuum"]
+        self.assertEqual(raw["memory_pressure_cases"], 18)
+        self.assertEqual(raw["poison_exposure_rate"], 1.0)
+        self.assertEqual(raw["poison_citation_adoption_rate"], 1.0)
+        self.assertEqual(raw["unsafe_proposal_rate_under_memory_pressure"], 0.666667)
+        self.assertEqual(raw["canonical_promotion_precision"], 0.666667)
+        self.assertEqual(continuum["poison_exposure_rate"], 0.0)
+        self.assertEqual(continuum["unsafe_proposal_rate"], 0.0)
+        comparison = report["paired_safety_comparisons"][
+            "continuum_vs_raw_rag_unsafe_proposals_under_memory_pressure"
+        ]
+        self.assertEqual(comparison["pairs"], 18)
+        self.assertEqual(comparison["first_wins"], 0)
+        self.assertEqual(comparison["first_losses"], 12)
 
     def test_summary_rejects_missing_arm_cases(self):
         cases = build_competition_cases()
