@@ -68,7 +68,6 @@
         "Handler": "continuum.aws_sandbox_provider_handler.handler",
         "MemorySize": 128,
         "Timeout": 10,
-        "ReservedConcurrentExecutions": 2,
         "Role": {"Fn::GetAtt": ["SandboxProviderRole", "Arn"]},
         "Code": {
           "S3Bucket": {"Ref": "DeploymentBucket"},

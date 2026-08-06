@@ -30,3 +30,13 @@ table, calls send twice with one key, looks up the receipt, and retains a
 private evidence artifact proving two requests, one logical effect, and one
 receipt. The retained stack is a low-volume hackathon sandbox, not a claim that
 an arbitrary external provider implements the same guarantees.
+
+The Lambda uses 128 MB and a 10-second timeout. It intentionally does not set
+reserved concurrency: small AWS accounts must retain at least ten unreserved
+executions, so reserving even one slot can make an otherwise safe stack
+undeployable. The proof workflow itself is single-flight and invokes the
+function synchronously; the DynamoDB conditional write is the authority for
+one logical effect under replay. A prior `ROLLBACK_COMPLETE` proof stack is
+deleted before redeployment, and a failed deployment emits bounded failed
+resource events so quota and template failures remain diagnosable without a
+root session.
