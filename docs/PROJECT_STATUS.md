@@ -1,12 +1,12 @@
 # Project status
 
-**Status date:** 2026-08-02
+**Status date:** 2026-08-07
 **Current milestone:** P2C — authenticated managed-cloud slice submitted; iterative hardening open
 **Overall state:** the local promotion-to-retrieval vertical slice and repository
 MCP contract are implemented and tested. A private, cost-bounded AWS Lambda
 worker is deployed and has completed two live read-only CockroachDB Cloud
 Managed MCP calls while rejecting a write tool before credential access. The
-participant cluster is at migration version 30. A verified caller resolves
+participant cluster is at migration version 31. A verified caller resolves
 through an audited, versioned database binding to a matching NOBYPASSRLS SQL
 identity; database-native row policies enforce the same tenant and incident
 scope. The public `/mcp` endpoint accepts only five-minute Cognito
@@ -14,9 +14,12 @@ client-credentials tokens and uses Bedrock Titan Text Embeddings v2. A
 60-query, six-variant live evaluation measured Recall@1/3/5 =
 0.8667/0.9833/1.0, zero cross-scope leakage, and p50/p95 =
 248.149/279.012 ms. Remote search/fetch and direct cross-scope denial passed.
-The participant cluster also completed a 36-case-per-arm Bedrock experiment:
-provider-receipt success was 25.0% stateless, 55.6% raw-RAG, and 58.3%
-Continuum, with zero leakage and zero false canonical promotions. Crash
+The participant cluster also completed a five-replication, 180-case-per-arm
+Bedrock experiment: provider-receipt success was 33.3% stateless, 96.1%
+raw-RAG, and 93.9% Continuum, with zero leakage and zero false canonical
+promotions. Continuum's +60.556 percentage-point paired lift over stateless was
+clear, while its -2.222 point difference from raw-RAG was statistically
+unresolved. Crash
 injection proved idempotent reconciliation with zero duplicate effects and an
 explicit non-idempotent `ambiguous` terminal state.
 The Devpost entry is submitted to the CockroachDB x AWS hackathon as submission
@@ -35,12 +38,12 @@ evidence, and explicit non-claims.
 | Idempotent replay | Implemented | Replaying the same source event returns the existing canonical record without duplication |
 | Serializable retry handling | Implemented | SQLSTATE `40001` is retried at the transaction boundary; unit tests exercise retry and exhaustion |
 | Concurrent action claim | Implemented | Two concurrent workers produce one `CLAIMED` result and one `DUPLICATE` result |
-| CockroachDB schema migrations | Implemented, integration-tested, and live at v30 | Thirty packaged single-statement migrations include `VECTOR(512)`, the complete vector prefix, tenant/control-plane RLS, the four-table episode contract, approval/receipt integrity, and the transactional outbox; CI verifies initial apply and replay |
+| CockroachDB schema migrations | Implemented, integration-tested, and live at v31 | Thirty-one packaged single-statement migrations include `VECTOR(512)`, the complete vector prefix, tenant/control-plane RLS, the four-table episode contract, approval/receipt integrity, and the transactional outbox; CI verifies initial apply and replay |
 | Migration integrity and recovery | Implemented and integration-tested | SHA-256 history rejects drift and gaps; durable pre-DDL intent resumes the DDL/history crash gap; a renewable lease excludes a second owner; `XXA00` fails closed |
 | Existing-schema adoption | Implemented and fail-closed | Unmanaged tables are refused by default; explicit adoption validates required columns, indexes, and composite scope foreign keys |
 | Semantic live-DB evaluation | Live-smoked on participant CockroachDB Cloud | Titan v2 ran 60 adversarial and similar-meaning queries across six variant classes; Recall@1/3/5 = 0.8667/0.9833/1.0, zero forbidden-scope rows, p50 = 248.149 ms, p95 = 279.012 ms |
 | Bedrock episode contract | Implemented, integration-tested, and live-evaluated | Durable runs, frozen citations, allowlisted proposals, verified outcomes, and server-owned scope are coupled to a phased `search -> optional fetch -> proposal` tool contract; rejected runs retain bounded failure codes and progress |
-| Outcome-gated three-arm ablation | 36 identical cases per arm completed live | Provider-receipt success: stateless 9/36, raw-RAG 20/36, Continuum 21/36; Continuum beat stateless in the paired comparison but its 3-win/2-loss result versus raw-RAG is statistically unresolved; leakage and false promotions remained zero |
+| Outcome-gated three-arm ablation | 180 identical paired cases per arm completed live | Five isolated replications of 36 cases produced 540 observations. Provider-receipt success: stateless 60/180, raw-RAG 173/180, Continuum 169/180. Continuum beat stateless by 60.556 points (cluster-bootstrap 95% +41.111 to +78.333), while Continuum versus raw-RAG was -2.222 points (95% -9.444 to +4.444, p=0.480682); leakage, false promotions, and ambiguous outcomes remained zero |
 | Transactional outbox | Implemented, integration-tested, and participant-cluster fault-smoked | Before-send, idempotent after-send, and before-ack crashes converged to one logical effect and zero duplicates; a non-idempotent after-send crash became `ambiguous`, was not resent, and did not promote memory |
 | Tenant and incident integrity | Implemented | Composite foreign keys and query predicates bind candidates, canonical memory, actions, and retrieval audit to the same scope |
 | Vector write and retrieval | Implemented and participant-cluster live-smoked | Deterministic local embeddings remain for tests; the live deployment uses `amazon.titan-embed-text-v2:0` with 512 dimensions and mandatory tenant/incident scope |
@@ -53,14 +56,15 @@ evidence, and explicit non-claims.
 | AWS Managed MCP worker | Deployed and live-smoked | Private direct-invoke Lambda returned `ok: true` for `list_databases` and `list_tables`; `insert_rows` returned `INVALID_REQUEST` before secret access |
 | AWS infrastructure and package | Deployed and verified | Budget, private Lambda, and authenticated-MCP stacks are complete. The EC2 host has no SSH, requires IMDSv2, reads one runtime secret and one exact S3 object, verifies a deterministic artifact hash, and is managed through SSM |
 | Reviewer experience | Deployed public simulation and read-only verifier | GitHub Pages opens without login; `verify.html` checks the public exact-head workflow, 60-query metrics, MCP health, Devpost receipt, RLS, control plane, bounded pools, and vector-index contract using HTTP GET only |
-| Live CockroachDB Cloud | Migrated, semantically evaluated, RLS-confined, and egress-restricted | Migration version 30 is current; all visible rows in each protected table matched the caller scope; the allowlist contains only the AWS Elastic IP `/32` |
+| Live CockroachDB Cloud | Migrated, semantically evaluated, RLS-confined, and egress-restricted | Migration version 31 is current; all visible rows in each protected table matched the caller scope; the allowlist contains only the AWS Elastic IP `/32` |
 | Public MCP endpoint | Deployed and cross-scope-smoked | `https://47-131-98-12.sslip.io/mcp` has valid TLS, health `200`, missing auth `401`, five-minute OIDC, allowed search/fetch PASS, hidden forbidden memory, and cross-scope fetch denial |
 | CockroachDB Managed MCP | Live read-only evidence and guarded v3 rotation complete | Run `30709230016` replaced the AWS secret, waited beyond the five-minute cache bound, passed `list_databases` and `list_tables`, and retained pre-secret write denial; the v2 provider key and temporary GitHub secret were then deleted |
 | AWS service use | Live deployment evidenced | Lambda, EC2, Elastic IP, SSM, Secrets Manager, S3, CloudWatch Logs, CloudFormation, Cognito, Bedrock, IAM OIDC, and AWS Budgets are active; the USD 10 budget retains forecast-at-80% and actual-at-100% email alerts |
-| AWS deployment authority | Keyless dedicated role | GitHub Actions assumes `continuum-hackathon-deployer` through an immutable numeric OIDC subject for this repository branch. Sessions last at most one hour; explicit denies block self-modification and bootstrap-stack mutation; the AWS Root console session is logged out |
+| AWS deployment authority | Keyless dedicated role | GitHub Actions assumes `continuum-hackathon-deployer` through the immutable numeric repository prefix plus the reviewed `continuum-production` environment; that environment admits only `main`. Sessions last at most one hour, explicit denies block self-modification and bootstrap-stack mutation, and negative dispatches fail at role assumption |
+| AWS sandbox provider | Deployed and live-proven | Actual Lambda and encrypted DynamoDB implement an explicit idempotency/receipt-lookup manifest. Two sends with one key produced one logical effect, lookup returned the same receipt, and the staging artifact was removed in run `31112544426` |
 | External-effect crash semantics | Implemented for the bounded adapter contract; universal exactly-once not claimed | The durable outbox reconciles idempotent providers, reuses stored receipts before acknowledgement, and fails non-idempotent after-send uncertainty to `ambiguous` without blind resend |
 | Database connection and plan evidence | Implemented and live-verified | Lazy bounded pools use min 1/max 4 separately for the control-plane and scope SQL identities. Exact 10k/50k synthetic ground truth versus natural ANN proved the four-column prefix, vector-search operator, no full scan, zero foreign rows, and the full `1/32/128/512` Recall/latency curve |
-| Production security and resilience | Partial | Minimum IAM, audited caller-derived SQL identities, RLS, TLS, fixed egress, short-lived JWTs, bounded pools, semantic embeddings, negative-capability tests, and worker-crash reconciliation are live; a real provider adapter and multi-region failover are not complete |
+| Production security and resilience | Partial | Minimum IAM, audited caller-derived SQL identities, RLS, TLS, fixed egress, short-lived JWTs, bounded pools, semantic embeddings, negative-capability tests, worker-crash reconciliation, and an actual non-effecting AWS sandbox adapter are live; a production remediation provider and multi-region failover are not complete |
 
 ## Evidence
 
@@ -134,6 +138,12 @@ evidence, and explicit non-claims.
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30755531853>
 - Outbox fault-injection workflow:
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30754765994>
+- Main-only OIDC, actual AWS sandbox, and five-replication ablation evidence:
+  [2026-08-07-main-oidc-sandbox-five-seed-ablation.md](evidence/2026-08-07-main-oidc-sandbox-five-seed-ablation.md)
+- Actual AWS sandbox provider proof:
+  <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31112544426>
+- Five-replication 540-observation live ablation:
+  <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31112753421>
 
 `main` is the authoritative code. The linked workflows cover the reviewed P2B
 and migration implementation commits; the pull request records final-head
@@ -174,9 +184,9 @@ boundary:
     provider idempotency or durable receipts, while unknowable non-idempotent
     after-send outcomes stop as `ambiguous` without blind resend.
 
-These guarantees apply to the repository code, participant database, and the
-bounded synthetic provider used by the live fault/evaluation workflows. They do
-not establish production behavior for an unimplemented real provider adapter.
+These guarantees apply to the repository code, participant database, synthetic
+evaluation verifier, and non-effecting AWS sandbox provider. They do not
+establish production behavior for a remediation provider.
 
 ## Immediate participant focus
 
@@ -185,17 +195,18 @@ egress, authenticated remote MCP, and Devpost submission gates are closed. The
 highest-value work before the submission deadline is:
 
 1. **Protect the judge path:** keep the demo, authenticated MCP, fixed egress,
-   OIDC branch subject, and public video live; recheck them before material
+   main-only OIDC environment, and public video live; recheck them before material
    submission edits.
-2. **Make the measured agent behavior judge-visible:** align proposal parameter
-   schemas with the action policy, rerun a larger multi-seed paired ablation,
-   then expose a read-only episode/citation/outcome page.
+2. **Make the measured agent behavior judge-visible:** expose a read-only
+   episode/citation/outcome page and a judge-facing aggregate view of the
+   completed five-replication ablation.
 3. **Bind the release:** publish the reviewed public demo, current video,
    deployment, RLS/control-plane checksums, vector report, key rotation, and
    Devpost receipt as one immutable GitHub release envelope.
-4. **Harden beyond the competition slice:** add a sandbox provider adapter with
-   an explicit idempotency capability manifest, scheduled provider-key
-   retirement, and multi-region failover.
+4. **Prove the product differentiator:** add paired stale/poison/conflict cases
+   whose unsafe raw-memory failure is measurable, retain identical labels and
+   provider verification, and show Continuum safety/outcome lift without
+   relaxing fail-closed citation enforcement.
 
 The exact commands and stop conditions are in
 [CLOUD_DEPLOYMENT_RUNBOOK.md](CLOUD_DEPLOYMENT_RUNBOOK.md).
@@ -210,11 +221,12 @@ The exact commands and stop conditions are in
 - The 60-query semantic suite and 10k/50k random-vector benchmark are meaningful
   competition evidence but are not a statistically broad production workload.
   “First pass” includes a fresh SQL connection, not a server cache flush.
-- The 36-case agent ablation uses a synthetic non-effecting provider. Continuum
-  beat stateless, but its 21/36 versus raw-RAG 20/36 result is statistically
-  unresolved. Both cache families failed in every arm; all 12 Continuum cache
-  proposals exceeded the parameter contract, identifying schema alignment as
-  an availability bottleneck rather than relaxing the fail-closed policy.
+- The five-replication agent ablation uses a synthetic non-effecting provider.
+  Continuum beat stateless by 60.556 percentage points, but its 169/180 versus
+  raw-RAG 173/180 result is statistically unresolved. All 11 Continuum and all
+  7 raw-RAG failures cited memory outside the server-returned search set,
+  identifying retrieval/proposal grounding as an availability bottleneck
+  rather than grounds to relax the fail-closed policy.
 - The outbox proof establishes safe reconciliation for a bounded provider
   contract. A production provider must declare idempotency and receipt-lookup
   capabilities before it may use the automatic retry path.
@@ -223,6 +235,7 @@ The exact commands and stop conditions are in
 - The Devpost entry is submitted and editable while submissions remain open.
   Material edits must be followed by a fresh judge-path check and confirmation
   that the submission card still reports `Submitted`.
-- The OIDC trust is deliberately restricted to the current feature branch.
-  Preserve that branch through judging or bootstrap a separately reviewed
-  immutable `main` subject before deleting it.
+- The OIDC trust is restricted to the reviewed `continuum-production`
+  environment, and that environment's deployment branch policy admits only
+  `main`. Changing either side requires a fresh positive and negative identity
+  proof.
