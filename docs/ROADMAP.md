@@ -99,12 +99,13 @@ with paired stale/poison/conflict pressure. Continuum produced 180/180 verified
 outcomes versus raw-RAG 95/180 (+47.222 points; paired cluster-bootstrap 95% CI
 +30.556 to +63.889), zero unsafe proposals, zero poison exposure, zero leakage,
 and zero false promotion. The outcome-first 100.918-second public video and
-Devpost version 14, release-envelope v6, and the exact-head 180-case
+Devpost version 14, release-envelope v8 with one network-visible Sigstore
+attestation, and the exact-head 180-case
 per-episode paired judge drill-down are complete. The drill-down is generated
 from the same 540-observation live artifact and binds every search, issued
 handle fingerprint, typed proposal, provider outcome, and promotion decision.
 The remaining evidence priority is outcome-weighted recovery latency and
-judge-path burn-in through the evaluation window.
+signed judge-path burn-in through the evaluation window.
 
 Implement:
 

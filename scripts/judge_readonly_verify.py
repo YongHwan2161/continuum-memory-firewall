@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import re
@@ -129,7 +130,7 @@ def verify_evidence(
             and runtime["control_plane_and_migrator_role_options_empty"] is True
         ),
         "representative_scale_gate": (
-            schema_version in {4, 5, 6}
+            schema_version in {4, 5, 6, 7}
             and scale_report.get("gate", {}).get("status") == "PASS"
             and [scale.get("row_count") for scale in scales] == [10_000, 50_000]
         ),
@@ -217,6 +218,52 @@ def verify_evidence(
             ).hexdigest()
             drilldown_asset = release_assets.get(
                 release_reference["drilldown_asset_name"],
+                {},
+            )
+        network_reference: dict[str, Any] = {}
+        signature_bundle_asset: dict[str, Any] = {}
+        signature_bundle_sha = ""
+        signature_bundle: dict[str, Any] = {}
+        signature_statement: dict[str, Any] = {}
+        network_attestations: list[Any] = []
+        if schema_version >= 7:
+            network_reference = evidence["network_sign_once"]
+            envelope_digest = str(
+                envelope_asset.get("digest", "")
+            ).removeprefix("sha256:")
+            attestation_url = str(
+                network_reference["attestation_api_template"]
+            ).replace("{digest}", envelope_digest)
+            network_index = fetch_json(attestation_url)
+            network_attestations = network_index.get("attestations", [])
+            if not isinstance(network_attestations, list):
+                network_attestations = []
+            signature_bundle_bytes = fetch_bytes(
+                network_reference["bundle_public_url"]
+            )
+            signature_bundle_sha = hashlib.sha256(
+                signature_bundle_bytes
+            ).hexdigest()
+            lines = [
+                line
+                for line in signature_bundle_bytes.decode("utf-8").splitlines()
+                if line.strip()
+            ]
+            if len(lines) == 1:
+                parsed_bundle = json.loads(lines[0])
+                if isinstance(parsed_bundle, dict):
+                    signature_bundle = parsed_bundle
+                    payload = base64.b64decode(
+                        signature_bundle.get("dsseEnvelope", {}).get(
+                            "payload", ""
+                        ),
+                        validate=True,
+                    )
+                    parsed_statement = json.loads(payload)
+                    if isinstance(parsed_statement, dict):
+                        signature_statement = parsed_statement
+            signature_bundle_asset = release_assets.get(
+                network_reference["bundle_asset_name"],
                 {},
             )
         grounding_code = (
@@ -334,6 +381,14 @@ def verify_evidence(
                         or drilldown_asset.get("digest")
                         == "sha256:" + drilldown_reference["sha256"]
                     )
+                    and (
+                        schema_version < 7
+                        or (
+                            signature_bundle_asset.get("state") == "uploaded"
+                            and signature_bundle_asset.get("digest")
+                            == "sha256:" + signature_bundle_sha
+                        )
+                    )
                 ),
                 "release_envelope_gate": (
                     envelope.get("schema_version") == 2
@@ -354,6 +409,49 @@ def verify_evidence(
                     == envelope.get("database_policy", {})
                     .get("rls", {})
                     .get("combined_sha256")
+                ),
+                "network_sign_once_subject_visible": (
+                    schema_version < 7
+                    or (
+                        network_reference.get("schema_version") == 1
+                        and network_reference.get(
+                            "required_attestation_count"
+                        )
+                        == 1
+                        and len(network_attestations) == 1
+                        and signature_bundle.get("mediaType")
+                        == "application/vnd.dev.sigstore.bundle.v0.3+json"
+                        and len(
+                            signature_bundle.get("verificationMaterial", {})
+                            .get("certificate", {})
+                            .get("rawBytes", "")
+                        )
+                        > 0
+                        and len(
+                            signature_bundle.get("verificationMaterial", {})
+                            .get("tlogEntries", [])
+                        )
+                        == 1
+                        and "rekor.sigstore.dev"
+                        in signature_bundle.get("verificationMaterial", {})
+                        .get("tlogEntries", [{}])[0]
+                        .get("inclusionProof", {})
+                        .get("checkpoint", {})
+                        .get("envelope", "")
+                        and signature_statement.get("predicateType")
+                        == network_reference.get("predicate_type")
+                        and signature_statement.get("subject")
+                        == [
+                            {
+                                "name": network_reference.get("subject_name"),
+                                "digest": {
+                                    "sha256": str(
+                                        envelope_asset.get("digest", "")
+                                    ).removeprefix("sha256:")
+                                },
+                            }
+                        ]
+                    )
                 ),
             }
         )

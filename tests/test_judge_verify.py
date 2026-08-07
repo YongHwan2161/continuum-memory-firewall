@@ -1,4 +1,5 @@
 import unittest
+import base64
 import hashlib
 import json
 from pathlib import Path
@@ -139,11 +140,11 @@ class JudgeVerificationTests(unittest.TestCase):
         self.assertFalse(report["ok"])
         self.assertFalse(report["checks"]["workflow_head_matches"])
 
-    def test_schema_six_binds_drilldown_ablation_sandbox_and_release(self):
+    def test_schema_seven_binds_network_signature_and_release(self):
         candidate = "d" * 40
         sandbox_report_sha = "b" * 64
         ablation_report_sha = "c" * 64
-        self.evidence["schema_version"] = 6
+        self.evidence["schema_version"] = 7
         self.evidence["source"].update(
             {
                 "deployment_head_sha": candidate,
@@ -198,6 +199,60 @@ class JudgeVerificationTests(unittest.TestCase):
             "sandbox_asset_url": "https://demo.example.test/sandbox.json",
             "ablation_asset_name": "agent-ablation-v3.json",
             "drilldown_asset_name": "episode-drilldown-v1.json",
+        }
+        attestation_url = (
+            "https://api.example.test/attestations/sha256:" + "e" * 64
+        )
+        bundle_url = "https://demo.example.test/envelope.sigstore.jsonl"
+        statement = {
+            "_type": "https://in-toto.io/Statement/v1",
+            "subject": [
+                {
+                    "name": "continuum-release-envelope-v2.json",
+                    "digest": {"sha256": "e" * 64},
+                }
+            ],
+            "predicateType": "https://slsa.dev/provenance/v1",
+            "predicate": {},
+        }
+        signature_bundle = {
+            "mediaType": "application/vnd.dev.sigstore.bundle.v0.3+json",
+            "verificationMaterial": {
+                "certificate": {"rawBytes": "certificate"},
+                "tlogEntries": [
+                    {
+                        "inclusionProof": {
+                            "checkpoint": {
+                                "envelope": "rekor.sigstore.dev checkpoint"
+                            }
+                        }
+                    }
+                ],
+            },
+            "dsseEnvelope": {
+                "payload": base64.b64encode(
+                    json.dumps(statement).encode()
+                ).decode(),
+                "payloadType": "application/vnd.in-toto+json",
+                "signatures": [{"sig": "signature"}],
+            },
+        }
+        signature_bundle_bytes = (
+            json.dumps(signature_bundle, separators=(",", ":")) + "\n"
+        ).encode()
+        signature_bundle_sha = hashlib.sha256(signature_bundle_bytes).hexdigest()
+        self.evidence["network_sign_once"] = {
+            "schema_version": 1,
+            "attestation_api_template": (
+                "https://api.example.test/attestations/sha256:{digest}"
+            ),
+            "bundle_public_url": bundle_url,
+            "bundle_asset_name": (
+                "continuum-release-envelope-v2.sigstore.jsonl"
+            ),
+            "subject_name": "continuum-release-envelope-v2.json",
+            "predicate_type": "https://slsa.dev/provenance/v1",
+            "required_attestation_count": 1,
         }
         self.evidence["database_policy"] = {
             "rls_combined_sha256": "f" * 64,
@@ -274,12 +329,17 @@ class JudgeVerificationTests(unittest.TestCase):
                         "digest": "sha256:"
                         + hashlib.sha256(drilldown_bytes).hexdigest(),
                     },
+                    {
+                        "name": "continuum-release-envelope-v2.sigstore.jsonl",
+                        "state": "uploaded",
+                        "digest": "sha256:" + signature_bundle_sha,
+                    },
                 ],
             },
             self.evidence["release_envelope"]["asset_url"]: {
                 "schema_version": 2,
                 "lineage": {"candidate_runtime_sha": candidate},
-                "public_judge_evidence": {"schema_version": 6},
+                "public_judge_evidence": {"schema_version": 7},
                 "database_policy": {
                     "rls": {"combined_sha256": "f" * 64},
                 },
@@ -294,6 +354,7 @@ class JudgeVerificationTests(unittest.TestCase):
                     "receipt_lookup": True,
                 },
             },
+            attestation_url: {"attestations": [{"bundle_url": "https://sig.test/1"}]},
         }
 
         def fetch(url):
@@ -308,6 +369,8 @@ class JudgeVerificationTests(unittest.TestCase):
             fetch_bytes=lambda url: (
                 drilldown_bytes
                 if url == self.evidence["episode_drilldown"]["public_url"]
+                else signature_bundle_bytes
+                if url == bundle_url
                 else b""
             ),
         )
@@ -315,6 +378,7 @@ class JudgeVerificationTests(unittest.TestCase):
         self.assertTrue(report["checks"]["paired_memory_policy_differentiates"])
         self.assertTrue(report["checks"]["immutable_release_assets"])
         self.assertTrue(report["checks"]["episode_drilldown_projection"])
+        self.assertTrue(report["checks"]["network_sign_once_subject_visible"])
 
         ablation["arms"]["raw_rag"]["failure_codes"] = {
             "ORCHESTRATION_PROPOSAL_CITES_A_HANDLE_NOT_ISSUED_BY_SEARCH": 1
@@ -326,6 +390,8 @@ class JudgeVerificationTests(unittest.TestCase):
             fetch_bytes=lambda url: (
                 drilldown_bytes
                 if url == self.evidence["episode_drilldown"]["public_url"]
+                else signature_bundle_bytes
+                if url == bundle_url
                 else b""
             ),
         )

@@ -149,6 +149,15 @@ receives a token or database credential. The executable database evidence is
 the integration suite and linked exact-head workflows in
 [Project Status](docs/PROJECT_STATUS.md).
 
+The v8 release envelope is signed exactly once in the same main-only workflow
+that publishes it. Its Fulcio/Rekor Sigstore bundle is an immutable release
+asset and a byte-identical Pages resource. Perform strict cryptographic policy
+verification with:
+
+```bash
+python scripts/verify_network_sign_once.py --release-tag hackathon-v8
+```
+
 The redacted private-worker deployment proof is recorded in
 [Live AWS and Managed MCP evidence](docs/evidence/2026-07-31-cloud-live-smoke.md).
 The redacted participant-cluster migration and vector proof is recorded in

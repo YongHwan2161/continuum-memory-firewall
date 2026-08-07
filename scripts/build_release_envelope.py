@@ -35,6 +35,7 @@ ENVELOPE_ASSET = "continuum-release-envelope-v2.json"
 SANDBOX_ASSET = "sandbox-provider-proof.json"
 ABLATION_ASSET = "agent-ablation-v3.json"
 DRILLDOWN_ASSET = "episode-drilldown-v1.json"
+SIGNATURE_BUNDLE_ASSET = "continuum-release-envelope-v2.sigstore.jsonl"
 
 
 def build_public_ablation_aggregate(
@@ -136,8 +137,8 @@ def build_envelope(
     release_tag: str,
     generated_at: str | None = None,
 ) -> dict[str, Any]:
-    if judge.get("schema_version") != 6:
-        raise RuntimeError("judge evidence schema 6 is required")
+    if judge.get("schema_version") != 7:
+        raise RuntimeError("judge evidence schema 7 is required")
     if not SHA_PATTERN.fullmatch(commit_sha):
         raise RuntimeError("release commit must be a full lowercase SHA")
     if workflow_run_id < 1 or not workflow_url.startswith("https://github.com/"):
@@ -157,6 +158,7 @@ def build_envelope(
     drilldown_reference = judge["episode_drilldown"]
     database_policy_reference = judge["database_policy"]
     release_reference = judge["release_envelope"]
+    network_sign_once = judge["network_sign_once"]
     scales = scale.get("scales", [])
     beams = [beam for item in scales for beam in item.get("beams", [])]
     beam_grid = [
@@ -436,6 +438,32 @@ def build_envelope(
                 f"{release_tag}/{DRILLDOWN_ASSET}"
             )
         ),
+        "network_sign_once_contract_bound": (
+            network_sign_once.get("schema_version") == 1
+            and network_sign_once.get("attestation_api_template")
+            == (
+                f"https://api.github.com/repos/{repository}/attestations/"
+                "sha256:{digest}"
+            )
+            and network_sign_once.get("bundle_public_url")
+            == (
+                judge["public_demo"]["url"].rstrip("/")
+                + f"/evidence/{SIGNATURE_BUNDLE_ASSET}"
+            )
+            and network_sign_once.get("bundle_asset_name")
+            == SIGNATURE_BUNDLE_ASSET
+            and network_sign_once.get("subject_name") == ENVELOPE_ASSET
+            and network_sign_once.get("predicate_type")
+            == "https://slsa.dev/provenance/v1"
+            and network_sign_once.get("signer_workflow")
+            == f"{repository}/.github/workflows/release-envelope.yml"
+            and network_sign_once.get("source_ref") == "refs/heads/main"
+            and network_sign_once.get("runner_environment")
+            == "github-hosted"
+            and network_sign_once.get("transparency_log")
+            == "https://rekor.sigstore.dev"
+            and network_sign_once.get("required_attestation_count") == 1
+        ),
         "key_rotation_retired_old_material": (
             int(managed.get("rotation_workflow_run_id", 0)) > 0
             and managed.get("read_tools") == ["list_databases", "list_tables"]
@@ -461,6 +489,10 @@ def build_envelope(
             "publication_contract": "GitHub immutable release; workflow verifies immutable=true after draft publication.",
             "assets": {
                 "envelope": release_reference["asset_url"],
+                "signature_bundle": (
+                    f"https://github.com/{repository}/releases/download/"
+                    f"{release_tag}/{SIGNATURE_BUNDLE_ASSET}"
+                ),
                 "sandbox_provider": release_reference["sandbox_asset_url"],
                 "agent_ablation": release_reference["ablation_asset_url"],
                 "episode_drilldown": release_reference[
@@ -577,6 +609,7 @@ def build_envelope(
             "schema_version": judge["schema_version"],
         },
         "public_release_reference": release_reference,
+        "network_sign_once": network_sign_once,
         "database_policy": {
             "rls": rls_receipt,
             "tenant_control_plane": control_plane_receipt,

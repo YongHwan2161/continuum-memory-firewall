@@ -24,6 +24,7 @@ ABLATION_PUBLIC_NAME = "agent-ablation-v3.json"
 EPISODE_DRILLDOWN_PUBLIC_NAME = "episode-drilldown-v1.json"
 ENVELOPE_ASSET_NAME = "continuum-release-envelope-v2.json"
 SANDBOX_ASSET_NAME = "sandbox-provider-proof.json"
+SIGNATURE_BUNDLE_ASSET_NAME = "continuum-release-envelope-v2.sigstore.jsonl"
 
 
 def _load_object(path: Path) -> tuple[dict[str, Any], bytes]:
@@ -132,7 +133,7 @@ def promote_release_v5_evidence(
     ablation_workflow_url = f"{repo_url}/actions/runs/{ablation_run_id}"
     sandbox_workflow_url = f"{repo_url}/actions/runs/{sandbox_run_id}"
 
-    judge["schema_version"] = 6
+    judge["schema_version"] = 7
     judge["generated_at"] = str(ablation["generated_at"])
     judge["claim_boundary"] = (
         "Read-only public verification of exact-head agent memory, 540 paired "
@@ -221,6 +222,25 @@ def promote_release_v5_evidence(
         ),
         "drilldown_asset_name": EPISODE_DRILLDOWN_PUBLIC_NAME,
     }
+    judge["network_sign_once"] = {
+        "schema_version": 1,
+        "attestation_api_template": (
+            f"{api_url}/attestations/sha256:{{digest}}"
+        ),
+        "bundle_public_url": (
+            f"{demo_base}/evidence/{SIGNATURE_BUNDLE_ASSET_NAME}"
+        ),
+        "bundle_asset_name": SIGNATURE_BUNDLE_ASSET_NAME,
+        "subject_name": ENVELOPE_ASSET_NAME,
+        "predicate_type": "https://slsa.dev/provenance/v1",
+        "signer_workflow": (
+            f"{repository}/.github/workflows/release-envelope.yml"
+        ),
+        "source_ref": "refs/heads/main",
+        "runner_environment": "github-hosted",
+        "transparency_log": "https://rekor.sigstore.dev",
+        "required_attestation_count": 1,
+    }
     _write_json(judge_path, judge)
     return judge
 
@@ -246,7 +266,7 @@ def main() -> None:
         "--repository",
         default="YongHwan2161/continuum-memory-firewall",
     )
-    parser.add_argument("--release-tag", default="hackathon-v7")
+    parser.add_argument("--release-tag", default="hackathon-v8")
     args = parser.parse_args()
     promote_release_v5_evidence(
         repo_root=args.repo_root.resolve(),
