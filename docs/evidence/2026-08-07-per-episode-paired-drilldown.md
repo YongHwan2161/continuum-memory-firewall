@@ -1,6 +1,6 @@
 # Per-episode paired drill-down evidence
 
-Date: 2026-08-07 18:03 KST  
+Date: 2026-08-07 18:03 KST
 Claim boundary: non-sensitive synthetic incidents, real Bedrock tool-calling,
 real participant CockroachDB episode storage/retrieval, and a non-effecting
 synthetic receipt provider. This is not a production remediation-provider test.
