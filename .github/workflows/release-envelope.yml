@@ -219,11 +219,25 @@ jobs:
           receipt=build/release/release-transaction-receipt.json
           if [ ! -f "$receipt" ]; then
             test "$TRANSACTION_MODE" != immutable
-            releases="$(gh api \
-              "repos/$GITHUB_REPOSITORY/releases?per_page=100")"
-            release="$(jq -c --arg tag "$RELEASE_TAG" \
-              '[.[] | select(.tag_name == $tag)] | if length == 1 then .[0] else error("release draft not unique") end' \
-              <<<"$releases")"
+            # A newly-created draft is not always immediately visible from the
+            # releases collection. Reconcile by the provider's stable identity
+            # tuple instead of assuming read-after-write consistency.
+            release=""
+            for attempt in $(seq 1 12); do
+              releases="$(gh api \
+                "repos/$GITHUB_REPOSITORY/releases?per_page=100")"
+              release="$(jq -c \
+                --arg tag "$RELEASE_TAG" \
+                --arg target "$GITHUB_SHA" \
+                '[.[] | select(.tag_name == $tag and .target_commitish == $target and .draft == true)] | if length == 0 then empty elif length == 1 then .[0] else error("duplicate matching release drafts") end' \
+                <<<"$releases")"
+              if [ -n "$release" ]; then break; fi
+              sleep 2
+            done
+            if [ -z "$release" ]; then
+              echo "matching release draft did not become visible" >&2
+              exit 1
+            fi
             python - <<'PY' >"$RUNNER_TEMP/release-transaction/expected-assets.json"
           import hashlib, json
           from pathlib import Path
