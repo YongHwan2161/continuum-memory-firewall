@@ -12,6 +12,8 @@ from scripts.build_release_envelope import (
     build_public_ablation_aggregate,
     repository_text_bytes,
 )
+from continuum.drilldown import build_public_episode_drilldown
+from tests.test_drilldown import EpisodeDrilldownTests
 
 
 class ReleaseEnvelopeTests(unittest.TestCase):
@@ -127,6 +129,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             "retained_for_judge_evidence": True,
             "seed_semantics": "paired isolated episode-state replications",
             "synthetic_non_effecting": True,
+            "episode_trace_schema_version": 1,
             "methodology": {
                 "case_count_per_arm": 180,
                 "metric_contract": [
@@ -168,7 +171,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
                 "recovery": 6,
                 "stale_pressure": 6,
             },
-            "observations": [{} for _ in range(540)],
+            "observations": EpisodeDrilldownTests.report()["observations"],
         }
         self.ablation_bytes = (
             json.dumps(self.ablation, sort_keys=True) + "\n"
@@ -177,10 +180,14 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         self.ablation_aggregate_bytes = (
             json.dumps(self.ablation_aggregate, sort_keys=True) + "\n"
         ).encode()
+        self.episode_drilldown = build_public_episode_drilldown(self.ablation)
+        self.episode_drilldown_bytes = (
+            json.dumps(self.episode_drilldown, sort_keys=True) + "\n"
+        ).encode()
         from scripts.build_release_envelope import sha256_bytes
 
         self.judge = {
-            "schema_version": 5,
+            "schema_version": 6,
             "source": {
                 "workflow_run_id": 10,
                 "workflow_attempt": 1,
@@ -250,6 +257,17 @@ class ReleaseEnvelopeTests(unittest.TestCase):
                 ),
                 "public_aggregate_url": "https://demo.example.test/evidence/ablation.json",
             },
+            "episode_drilldown": {
+                "schema_version": 1,
+                "source_head": "a" * 40,
+                "evaluation_id": "evaluation-1",
+                "public_url": "https://demo.example.test/evidence/episode-drilldown-v1.json",
+                "page_url": "https://demo.example.test/episodes.html",
+                "sha256": sha256_bytes(self.episode_drilldown_bytes),
+                "paired_episodes": 180,
+                "arm_observations": 540,
+                "continuum_advantage_episodes": 180,
+            },
             "database_policy": {
                 "rls_combined_sha256": _migration_receipt(
                     Path(__file__).parents[1],
@@ -275,6 +293,8 @@ class ReleaseEnvelopeTests(unittest.TestCase):
                 "sandbox_asset_name": "sandbox-provider-proof.json",
                 "ablation_asset_url": "https://github.com/o/r/releases/download/hackathon-v1/agent-ablation-v3.json",
                 "ablation_asset_name": "agent-ablation-v3.json",
+                "drilldown_asset_url": "https://github.com/o/r/releases/download/hackathon-v1/episode-drilldown-v1.json",
+                "drilldown_asset_name": "episode-drilldown-v1.json",
             },
             "public_demo": {
                 "url": "https://demo.example.test/",
@@ -292,12 +312,14 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             self.sandbox,
             self.ablation,
             self.ablation_aggregate,
+            self.episode_drilldown,
             judge_bytes=self.judge_bytes,
             scale_bytes=self.scale_bytes,
             pressure_bytes=self.pressure_bytes,
             sandbox_bytes=self.sandbox_bytes,
             ablation_bytes=self.ablation_bytes,
             ablation_aggregate_bytes=self.ablation_aggregate_bytes,
+            episode_drilldown_bytes=self.episode_drilldown_bytes,
             repo_root=Path(__file__).parents[1],
             repository="o/r",
             commit_sha="d" * 40,
@@ -325,6 +347,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             self.judge["sandbox_provider"]["report_sha256"],
         )
         self.assertEqual(envelope["agent_ablation"]["arms"]["continuum"]["cases"], 180)
+        self.assertEqual(envelope["episode_drilldown"]["population"]["paired_episodes"], 180)
 
     def test_scale_checksum_and_leakage_fail_closed(self) -> None:
         self.judge["vector_scale"]["report_sha256"] = "0" * 64

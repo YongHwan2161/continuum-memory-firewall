@@ -6,7 +6,7 @@ on:
       release_tag:
         description: Existing immutable release tag to attest
         required: true
-        default: hackathon-v6
+        default: hackathon-v7
 
 permissions:
   attestations: write

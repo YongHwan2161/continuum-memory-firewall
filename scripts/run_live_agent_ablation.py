@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timedelta, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -43,6 +44,10 @@ from continuum.store import (
 
 INITIAL_HEAD = "0" * 64
 DEFAULT_SEEDS = (101, 203, 307, 409, 503)
+
+
+def _sha256_text(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def _parse_seeds(value: str) -> tuple[int, ...]:
@@ -228,6 +233,7 @@ def main() -> None:
     )
 
     observations: list[AblationObservation] = []
+    episode_traces: list[dict[str, Any]] = []
     injection_kind_by_memory_id: dict[str, str] = {}
     for seed in args.seeds:
         for arm in AgentArm:
@@ -271,6 +277,8 @@ def main() -> None:
                 )
                 started = time.perf_counter_ns()
                 result = None
+                provider_outcome = None
+                outcome_result = None
                 promoted_memory_id = None
                 outcome_status = OutcomeStatus.FAILED
                 failure_code = None
@@ -408,6 +416,142 @@ def main() -> None:
                     if outcome_status is OutcomeStatus.SUCCEEDED
                     else 0
                 )
+                issued_bindings = (
+                    () if result is None else result.issued_citation_handles
+                )
+                handle_by_memory_id = {
+                    memory_id: handle for handle, memory_id in issued_bindings
+                }
+                issued_handle_sha256 = [
+                    _sha256_text(handle) for handle, _ in issued_bindings
+                ]
+                selected_handle_sha256 = [
+                    _sha256_text(handle)
+                    for handle in (
+                        () if result is None else result.selected_citation_handles
+                    )
+                ]
+                fetched_handle_sha256 = [
+                    _sha256_text(handle)
+                    for handle in (
+                        () if result is None else result.fetched_citation_handles
+                    )
+                ]
+                retrieved = []
+                if result is not None:
+                    for citation in result.citations:
+                        payload = dict(citation.payload)
+                        handle = handle_by_memory_id.get(citation.memory_id)
+                        retrieved.append(
+                            {
+                                "rank": citation.rank,
+                                "similarity": citation.similarity,
+                                "handle_sha256": (
+                                    None if handle is None else _sha256_text(handle)
+                                ),
+                                "summary": payload.get("summary"),
+                                "provenance": payload.get("provenance"),
+                                "threat_kind": payload.get("threat_kind"),
+                                "memory_type": payload.get("type"),
+                                "suggested_action": payload.get("proposed_action"),
+                            }
+                        )
+                proposal_trace = None
+                if result is not None and result.proposal is not None:
+                    proposal_trace = {
+                        "tool_name": f"propose_{result.proposal.action_type}",
+                        "action_type": result.proposal.action_type,
+                        "parameters": dict(result.proposal.parameters),
+                        "rationale": result.proposal.rationale,
+                        "risk_class": result.proposal.risk_class.value,
+                        "matches_expected": not unsafe_proposal,
+                    }
+                receipt_trace = None
+                if provider_outcome is not None and outcome_result is not None:
+                    if outcome_result.receipt_digest is None:
+                        raise RuntimeError("provider outcome has no receipt digest")
+                    receipt_trace = {
+                        "provider": provider_outcome.provider,
+                        "status": provider_outcome.status.value,
+                        "receipt_digest": outcome_result.receipt_digest,
+                        "receipt_id_sha256": _sha256_text(
+                            str(provider_outcome.provider_receipt_id)
+                        ),
+                        "verified": provider_outcome.verified_at is not None,
+                    }
+                if arm is AgentArm.STATELESS:
+                    promotion_strategy = "none"
+                    promotion_decision = "NOT_APPLICABLE"
+                elif arm is AgentArm.RAW_RAG:
+                    promotion_strategy = "append_all"
+                    promotion_decision = (
+                        "APPENDED_WITHOUT_OUTCOME_GATE"
+                        if strategy_promotion_count
+                        else "NO_PROPOSAL_TO_APPEND"
+                    )
+                else:
+                    promotion_strategy = "verified_outcome_gate"
+                    promotion_decision = (
+                        "PROMOTED_VERIFIED_OUTCOME"
+                        if strategy_promotion_count
+                        else "BLOCKED_UNVERIFIED_OUTCOME"
+                    )
+                episode_traces.append(
+                    {
+                        "arm": arm.value,
+                        "case_id": case.case_id,
+                        "family": case.family,
+                        "variant": case.variant,
+                        "seed": seed,
+                        "incident": {
+                            "symptom": case.incident.get("symptom"),
+                            "context": case.incident.get("context"),
+                            "service": case.incident.get("service"),
+                        },
+                        "expected_action": {
+                            "action_type": case.expected.action_type,
+                            "resource_field": case.expected.resource_field,
+                            "resource_value": case.expected.resource_value,
+                        },
+                        "outcome_status": outcome_status.value,
+                        "latency_ms": round(latency_ms, 3),
+                        "tool_calls": (
+                            failed_tool_calls if result is None else result.tool_calls
+                        ),
+                        "model_turns": (
+                            failed_model_turns if result is None else result.model_turns
+                        ),
+                        "failure_code": failure_code,
+                        "failure_cause": failure_cause,
+                        "unsafe_proposal": unsafe_proposal,
+                        "cross_scope_leak_count": int(forbidden_memory_id in cited),
+                        "retrieval": {
+                            "search_attempted": (
+                                None if result is None else result.search_attempted
+                            ),
+                            "results": retrieved,
+                            "issued_handle_sha256": issued_handle_sha256,
+                            "selected_handle_sha256": selected_handle_sha256,
+                            "fetched_handle_sha256": fetched_handle_sha256,
+                            "issued_only": (
+                                set(selected_handle_sha256).issubset(
+                                    issued_handle_sha256
+                                )
+                                and set(fetched_handle_sha256).issubset(
+                                    issued_handle_sha256
+                                )
+                            ),
+                        },
+                        "proposal": proposal_trace,
+                        "provider_receipt": receipt_trace,
+                        "promotion": {
+                            "strategy": promotion_strategy,
+                            "decision": promotion_decision,
+                            "promoted": bool(strategy_promotion_count),
+                            "verified": bool(verified_strategy_promotion_count),
+                        },
+                    }
+                )
                 observations.append(
                     AblationObservation(
                         arm=arm,
@@ -468,44 +612,10 @@ def main() -> None:
                 "does not expose a model RNG seed"
             ),
             "synthetic_non_effecting": True,
+            "episode_trace_schema_version": 1,
             "source_head": args.source_head,
             "deployment_artifact_sha256": args.deployment_artifact_sha256,
-            "observations": [
-                {
-                    "arm": row.arm.value,
-                    "case_id": row.case_id,
-                    "family": row.family,
-                    "variant": row.variant,
-                    "outcome_status": row.outcome_status.value,
-                    "latency_ms": round(row.latency_ms, 3),
-                    "tool_calls": row.tool_calls,
-                    "citation_count": len(row.cited_memory_ids),
-                    "proposed_action_type": row.proposed_action_type,
-                    "promoted": row.promoted_memory_id is not None,
-                    "cross_scope_leak_count": row.cross_scope_leak_count,
-                    "failure_code": row.failure_code,
-                    "failure_cause": row.failure_cause,
-                    "model_turns": row.model_turns,
-                    "seed": row.seed,
-                    "unsafe_proposal": row.unsafe_proposal,
-                    "unsafe_memory_exposure": row.unsafe_memory_exposure,
-                    "unsafe_memory_citation_adoption": (
-                        row.unsafe_memory_citation_adoption
-                    ),
-                    "poison_exposure": row.poison_exposure,
-                    "poison_citation_adoption": row.poison_citation_adoption,
-                    "exposure_kinds": list(row.exposure_kinds),
-                    "adopted_exposure_kinds": list(
-                        row.adopted_exposure_kinds
-                    ),
-                    "exposure_kinds": list(row.exposure_kinds),
-                    "strategy_promotion_count": row.strategy_promotion_count,
-                    "verified_strategy_promotion_count": (
-                        row.verified_strategy_promotion_count
-                    ),
-                }
-                for row in observations
-            ],
+            "observations": episode_traces,
         }
     )
     if any(count != 1 for count in provider.effect_count.values()):

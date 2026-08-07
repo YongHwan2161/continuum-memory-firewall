@@ -139,11 +139,11 @@ class JudgeVerificationTests(unittest.TestCase):
         self.assertFalse(report["ok"])
         self.assertFalse(report["checks"]["workflow_head_matches"])
 
-    def test_schema_five_binds_ablation_sandbox_and_release(self):
+    def test_schema_six_binds_drilldown_ablation_sandbox_and_release(self):
         candidate = "d" * 40
         sandbox_report_sha = "b" * 64
         ablation_report_sha = "c" * 64
-        self.evidence["schema_version"] = 5
+        self.evidence["schema_version"] = 6
         self.evidence["source"].update(
             {
                 "deployment_head_sha": candidate,
@@ -172,6 +172,23 @@ class JudgeVerificationTests(unittest.TestCase):
             "head_sha": candidate,
             "report_sha256": ablation_report_sha,
         }
+        drilldown = {
+            "schema_version": 1,
+            "source_head": candidate,
+            "evaluation_id": "evaluation-1",
+            "population": {"paired_episodes": 180, "arm_observations": 540},
+            "gate": {
+                "status": "PASS",
+                "private_identifier_keys_present": [],
+            },
+        }
+        drilldown_bytes = (json.dumps(drilldown) + "\n").encode()
+        self.evidence["episode_drilldown"] = {
+            "public_url": "https://demo.example.test/drilldown.json",
+            "sha256": hashlib.sha256(drilldown_bytes).hexdigest(),
+            "source_head": candidate,
+            "evaluation_id": "evaluation-1",
+        }
         self.evidence["release_envelope"] = {
             "tag": "hackathon-v5",
             "release_api_url": "https://api.example.test/release/v5",
@@ -180,6 +197,7 @@ class JudgeVerificationTests(unittest.TestCase):
             "sandbox_asset_name": "sandbox-provider-proof.json",
             "sandbox_asset_url": "https://demo.example.test/sandbox.json",
             "ablation_asset_name": "agent-ablation-v3.json",
+            "drilldown_asset_name": "episode-drilldown-v1.json",
         }
         self.evidence["database_policy"] = {
             "rls_combined_sha256": "f" * 64,
@@ -250,12 +268,18 @@ class JudgeVerificationTests(unittest.TestCase):
                         "state": "uploaded",
                         "digest": "sha256:" + ablation_report_sha,
                     },
+                    {
+                        "name": "episode-drilldown-v1.json",
+                        "state": "uploaded",
+                        "digest": "sha256:"
+                        + hashlib.sha256(drilldown_bytes).hexdigest(),
+                    },
                 ],
             },
             self.evidence["release_envelope"]["asset_url"]: {
                 "schema_version": 2,
                 "lineage": {"candidate_runtime_sha": candidate},
-                "public_judge_evidence": {"schema_version": 5},
+                "public_judge_evidence": {"schema_version": 6},
                 "database_policy": {
                     "rls": {"combined_sha256": "f" * 64},
                 },
@@ -281,10 +305,16 @@ class JudgeVerificationTests(unittest.TestCase):
             self.evidence,
             fetch_json=fetch,
             fetch_text=lambda _url: "Continuum Memory Firewall",
+            fetch_bytes=lambda url: (
+                drilldown_bytes
+                if url == self.evidence["episode_drilldown"]["public_url"]
+                else b""
+            ),
         )
         self.assertTrue(report["ok"])
         self.assertTrue(report["checks"]["paired_memory_policy_differentiates"])
         self.assertTrue(report["checks"]["immutable_release_assets"])
+        self.assertTrue(report["checks"]["episode_drilldown_projection"])
 
         ablation["arms"]["raw_rag"]["failure_codes"] = {
             "ORCHESTRATION_PROPOSAL_CITES_A_HANDLE_NOT_ISSUED_BY_SEARCH": 1
@@ -293,6 +323,11 @@ class JudgeVerificationTests(unittest.TestCase):
             self.evidence,
             fetch_json=fetch,
             fetch_text=lambda _url: "Continuum Memory Firewall",
+            fetch_bytes=lambda url: (
+                drilldown_bytes
+                if url == self.evidence["episode_drilldown"]["public_url"]
+                else b""
+            ),
         )
         self.assertFalse(tampered["ok"])
         self.assertFalse(tampered["checks"]["citation_handle_grounding"])

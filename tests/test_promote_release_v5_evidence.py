@@ -8,6 +8,7 @@ from scripts.promote_release_v5_evidence import (
     BASELINE_RUNTIME_SHA,
     promote_release_v5_evidence,
 )
+from tests.test_drilldown import EpisodeDrilldownTests
 
 
 class ReleaseV5EvidencePromotionTests(unittest.TestCase):
@@ -35,7 +36,8 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
             "paired_comparisons": {},
             "paired_safety_comparisons": {},
             "variant_counts": {},
-            "observations": [{} for _ in range(540)],
+            "episode_trace_schema_version": 1,
+            "observations": EpisodeDrilldownTests.report()["observations"],
         }
         self.sandbox = {
             "schema_version": 1,
@@ -55,6 +57,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
             report_path = root / "report.json"
             sandbox_path = root / "sandbox.json"
             aggregate_path = root / "aggregate.json"
+            drilldown_path = root / "drilldown.json"
             self._write(
                 judge_path,
                 {
@@ -74,6 +77,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
                 judge_path=judge_path,
                 ablation_report_path=report_path,
                 ablation_aggregate_path=aggregate_path,
+                episode_drilldown_path=drilldown_path,
                 ablation_run_id=101,
                 ablation_run_attempt=2,
                 ablation_artifact_id=201,
@@ -89,7 +93,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
                 ),
                 sandbox_archive_sha256="d" * 64,
                 repository="o/r",
-                release_tag="hackathon-v5",
+                release_tag="hackathon-v7",
             )
 
             first_judge_bytes = judge_path.read_bytes()
@@ -98,6 +102,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
                 judge_path=judge_path,
                 ablation_report_path=report_path,
                 ablation_aggregate_path=aggregate_path,
+                episode_drilldown_path=drilldown_path,
                 ablation_run_id=101,
                 ablation_run_attempt=2,
                 ablation_artifact_id=201,
@@ -113,13 +118,13 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
                 ),
                 sandbox_archive_sha256="d" * 64,
                 repository="o/r",
-                release_tag="hackathon-v5",
+                release_tag="hackathon-v7",
             )
             self.assertEqual(judge_path.read_bytes(), first_judge_bytes)
 
             aggregate_bytes = aggregate_path.read_bytes()
             aggregate = json.loads(aggregate_bytes)
-            self.assertEqual(promoted["schema_version"], 5)
+            self.assertEqual(promoted["schema_version"], 6)
             self.assertEqual(
                 promoted["generated_at"],
                 self.report["generated_at"],
@@ -146,10 +151,17 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
                 hashlib.sha256(aggregate_bytes).hexdigest(),
             )
             self.assertNotIn("observations", aggregate)
+            drilldown_bytes = drilldown_path.read_bytes()
+            drilldown = json.loads(drilldown_bytes)
+            self.assertEqual(drilldown["population"]["paired_episodes"], 180)
+            self.assertEqual(
+                promoted["episode_drilldown"]["sha256"],
+                hashlib.sha256(drilldown_bytes).hexdigest(),
+            )
             self.assertEqual(aggregate["source_head"], self.source_head)
             self.assertEqual(
                 promoted["release_envelope"]["asset_url"],
-                "https://github.com/o/r/releases/download/hackathon-v5/"
+                "https://github.com/o/r/releases/download/hackathon-v7/"
                 "continuum-release-envelope-v2.json",
             )
             self.assertRegex(
@@ -179,6 +191,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
                     judge_path=judge_path,
                     ablation_report_path=report_path,
                     ablation_aggregate_path=root / "aggregate.json",
+                    episode_drilldown_path=root / "drilldown.json",
                     ablation_run_id=1,
                     ablation_run_attempt=1,
                     ablation_artifact_id=2,

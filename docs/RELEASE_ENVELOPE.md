@@ -1,6 +1,6 @@
 # Immutable competition release envelope
 
-`hackathon-v6` is the next proof unit for the competition build. It is
+`hackathon-v7` is the next proof unit for the competition build. It is
 published only by `.github/workflows/release-envelope.yml` after every
 fail-closed gate passes.
 
@@ -12,8 +12,9 @@ baseline lineage rather than silently relabeling them as the new candidate.
 
 Before publication, `scripts/promote_release_v5_evidence.py` consumes the full
 private ablation report plus the GitHub run/artifact receipts. It writes only
-the observation-free public aggregate and updates the judge evidence as one
-operation. Promotion fails if an artifact name does not contain its exact
+the observation-free public aggregate, the public-safe 180-case paired episode
+projection, and the judge evidence as one operation. Promotion fails if an
+artifact name does not contain its exact
 source head, a digest is malformed, the sandbox receipt is not tied to the
 baseline runtime, or the report does not contain all 540 observations. The
 judge evidence timestamp comes from the immutable ablation report, so repeating
@@ -37,12 +38,16 @@ The envelope binds:
 - the full 540-observation paired ablation run, deployment artifact SHA-256,
   Actions artifact receipt, public aggregate checksum, citation-grounding gate,
   and all five pre-registered safety/outcome metrics; and
+- the exact 180-episode three-arm drill-down, including its source evaluation,
+  checksum, privacy gate, handle-grounding gate, public page, and immutable
+  release asset; and
 - the Devpost submission ID, updated project timestamp, public project URL,
   current video URL, duration, and local-render SHA-256.
 
-The immutable release carries the exact sandbox JSON and full ablation JSON as
-release assets in addition to the envelope. This keeps judge evidence available
-after the shorter-lived GitHub Actions artifacts expire.
+The immutable release carries the exact sandbox JSON, full ablation JSON, and
+public-safe episode drill-down JSON as release assets in addition to the
+envelope. This keeps judge evidence available after the shorter-lived GitHub
+Actions artifacts expire.
 
 The differentiator gate is directional rather than cosmetic: raw-RAG must show
 more unsafe proposals, unsafe-memory exposure, and poison exposure than
@@ -70,7 +75,7 @@ asset state, and SHA-256 digest. A judge can independently download the envelope
 and validate its sidecar without trusting the public page:
 
 ```bash
-gh release download hackathon-v6 --pattern 'continuum-release-envelope-v2.json*'
+gh release download hackathon-v7 --pattern 'continuum-release-envelope-v2.json*'
 sha256sum -c continuum-release-envelope-v2.json.sha256
 ```
 

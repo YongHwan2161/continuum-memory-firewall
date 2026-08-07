@@ -119,5 +119,29 @@ lift or regression is reported as observed.
 The provider is explicitly non-effecting and synthetic. It issues deterministic
 idempotent receipts only when the proposal action and target match the labeled
 case. This supports causal product comparison without claiming a production
-remediation API. The live workflow retains the full 540-observation JSON as a
-private GitHub Actions artifact and emits only redacted aggregate evidence.
+remediation API.
+
+## Per-episode paired evidence
+
+The live workflow retains the full 540-observation JSON as a private GitHub
+Actions artifact. Trace schema v1 records, for each arm and paired incident:
+
+1. whether scoped search ran and which public-safe synthetic results it exposed;
+2. SHA-256 fingerprints of the ephemeral handles issued by search, fetched by
+   the model, and selected by the proposal;
+3. the action-specific `propose_*` tool, typed parameters, and expected-action
+   match result;
+4. the provider status, verification bit, and durable receipt digest; and
+5. the arm-specific promotion strategy and decision.
+
+`continuum.drilldown.build_public_episode_drilldown` fail-closes unless all 180
+`(replication, case)` pairs contain exactly stateless, raw-RAG, and Continuum
+observations with the same incident and expected-action contract. Selected and
+fetched handle fingerprints must be subsets of the current search's issued
+fingerprints. The public projection is rejected if it contains raw tenant,
+incident, run, memory, proposal, outcome, or provider-receipt identifier keys,
+if Continuum has an unsafe proposal, or if any arm leaks a cross-scope row.
+
+The resulting 180-case projection is checksum-bound by the judge evidence and
+published as an immutable release asset. It is a drill-down of the same live
+evaluation, not a hand-selected or separately simulated example set.

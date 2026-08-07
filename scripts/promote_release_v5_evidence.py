@@ -13,6 +13,7 @@ from scripts.build_release_envelope import (
     build_public_ablation_aggregate,
     repository_text_bytes,
 )
+from continuum.drilldown import build_public_episode_drilldown
 
 
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
@@ -20,6 +21,7 @@ SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 BASELINE_RUNTIME_SHA = "1291e2707880700492fe1d7cd431bcba03d68b4c"
 BASELINE_DOCUMENTATION_SHA = "2a94b4653ab0efe6f2ddeb8701ab05bdbaf403e1"
 ABLATION_PUBLIC_NAME = "agent-ablation-v3.json"
+EPISODE_DRILLDOWN_PUBLIC_NAME = "episode-drilldown-v1.json"
 ENVELOPE_ASSET_NAME = "continuum-release-envelope-v2.json"
 SANDBOX_ASSET_NAME = "sandbox-provider-proof.json"
 
@@ -57,6 +59,7 @@ def promote_release_v5_evidence(
     judge_path: Path,
     ablation_report_path: Path,
     ablation_aggregate_path: Path,
+    episode_drilldown_path: Path,
     ablation_run_id: int,
     ablation_run_attempt: int,
     ablation_artifact_id: int,
@@ -78,6 +81,8 @@ def promote_release_v5_evidence(
         raise RuntimeError("ablation schema 3 is required")
     if len(ablation.get("observations", [])) != 540:
         raise RuntimeError("ablation must contain exactly 540 observations")
+    if ablation.get("episode_trace_schema_version") != 1:
+        raise RuntimeError("ablation episode trace schema 1 is required")
     if sandbox.get("schema_version") != 1:
         raise RuntimeError("sandbox schema 1 is required")
     if ablation_run_id < 1 or ablation_run_attempt < 1:
@@ -119,18 +124,21 @@ def promote_release_v5_evidence(
 
     aggregate = build_public_ablation_aggregate(ablation)
     aggregate_bytes = _write_json(ablation_aggregate_path, aggregate)
+    drilldown = build_public_episode_drilldown(ablation)
+    drilldown_bytes = _write_json(episode_drilldown_path, drilldown)
     demo_base = str(judge["public_demo"]["url"]).rstrip("/")
     repo_url = f"https://github.com/{repository}"
     api_url = f"https://api.github.com/repos/{repository}"
     ablation_workflow_url = f"{repo_url}/actions/runs/{ablation_run_id}"
     sandbox_workflow_url = f"{repo_url}/actions/runs/{sandbox_run_id}"
 
-    judge["schema_version"] = 5
+    judge["schema_version"] = 6
     judge["generated_at"] = str(ablation["generated_at"])
     judge["claim_boundary"] = (
         "Read-only public verification of exact-head agent memory, 540 paired "
-        "episodes, CockroachDB vector/RLS evidence, AWS sandbox receipts, an "
-        "immutable release, and Devpost submission lineage."
+        "episodes with 180 public paired drill-downs, CockroachDB vector/RLS "
+        "evidence, AWS sandbox receipts, an immutable release, and Devpost "
+        "submission lineage."
     )
     judge["source"].update(
         {
@@ -170,6 +178,21 @@ def promote_release_v5_evidence(
         "public_aggregate_sha256": _sha256(aggregate_bytes),
         "public_aggregate_url": f"{demo_base}/evidence/{ABLATION_PUBLIC_NAME}",
     }
+    judge["episode_drilldown"] = {
+        "schema_version": 1,
+        "source_head": source_head,
+        "evaluation_id": str(ablation["evaluation_id"]),
+        "public_url": (
+            f"{demo_base}/evidence/{EPISODE_DRILLDOWN_PUBLIC_NAME}"
+        ),
+        "page_url": f"{demo_base}/episodes.html",
+        "sha256": _sha256(drilldown_bytes),
+        "paired_episodes": int(drilldown["population"]["paired_episodes"]),
+        "arm_observations": int(drilldown["population"]["arm_observations"]),
+        "continuum_advantage_episodes": int(
+            drilldown["population"]["continuum_advantage_episodes"]
+        ),
+    }
     judge["database_policy"] = {
         "rls_combined_sha256": _migration_receipt(
             repo_root,
@@ -192,6 +215,11 @@ def promote_release_v5_evidence(
             f"{repo_url}/releases/download/{release_tag}/{ABLATION_PUBLIC_NAME}"
         ),
         "ablation_asset_name": ABLATION_PUBLIC_NAME,
+        "drilldown_asset_url": (
+            f"{repo_url}/releases/download/{release_tag}/"
+            f"{EPISODE_DRILLDOWN_PUBLIC_NAME}"
+        ),
+        "drilldown_asset_name": EPISODE_DRILLDOWN_PUBLIC_NAME,
     }
     _write_json(judge_path, judge)
     return judge
@@ -203,6 +231,7 @@ def main() -> None:
     parser.add_argument("--judge-evidence", type=Path, required=True)
     parser.add_argument("--ablation-report", type=Path, required=True)
     parser.add_argument("--ablation-aggregate", type=Path, required=True)
+    parser.add_argument("--episode-drilldown", type=Path, required=True)
     parser.add_argument("--ablation-run-id", type=int, required=True)
     parser.add_argument("--ablation-run-attempt", type=int, required=True)
     parser.add_argument("--ablation-artifact-id", type=int, required=True)
@@ -217,13 +246,14 @@ def main() -> None:
         "--repository",
         default="YongHwan2161/continuum-memory-firewall",
     )
-    parser.add_argument("--release-tag", default="hackathon-v5")
+    parser.add_argument("--release-tag", default="hackathon-v7")
     args = parser.parse_args()
     promote_release_v5_evidence(
         repo_root=args.repo_root.resolve(),
         judge_path=args.judge_evidence,
         ablation_report_path=args.ablation_report,
         ablation_aggregate_path=args.ablation_aggregate,
+        episode_drilldown_path=args.episode_drilldown,
         ablation_run_id=args.ablation_run_id,
         ablation_run_attempt=args.ablation_run_attempt,
         ablation_artifact_id=args.ablation_artifact_id,
