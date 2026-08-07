@@ -390,6 +390,7 @@ class JudgeVerificationTests(unittest.TestCase):
                 "pages_workflow_url": (
                     "https://github.com/o/r/actions/runs/12"
                 ),
+                "pages_source_digest": candidate,
                 "public_receipt_url": transaction_url,
                 "release_tag": "hackathon-v5",
                 "release_target": candidate,

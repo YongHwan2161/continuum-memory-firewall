@@ -106,11 +106,12 @@ jobs:
             jq -n \
               --argjson pages_workflow_run_id "$GITHUB_RUN_ID" \
               --arg pages_workflow_url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+              --arg pages_source_digest "$GITHUB_SHA" \
               --arg public_receipt_url "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/release-transaction-receipt.json" \
               --arg release_tag "$tag" \
               --arg release_target "$(jq -r '.target_commitish' <<<"$receipt")" \
               --arg public_bundle_sha256 "$network_sha" \
-              '{status:"success",pages_workflow_run_id:$pages_workflow_run_id,pages_workflow_url:$pages_workflow_url,public_receipt_url:$public_receipt_url,release_tag:$release_tag,release_target:$release_target,public_bundle_sha256:$public_bundle_sha256}' \
+              '{status:"success",pages_workflow_run_id:$pages_workflow_run_id,pages_workflow_url:$pages_workflow_url,pages_source_digest:$pages_source_digest,public_receipt_url:$public_receipt_url,release_tag:$release_tag,release_target:$release_target,public_bundle_sha256:$public_bundle_sha256}' \
               >"$RUNNER_TEMP/network-sign-once/pages.json"
             python scripts/release_transaction_coordinator.py advance \
               --input "$RUNNER_TEMP/network-sign-once/immutable-receipt.json" \
