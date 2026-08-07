@@ -208,15 +208,20 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
                     release_tag="hackathon-v5",
                 )
 
-    def test_repository_public_evidence_has_v6_source_closure(self) -> None:
+    def test_repository_public_evidence_has_v7_source_closure(self) -> None:
         judge_path = self.repo_root / "public-demo/evidence/judge-verification.json"
         aggregate_path = self.repo_root / "public-demo/evidence/agent-ablation-v3.json"
+        drilldown_path = (
+            self.repo_root / "public-demo/evidence/episode-drilldown-v1.json"
+        )
         judge = json.loads(judge_path.read_bytes())
         aggregate_bytes = aggregate_path.read_bytes()
         aggregate = json.loads(aggregate_bytes)
+        drilldown_bytes = drilldown_path.read_bytes()
+        drilldown = json.loads(drilldown_bytes)
 
-        self.assertEqual(judge["schema_version"], 5)
-        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v6")
+        self.assertEqual(judge["schema_version"], 6)
+        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v7")
         self.assertEqual(
             judge["lineage"]["candidate_runtime_sha"],
             judge["source"]["deployment_head_sha"],
@@ -236,6 +241,16 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         self.assertNotIn("observations", aggregate)
         self.assertEqual(aggregate["arms"]["continuum"]["cases"], 180)
         self.assertEqual(aggregate["arms"]["raw_rag"]["cases"], 180)
+        self.assertEqual(
+            hashlib.sha256(drilldown_bytes.replace(b"\r\n", b"\n")).hexdigest(),
+            judge["episode_drilldown"]["sha256"],
+        )
+        self.assertEqual(
+            drilldown["source_head"],
+            judge["agent_ablation"]["head_sha"],
+        )
+        self.assertEqual(drilldown["population"]["paired_episodes"], 180)
+        self.assertEqual(drilldown["gate"]["status"], "PASS")
 
 
 if __name__ == "__main__":

@@ -5,8 +5,9 @@ memory promotion in long-running AI agents. It separates untrusted candidate
 memories from canonical memory and makes every promotion decision explicit,
 deterministic, and transactionally durable.
 
-**Live judge path:** [run the public product proof](https://yonghwan2161.github.io/continuum-memory-firewall/)
-or [verify every bound receipt](https://yonghwan2161.github.io/continuum-memory-firewall/verify.html).
+**Live judge path:** [run the public product proof](https://yonghwan2161.github.io/continuum-memory-firewall/),
+[verify every bound receipt](https://yonghwan2161.github.io/continuum-memory-firewall/verify.html),
+or [inspect the same 180 incidents across all three memory policies](https://yonghwan2161.github.io/continuum-memory-firewall/episodes.html).
 In the incident-response story, trusted telemetry becomes durable memory,
 poisoned model output remains quarantined, a later agent retrieves the accepted
 resolution, and CockroachDB grants exactly one action owner.
@@ -166,6 +167,9 @@ five-replication 540-observation ablation are recorded in
 The outcome-first public video, English captions, and refreshed Devpost receipt
 are recorded in
 [Outcome-first video and Devpost v4 evidence](docs/evidence/2026-08-07-outcome-video-devpost-v4.md).
+The exact-head 540-observation rerun and checksum-bound 180-episode public
+drill-down are recorded in
+[per-episode paired drill-down evidence](docs/evidence/2026-08-07-per-episode-paired-drilldown.md).
 
 ## Safety boundary
 
