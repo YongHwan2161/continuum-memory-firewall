@@ -7,6 +7,10 @@ on:
         description: New or resumable immutable GitHub Release tag
         required: true
         default: hackathon-v10
+      release_target:
+        description: Exact existing release target to reconcile; blank uses the workflow SHA
+        required: false
+        default: ""
 
 permissions:
   actions: write
@@ -32,17 +36,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_TARGET_INPUT: ${{ inputs.release_target }}
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p build/release "$RUNNER_TEMP/release-transaction"
+          release_target="${RELEASE_TARGET_INPUT:-$GITHUB_SHA}"
+          [[ "$release_target" =~ ^[0-9a-f]{40}$ ]]
           releases="$(gh api \
             "repos/$GITHUB_REPOSITORY/releases?per_page=100")"
           release="$(jq -c --arg tag "$RELEASE_TAG" \
             '[.[] | select(.tag_name == $tag)] | if length == 0 then empty elif length == 1 then .[0] else error("duplicate release tag") end' \
             <<<"$releases")"
           if [ -n "$release" ]; then
-            test "$(jq -r '.target_commitish' <<<"$release")" = "$GITHUB_SHA"
+            test "$(jq -r '.target_commitish' <<<"$release")" = "$release_target"
             if [ "$(jq -r '.immutable' <<<"$release")" = true ]; then
               mode=immutable
             elif [ "$(jq -r '.draft' <<<"$release")" = true ]; then
@@ -52,10 +59,14 @@ jobs:
               exit 1
             fi
           else
+            test "$release_target" = "$GITHUB_SHA"
             mode=new
           fi
           echo "mode=$mode" >>"$GITHUB_OUTPUT"
+          echo "release_target=$release_target" >>"$GITHUB_OUTPUT"
+          echo "RELEASE_TARGET=$release_target" >>"$GITHUB_ENV"
           echo "transaction mode: $mode"
+          echo "release target: $release_target"
 
       - name: Revalidate referenced workflow receipts
         if: steps.transaction.outputs.mode == 'new'
@@ -146,7 +157,7 @@ jobs:
             --episode-drilldown public-demo/evidence/episode-drilldown-v1.json \
             --repo-root . \
             --repository "$GITHUB_REPOSITORY" \
-            --commit-sha "$GITHUB_SHA" \
+            --commit-sha "$RELEASE_TARGET" \
             --workflow-run-id "$GITHUB_RUN_ID" \
             --workflow-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             --release-tag "$RELEASE_TAG" \
@@ -181,7 +192,7 @@ jobs:
             build/release/agent-ablation-v3.json.sha256 \
             build/release/episode-drilldown-v1.json \
             build/release/episode-drilldown-v1.json.sha256 \
-            --target "$GITHUB_SHA" \
+            --target "$RELEASE_TARGET" \
             --draft \
             --title "Continuum Memory Firewall evidence envelope" \
             --notes "Resumable release transaction. The draft is created before author signing so a retry reuses the exact envelope and existing attestation."
@@ -228,7 +239,7 @@ jobs:
                 "repos/$GITHUB_REPOSITORY/releases?per_page=100")"
               release="$(jq -c \
                 --arg tag "$RELEASE_TAG" \
-                --arg target "$GITHUB_SHA" \
+                --arg target "$RELEASE_TARGET" \
                 '[.[] | select(.tag_name == $tag and .target_commitish == $target and .draft == true)] | if length == 0 then empty elif length == 1 then .[0] else error("duplicate matching release drafts") end' \
                 <<<"$releases")"
               if [ -n "$release" ]; then break; fi
@@ -256,7 +267,7 @@ jobs:
           PY
             jq -n \
               --argjson release_id "$(jq '.id' <<<"$release")" \
-              --arg release_target "$GITHUB_SHA" \
+              --arg release_target "$RELEASE_TARGET" \
               --arg envelope_sha256 "$(sha256sum build/release/continuum-release-envelope-v2.json | cut -d' ' -f1)" \
               --argjson expected_asset_digests "$(cat "$RUNNER_TEMP/release-transaction/expected-assets.json")" \
               '{release_id:$release_id,release_draft:true,release_target:$release_target,envelope_sha256:$envelope_sha256,expected_asset_digests:$expected_asset_digests}' \
@@ -264,7 +275,7 @@ jobs:
             python scripts/release_transaction_coordinator.py init \
               --repository "$GITHUB_REPOSITORY" \
               --release-tag "$RELEASE_TAG" \
-              --source-digest "$GITHUB_SHA" \
+              --source-digest "$RELEASE_TARGET" \
               --envelope-sha256 "$(sha256sum build/release/continuum-release-envelope-v2.json | cut -d' ' -f1)" \
               --evidence "$RUNNER_TEMP/release-transaction/prepared.json" \
               --observed-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -285,7 +296,7 @@ jobs:
           fi
           python scripts/release_transaction_coordinator.py verify --input "$receipt"
           test "$(jq -r '.release_tag' "$receipt")" = "$RELEASE_TAG"
-          test "$(jq -r '.source_digest' "$receipt")" = "$GITHUB_SHA"
+          test "$(jq -r '.source_digest' "$receipt")" = "$RELEASE_TARGET"
           test "$(jq -r '.envelope_sha256' "$receipt")" = \
             "$(sha256sum build/release/continuum-release-envelope-v2.json | cut -d' ' -f1)"
 
@@ -297,9 +308,10 @@ jobs:
         run: |
           set -euo pipefail
           digest="$(sha256sum build/release/continuum-release-envelope-v2.json | cut -d' ' -f1)"
-          if author="$(gh api \
+          if author="$(gh api --method GET \
               -H "X-GitHub-Api-Version: 2026-03-10" \
-              "repos/$GITHUB_REPOSITORY/attestations/sha256:$digest?predicate_type=https%3A%2F%2Fslsa.dev%2Fprovenance%2Fv1" \
+              "repos/$GITHUB_REPOSITORY/attestations/sha256:$digest" \
+              -f 'predicate_type=https://slsa.dev/provenance/v1' \
               2>"$RUNNER_TEMP/release-transaction/author.err")"; then
             count="$(jq '.attestations | length' <<<"$author")"
           else
@@ -312,13 +324,14 @@ jobs:
           release="$(gh api -H "X-GitHub-Api-Version: 2026-03-10" "repos/$GITHUB_REPOSITORY/releases/$release_id")"
           platform_count=0
           if [ "$(jq -r '.immutable' <<<"$release")" = true ]; then
-            platform_count="$(gh api \
+            platform_count="$(gh api --method GET \
               -H "X-GitHub-Api-Version: 2026-03-10" \
-              "repos/$GITHUB_REPOSITORY/attestations/sha1:$GITHUB_SHA?predicate_type=https%3A%2F%2Fin-toto.io%2Fattestation%2Frelease%2Fv0.2" \
+              "repos/$GITHUB_REPOSITORY/attestations/sha1:$RELEASE_TARGET" \
+              -f 'predicate_type=https://in-toto.io/attestation/release/v0.2' \
               --jq '.attestations | length')"
           fi
           jq -n \
-            --arg release_target "$GITHUB_SHA" \
+            --arg release_target "$RELEASE_TARGET" \
             --arg envelope_sha256 "$digest" \
             --argjson author_attestation_count "$count" \
             --argjson platform_attestation_count "$platform_count" \
@@ -332,7 +345,14 @@ jobs:
           action="$(jq -r '.next_action' "$RUNNER_TEMP/release-transaction/plan.json")"
           echo "count=$count" >>"$GITHUB_OUTPUT"
           echo "action=$action" >>"$GITHUB_OUTPUT"
-          if [ "$action" = SIGN_AUTHOR ]; then echo "needs_sign=true" >>"$GITHUB_OUTPUT"; else echo "needs_sign=false" >>"$GITHUB_OUTPUT"; fi
+          if [ "$action" = SIGN_AUTHOR ]; then
+            # Recovery code may reconcile an older target, but only the exact
+            # target checkout is authorized to create a new author signature.
+            test "$RELEASE_TARGET" = "$GITHUB_SHA"
+            echo "needs_sign=true" >>"$GITHUB_OUTPUT"
+          else
+            echo "needs_sign=false" >>"$GITHUB_OUTPUT"
+          fi
 
       - name: Sign the exact durable envelope once
         if: steps.transaction.outputs.mode != 'immutable' && steps.author.outputs.needs_sign == 'true'
@@ -369,7 +389,7 @@ jobs:
             --bundle continuum-release-envelope-v2.sigstore.jsonl \
             --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release-envelope.yml" \
             --source-ref refs/heads/main \
-            --source-digest "$GITHUB_SHA" \
+            --source-digest "$RELEASE_TARGET" \
             --deny-self-hosted-runners
           sha256sum continuum-release-envelope-v2.sigstore.jsonl \
             >continuum-release-envelope-v2.sigstore.jsonl.sha256
@@ -479,18 +499,23 @@ jobs:
           done
           test "$(jq -r '.immutable' <<<"$release")" = true
           test "$(jq -r '.draft' <<<"$release")" = false
-          test "$(jq -r '.target_commitish' <<<"$release")" = "$GITHUB_SHA"
+          test "$(jq -r '.target_commitish' <<<"$release")" = "$RELEASE_TARGET"
           envelope_digest="$(jq -r '.envelope_sha256' build/release/release-transaction-receipt.json)"
           all="$(gh api -H "X-GitHub-Api-Version: 2026-03-10" "repos/$GITHUB_REPOSITORY/attestations/sha256:$envelope_digest")"
-          author="$(gh api -H "X-GitHub-Api-Version: 2026-03-10" "repos/$GITHUB_REPOSITORY/attestations/sha256:$envelope_digest?predicate_type=https%3A%2F%2Fslsa.dev%2Fprovenance%2Fv1")"
-          platform="$(gh api -H "X-GitHub-Api-Version: 2026-03-10" "repos/$GITHUB_REPOSITORY/attestations/sha1:$GITHUB_SHA?predicate_type=https%3A%2F%2Fin-toto.io%2Fattestation%2Frelease%2Fv0.2")"
+          author="$(gh api --method GET -H "X-GitHub-Api-Version: 2026-03-10" \
+            "repos/$GITHUB_REPOSITORY/attestations/sha256:$envelope_digest" \
+            -f 'predicate_type=https://slsa.dev/provenance/v1')"
+          platform="$(gh api --method GET -H "X-GitHub-Api-Version: 2026-03-10" \
+            "repos/$GITHUB_REPOSITORY/attestations/sha1:$RELEASE_TARGET" \
+            -f 'predicate_type=https://in-toto.io/attestation/release/v0.2')"
           test "$(jq '.attestations | length' <<<"$all")" = 2
           test "$(jq '.attestations | length' <<<"$author")" = 1
           test "$(jq '.attestations | length' <<<"$platform")" = 1
           jq -n \
-            --arg release_target "$GITHUB_SHA" \
+            --arg release_target "$RELEASE_TARGET" \
             --arg release_tag "$RELEASE_TAG" \
-            '{immutable:true,release_draft:false,release_target:$release_target,release_tag:$release_tag,author_attestation_count:1,platform_attestation_count:1,total_attestation_count:2}' \
+            --arg coordinator_sha "$GITHUB_SHA" \
+            '{immutable:true,release_draft:false,release_target:$release_target,release_tag:$release_tag,author_attestation_count:1,platform_attestation_count:1,total_attestation_count:2,coordinator_sha:$coordinator_sha}' \
             >"$RUNNER_TEMP/release-transaction/immutable.json"
           test "$(jq -r '.state' "$receipt")" = ASSETS_UPLOADED
           python scripts/release_transaction_coordinator.py advance \

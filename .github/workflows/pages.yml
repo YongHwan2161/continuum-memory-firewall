@@ -79,13 +79,15 @@ jobs:
             )
 
             envelope_digest="$(jq -r '.envelope_sha256' "$RUNNER_TEMP/network-sign-once/release-transaction-receipt.json")"
-            author_count="$(gh api \
+            author_count="$(gh api --method GET \
               -H "X-GitHub-Api-Version: 2026-03-10" \
-              "repos/$GITHUB_REPOSITORY/attestations/sha256:$envelope_digest?predicate_type=https%3A%2F%2Fslsa.dev%2Fprovenance%2Fv1" \
+              "repos/$GITHUB_REPOSITORY/attestations/sha256:$envelope_digest" \
+              -f 'predicate_type=https://slsa.dev/provenance/v1' \
               --jq '.attestations | length')"
-            platform_count="$(gh api \
+            platform_count="$(gh api --method GET \
               -H "X-GitHub-Api-Version: 2026-03-10" \
-              "repos/$GITHUB_REPOSITORY/attestations/sha1:$(jq -r '.target_commitish' <<<"$receipt")?predicate_type=https%3A%2F%2Fin-toto.io%2Fattestation%2Frelease%2Fv0.2" \
+              "repos/$GITHUB_REPOSITORY/attestations/sha1:$(jq -r '.target_commitish' <<<"$receipt")" \
+              -f 'predicate_type=https://in-toto.io/attestation/release/v0.2' \
               --jq '.attestations | length')"
             test "$author_count" = 1
             test "$platform_count" = 1
