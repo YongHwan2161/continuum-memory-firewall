@@ -299,6 +299,13 @@ class NetworkSignOnceTests(unittest.TestCase):
         self.assertIn("for attempt in $(seq 1 12)", release_workflow)
         self.assertIn(".target_commitish == $target", release_workflow)
         self.assertIn(".draft == true", release_workflow)
+        self.assertIn("RELEASE_TARGET_INPUT", release_workflow)
+        self.assertIn("RELEASE_TARGET=$release_target", release_workflow)
+        self.assertIn('test "$release_target" = "$GITHUB_SHA"', release_workflow)
+        self.assertIn("--method GET", release_workflow)
+        self.assertIn("predicate_type=https://slsa.dev/provenance/v1", release_workflow)
+        self.assertNotIn("predicate_type=https%3A%2F%2F", release_workflow)
+        self.assertIn('test "$RELEASE_TARGET" = "$GITHUB_SHA"', release_workflow)
         self.assertIn(
             "matching release draft did not become visible",
             release_workflow,
@@ -311,7 +318,7 @@ class NetworkSignOnceTests(unittest.TestCase):
         self.assertIn("required", release_workflow)
         self.assertIn("--deny-self-hosted-runners", release_workflow)
         self.assertIn("continuum-release-envelope-v2.sigstore.jsonl", release_workflow)
-        self.assertIn("attestations/sha1:$GITHUB_SHA", release_workflow)
+        self.assertIn("attestations/sha1:$RELEASE_TARGET", release_workflow)
         self.assertIn("actions: write", release_workflow)
         self.assertIn("gh workflow run pages.yml --ref main", release_workflow)
         self.assertFalse(
@@ -325,6 +332,9 @@ class NetworkSignOnceTests(unittest.TestCase):
         self.assertIn("release:\n    types:\n      - published", pages_workflow)
         self.assertIn("Materialize the signed envelope bundle", pages_workflow)
         self.assertIn("PAGES_MATERIALIZED", pages_workflow)
+        self.assertIn("--method GET", pages_workflow)
+        self.assertIn("predicate_type=https://slsa.dev/provenance/v1", pages_workflow)
+        self.assertNotIn("predicate_type=https%3A%2F%2F", pages_workflow)
         self.assertIn("Verify the materialized transaction receipt", pages_workflow)
 
 
