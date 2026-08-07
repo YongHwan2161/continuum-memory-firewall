@@ -45,6 +45,7 @@ evidence, and explicit non-claims.
 | Semantic live-DB evaluation | Live-smoked on participant CockroachDB Cloud | Titan v2 ran 60 adversarial and similar-meaning queries across six variant classes; Recall@1/3/5 = 0.8667/0.9833/1.0, zero forbidden-scope rows, p50 = 248.149 ms, p95 = 279.012 ms |
 | Bedrock episode contract | Implemented, integration-tested, and live-evaluated | Durable runs, frozen citations, allowlisted proposals, verified outcomes, and server-owned scope are coupled to a phased `search -> optional fetch -> proposal` tool contract; rejected runs retain bounded failure codes and progress |
 | Outcome-gated three-arm ablation | 180 identical paired cases per arm completed live | Five isolated replications of 36 stale/poison/conflict-aware cases produced 540 observations. Verified provider outcomes: stateless 80/180, raw-RAG 95/180, Continuum 180/180. Continuum beat raw-RAG by 47.222 points (paired cluster-bootstrap 95% +30.556 to +63.889); Continuum retained zero unsafe proposals, poison exposure, cross-scope rows, false promotions, and ambiguous outcomes |
+| Per-episode paired drill-down | Implemented, live-generated, and checksum-bound | The exact-head `2ef2247` rerun projects 540 observations into 180 three-arm incidents. Each arm exposes scoped search results, SHA-256 citation-handle fingerprints, typed proposal, provider outcome evidence, and promotion decision. Projection gates: exact pairing PASS, issued handles only PASS, Continuum unsafe proposals 0, cross-scope rows 0, private identifier keys 0 |
 | Transactional outbox | Implemented, integration-tested, and participant-cluster fault-smoked | Before-send, idempotent after-send, and before-ack crashes converged to one logical effect and zero duplicates; a non-idempotent after-send crash became `ambiguous`, was not resent, and did not promote memory |
 | Tenant and incident integrity | Implemented | Composite foreign keys and query predicates bind candidates, canonical memory, actions, and retrieval audit to the same scope |
 | Vector write and retrieval | Implemented and participant-cluster live-smoked | Deterministic local embeddings remain for tests; the live deployment uses `amazon.titan-embed-text-v2:0` with 512 dimensions and mandatory tenant/incident scope |
@@ -143,8 +144,10 @@ evidence, and explicit non-claims.
   [2026-08-07-main-oidc-sandbox-five-seed-ablation.md](evidence/2026-08-07-main-oidc-sandbox-five-seed-ablation.md)
 - Actual AWS sandbox provider proof:
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31112544426>
-- Five-replication 540-observation live ablation:
-  <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31112753421>
+- Exact-head five-replication 540-observation live ablation and drill-down:
+  <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31162961883>
+- Public paired episode explorer:
+  <https://yonghwan2161.github.io/continuum-memory-firewall/episodes.html>
 
 `main` is the authoritative code. The linked workflows cover the reviewed P2B
 and migration implementation commits; the pull request records final-head
@@ -195,19 +198,15 @@ The AWS, Managed MCP, participant-cluster SQL, least-privilege runtime, fixed
 egress, authenticated remote MCP, and Devpost submission gates are closed. The
 highest-value work before the submission deadline is:
 
-1. **Close release v6:** bind the outcome-first video, Devpost version 14,
-   paired ablation, sandbox receipt, exact runtime, RLS checksum, and current
-   source commit in one immutable release and signed attestation.
-2. **Protect the judge path:** keep the demo, authenticated MCP, fixed egress,
+1. **Protect the judge path:** keep the demo, authenticated MCP, fixed egress,
    main-only OIDC environment, public video, and release assets live; recheck
    them after every material change and through the judging window.
-3. **Make the causal contrast inspectable:** expose a read-only per-episode
-   view that places the same stale/poison/conflict case across stateless,
-   raw-RAG, and Continuum, including issued handles, proposal, provider receipt,
-   and promotion decision.
-4. **Measure useful latency:** report outcome-weighted p95 and time-to-verified
+2. **Measure useful latency:** report outcome-weighted p95 and time-to-verified
    recovery so failed/censored raw-RAG episodes cannot look faster than a system
    that completes all recoveries.
+3. **Turn the explorer into a judge narrative:** preselect three representative
+   poison/stale/conflict episodes and link them from Devpost without hiding the
+   complete 180-case population.
 
 The exact commands and stop conditions are in
 [CLOUD_DEPLOYMENT_RUNBOOK.md](CLOUD_DEPLOYMENT_RUNBOOK.md).

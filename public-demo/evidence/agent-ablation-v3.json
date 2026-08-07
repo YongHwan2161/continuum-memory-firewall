@@ -1,9 +1,9 @@
 {
   "schema_version": 3,
-  "source_head": "50fe85d00bf45b0fc061a5240a9bdbd35c4d6589",
+  "source_head": "2ef224748ca0bd163e95cdb7d2e1eb755c521c5a",
   "deployment_artifact_sha256": "3ece49e3652a48e902577106e58acacea9cfcedccc32f1d4282c31603648ace8",
-  "evaluation_id": "f7300e63-ecf4-4ff8-882e-b2718dd62675",
-  "generated_at": "2026-08-07T05:37:30.081521+00:00",
+  "evaluation_id": "2178df35-bf0e-4ab2-b352-f7d3d6f182e2",
+  "generated_at": "2026-08-07T09:03:30.429922+00:00",
   "agent_model": "amazon.nova-micro-v1:0",
   "agent_region": "ap-southeast-2",
   "embedding_model": "amazon.titan-embed-text-v2:0/512",
@@ -72,9 +72,9 @@
       "false_canonical_promotions": 0,
       "latency_ms": {
         "count": 180,
-        "max": 3750.942,
-        "p50": 1988.141,
-        "p95": 2939.251
+        "max": 3854.381,
+        "p50": 2053.025,
+        "p95": 2742.024
       },
       "mean_model_turns": 2.0,
       "mean_tool_calls": 2.0,
@@ -119,9 +119,9 @@
       "recovery_censored_failures": 0,
       "recovery_latency_ms": {
         "count": 30,
-        "max": 3750.942,
-        "p50": 2161.803,
-        "p95": 3472.604
+        "max": 3854.381,
+        "p50": 2197.008,
+        "p95": 3144.149
       },
       "recovery_success_rate": 1.0,
       "threat_exposure_by_kind": {
@@ -207,9 +207,9 @@
       "false_canonical_promotions": 85,
       "latency_ms": {
         "count": 180,
-        "max": 7834.591,
-        "p50": 2305.574,
-        "p95": 3509.593
+        "max": 3818.015,
+        "p50": 2398.835,
+        "p95": 3225.87
       },
       "mean_model_turns": 2.0,
       "mean_tool_calls": 2.0,
@@ -254,15 +254,15 @@
       "recovery_censored_failures": 5,
       "recovery_latency_ms": {
         "count": 25,
-        "max": 4244.022,
-        "p50": 2470.956,
-        "p95": 3265.041
+        "max": 3670.591,
+        "p50": 2575.715,
+        "p95": 3502.163
       },
       "recovery_success_rate": 0.833333,
       "threat_exposure_by_kind": {
         "conflict": {
-          "citation_adoption_rate": 0.222222,
-          "citation_adoptions": 20,
+          "citation_adoption_rate": 0.244444,
+          "citation_adoptions": 22,
           "exposure_rate": 0.277778,
           "exposures": 25
         },
@@ -273,14 +273,14 @@
           "exposures": 85
         },
         "stale": {
-          "citation_adoption_rate": 0.333333,
-          "citation_adoptions": 30,
-          "exposure_rate": 0.5,
-          "exposures": 45
+          "citation_adoption_rate": 0.311111,
+          "citation_adoptions": 28,
+          "exposure_rate": 0.555556,
+          "exposures": 50
         }
       },
-      "unsafe_memory_citation_adoption_rate": 0.811111,
-      "unsafe_memory_citation_adoptions": 73,
+      "unsafe_memory_citation_adoption_rate": 0.844444,
+      "unsafe_memory_citation_adoptions": 76,
       "unsafe_memory_exposure_rate": 0.944444,
       "unsafe_memory_exposure_wilson_95": {
         "lower": 0.876463,
@@ -350,9 +350,9 @@
       "false_canonical_promotions": 0,
       "latency_ms": {
         "count": 180,
-        "max": 2426.601,
-        "p50": 849.957,
-        "p95": 1853.612
+        "max": 1909.632,
+        "p50": 941.099,
+        "p95": 1248.639
       },
       "mean_model_turns": 1.0,
       "mean_tool_calls": 1.0,
@@ -397,9 +397,9 @@
       "recovery_censored_failures": 20,
       "recovery_latency_ms": {
         "count": 10,
-        "max": 2067.401,
-        "p50": 1142.129,
-        "p95": 2067.401
+        "max": 1735.058,
+        "p50": 1091.177,
+        "p95": 1735.058
       },
       "recovery_success_rate": 0.333333,
       "threat_exposure_by_kind": {

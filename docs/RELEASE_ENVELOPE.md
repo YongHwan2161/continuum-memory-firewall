@@ -1,6 +1,6 @@
 # Immutable competition release envelope
 
-`hackathon-v7` is the next proof unit for the competition build. It is
+`hackathon-v7` is the proof unit for the paired-episode competition build. It is
 published only by `.github/workflows/release-envelope.yml` after every
 fail-closed gate passes.
 

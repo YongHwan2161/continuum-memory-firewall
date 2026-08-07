@@ -60,6 +60,10 @@ complete attestations and organizer agreements.
       health, Devpost Submitted, control-plane denial, bounded pools, RLS, and
       vector-index metadata:
       <https://yonghwan2161.github.io/continuum-memory-firewall/verify.html>
+- [x] Public per-episode paired explorer binds the same 180 incidents across
+      stateless, raw-RAG, and Continuum, with scoped search, handle fingerprints,
+      typed proposal, provider outcome evidence, and promotion decision:
+      <https://yonghwan2161.github.io/continuum-memory-firewall/episodes.html>
 - [x] Byte-identical 10k/50k non-sensitive vector benchmark report proves the
       complete `1/32/128/512` beam trade-off, natural vector-search plan, no
       full scan, and zero foreign rows; at 50k/beam 512 Recall@10 was 0.96875
