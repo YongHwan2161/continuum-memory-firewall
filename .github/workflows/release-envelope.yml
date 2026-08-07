@@ -100,6 +100,7 @@ jobs:
             public-demo/evidence/episode-drilldown-v1.json
       - name: Build fail-closed envelope
         env:
+          PYTHONPATH: src
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           python scripts/build_release_envelope.py \
