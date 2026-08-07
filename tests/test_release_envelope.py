@@ -297,27 +297,44 @@ class ReleaseEnvelopeTests(unittest.TestCase):
                 "drilldown_asset_name": "episode-drilldown-v1.json",
             },
             "network_sign_once": {
-                "schema_version": 1,
+                "schema_version": 2,
                 "attestation_api_template": (
                     "https://api.github.com/repos/o/r/attestations/"
                     "sha256:{digest}"
                 ),
-                "bundle_public_url": (
+                "author_bundle_public_url": (
                     "https://demo.example.test/evidence/"
                     "continuum-release-envelope-v2.sigstore.jsonl"
                 ),
-                "bundle_asset_name": (
+                "author_bundle_asset_name": (
                     "continuum-release-envelope-v2.sigstore.jsonl"
                 ),
+                "network_bundle_public_url": (
+                    "https://demo.example.test/evidence/"
+                    "continuum-release-envelope-v2."
+                    "network-attestations.jsonl"
+                ),
+                "network_bundle_file_name": (
+                    "continuum-release-envelope-v2."
+                    "network-attestations.jsonl"
+                ),
                 "subject_name": "continuum-release-envelope-v2.json",
-                "predicate_type": "https://slsa.dev/provenance/v1",
+                "author_predicate_type": "https://slsa.dev/provenance/v1",
                 "signer_workflow": (
                     "o/r/.github/workflows/release-envelope.yml"
                 ),
                 "source_ref": "refs/heads/main",
                 "runner_environment": "github-hosted",
                 "transparency_log": "https://rekor.sigstore.dev",
-                "required_attestation_count": 1,
+                "platform_predicate_type": (
+                    "https://in-toto.io/attestation/release/v0.2"
+                ),
+                "platform_signer_identity": (
+                    "https://dotcom.releases.github.com"
+                ),
+                "required_author_attestation_count": 1,
+                "required_platform_attestation_count": 1,
+                "required_total_attestation_count": 2,
             },
             "public_demo": {
                 "url": "https://demo.example.test/",
@@ -371,7 +388,14 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         )
         self.assertEqual(envelope["agent_ablation"]["arms"]["continuum"]["cases"], 180)
         self.assertEqual(envelope["episode_drilldown"]["population"]["paired_episodes"], 180)
-        self.assertEqual(envelope["network_sign_once"]["required_attestation_count"], 1)
+        self.assertEqual(
+            envelope["network_sign_once"]["required_author_attestation_count"],
+            1,
+        )
+        self.assertEqual(
+            envelope["network_sign_once"]["required_total_attestation_count"],
+            2,
+        )
 
     def test_scale_checksum_and_leakage_fail_closed(self) -> None:
         self.judge["vector_scale"]["report_sha256"] = "0" * 64

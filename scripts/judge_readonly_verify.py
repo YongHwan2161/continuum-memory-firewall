@@ -226,6 +226,8 @@ def verify_evidence(
         signature_bundle: dict[str, Any] = {}
         signature_statement: dict[str, Any] = {}
         network_attestations: list[Any] = []
+        network_bundles: list[dict[str, Any]] = []
+        network_statements: list[dict[str, Any]] = []
         if schema_version >= 7:
             network_reference = evidence["network_sign_once"]
             envelope_digest = str(
@@ -238,8 +240,30 @@ def verify_evidence(
             network_attestations = network_index.get("attestations", [])
             if not isinstance(network_attestations, list):
                 network_attestations = []
+            network_bundle_bytes = fetch_bytes(
+                network_reference["network_bundle_public_url"]
+            )
+            bundle_lines = [
+                line
+                for line in network_bundle_bytes.decode("utf-8").splitlines()
+                if line.strip()
+            ]
+            for bundle_line in bundle_lines:
+                parsed_network_bundle = json.loads(bundle_line)
+                if not isinstance(parsed_network_bundle, dict):
+                    continue
+                network_bundles.append(parsed_network_bundle)
+                payload = base64.b64decode(
+                    parsed_network_bundle.get("dsseEnvelope", {}).get(
+                        "payload", ""
+                    ),
+                    validate=True,
+                )
+                parsed_network_statement = json.loads(payload)
+                if isinstance(parsed_network_statement, dict):
+                    network_statements.append(parsed_network_statement)
             signature_bundle_bytes = fetch_bytes(
-                network_reference["bundle_public_url"]
+                network_reference["author_bundle_public_url"]
             )
             signature_bundle_sha = hashlib.sha256(
                 signature_bundle_bytes
@@ -263,7 +287,7 @@ def verify_evidence(
                     if isinstance(parsed_statement, dict):
                         signature_statement = parsed_statement
             signature_bundle_asset = release_assets.get(
-                network_reference["bundle_asset_name"],
+                network_reference["author_bundle_asset_name"],
                 {},
             )
         grounding_code = (
@@ -413,12 +437,20 @@ def verify_evidence(
                 "network_sign_once_subject_visible": (
                     schema_version < 7
                     or (
-                        network_reference.get("schema_version") == 1
+                        network_reference.get("schema_version") == 2
                         and network_reference.get(
-                            "required_attestation_count"
+                            "required_author_attestation_count"
                         )
                         == 1
-                        and len(network_attestations) == 1
+                        and network_reference.get(
+                            "required_platform_attestation_count"
+                        )
+                        == 1
+                        and network_reference.get(
+                            "required_total_attestation_count"
+                        )
+                        == 2
+                        and len(network_attestations) == 2
                         and signature_bundle.get("mediaType")
                         == "application/vnd.dev.sigstore.bundle.v0.3+json"
                         and len(
@@ -439,7 +471,7 @@ def verify_evidence(
                         .get("checkpoint", {})
                         .get("envelope", "")
                         and signature_statement.get("predicateType")
-                        == network_reference.get("predicate_type")
+                        == network_reference.get("author_predicate_type")
                         and signature_statement.get("subject")
                         == [
                             {
@@ -451,6 +483,67 @@ def verify_evidence(
                                 },
                             }
                         ]
+                        and sum(
+                            statement.get("predicateType")
+                            == network_reference.get("author_predicate_type")
+                            and statement.get("subject")
+                            == signature_statement.get("subject")
+                            for statement in network_statements
+                        )
+                        == 1
+                        and signature_bundle in network_bundles
+                        and sum(
+                            statement.get("predicateType")
+                            == network_reference.get(
+                                "platform_predicate_type"
+                            )
+                            and any(
+                                subject.get("name")
+                                == network_reference.get("subject_name")
+                                and subject.get("digest", {}).get("sha256")
+                                == str(
+                                    envelope_asset.get("digest", "")
+                                ).removeprefix("sha256:")
+                                for subject in statement.get("subject", [])
+                                if isinstance(subject, dict)
+                            )
+                            and any(
+                                subject.get("uri")
+                                == (
+                                    "pkg:github/"
+                                    + source["repository"]
+                                    + "@"
+                                    + release_reference["tag"]
+                                )
+                                and subject.get("digest", {}).get("sha1")
+                                == release.get("target_commitish")
+                                for subject in statement.get("subject", [])
+                                if isinstance(subject, dict)
+                            )
+                            for statement in network_statements
+                        )
+                        == 1
+                        and sum(
+                            statement.get("predicateType")
+                            == network_reference.get(
+                                "platform_predicate_type"
+                            )
+                            and bool(
+                                bundle.get("verificationMaterial", {})
+                                .get("certificate", {})
+                                .get("rawBytes")
+                            )
+                            and len(
+                                bundle.get("verificationMaterial", {})
+                                .get("timestampVerificationData", {})
+                                .get("rfc3161Timestamps", [])
+                            )
+                            >= 1
+                            for bundle, statement in zip(
+                                network_bundles, network_statements
+                            )
+                        )
+                        == 1
                     )
                 ),
             }

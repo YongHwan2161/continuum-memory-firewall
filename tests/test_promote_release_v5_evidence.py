@@ -93,7 +93,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
                 ),
                 sandbox_archive_sha256="d" * 64,
                 repository="o/r",
-                release_tag="hackathon-v8",
+                release_tag="hackathon-v9",
             )
 
             first_judge_bytes = judge_path.read_bytes()
@@ -118,7 +118,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
                 ),
                 sandbox_archive_sha256="d" * 64,
                 repository="o/r",
-                release_tag="hackathon-v8",
+                release_tag="hackathon-v9",
             )
             self.assertEqual(judge_path.read_bytes(), first_judge_bytes)
 
@@ -161,12 +161,14 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
             self.assertEqual(aggregate["source_head"], self.source_head)
             self.assertEqual(
                 promoted["release_envelope"]["asset_url"],
-                "https://github.com/o/r/releases/download/hackathon-v8/"
+                "https://github.com/o/r/releases/download/hackathon-v9/"
                 "continuum-release-envelope-v2.json",
             )
             self.assertEqual(
-                promoted["network_sign_once"]["required_attestation_count"],
-                1,
+                promoted["network_sign_once"][
+                    "required_total_attestation_count"
+                ],
+                2,
             )
             self.assertRegex(
                 promoted["database_policy"]["rls_combined_sha256"],
@@ -212,7 +214,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
                     release_tag="hackathon-v5",
                 )
 
-    def test_repository_public_evidence_has_v8_source_closure(self) -> None:
+    def test_repository_public_evidence_has_v9_source_closure(self) -> None:
         judge_path = self.repo_root / "public-demo/evidence/judge-verification.json"
         aggregate_path = self.repo_root / "public-demo/evidence/agent-ablation-v3.json"
         drilldown_path = (
@@ -225,10 +227,10 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         drilldown = json.loads(drilldown_bytes)
 
         self.assertEqual(judge["schema_version"], 7)
-        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v8")
+        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v9")
         self.assertEqual(
-            judge["network_sign_once"]["required_attestation_count"],
-            1,
+            judge["network_sign_once"]["required_total_attestation_count"],
+            2,
         )
         self.assertEqual(
             judge["lineage"]["candidate_runtime_sha"],

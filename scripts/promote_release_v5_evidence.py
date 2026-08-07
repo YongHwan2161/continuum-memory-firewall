@@ -24,7 +24,9 @@ ABLATION_PUBLIC_NAME = "agent-ablation-v3.json"
 EPISODE_DRILLDOWN_PUBLIC_NAME = "episode-drilldown-v1.json"
 ENVELOPE_ASSET_NAME = "continuum-release-envelope-v2.json"
 SANDBOX_ASSET_NAME = "sandbox-provider-proof.json"
-SIGNATURE_BUNDLE_ASSET_NAME = "continuum-release-envelope-v2.sigstore.jsonl"
+AUTHOR_SIGNATURE_BUNDLE_ASSET_NAME = (
+    "continuum-release-envelope-v2.sigstore.jsonl"
+)
 
 
 def _load_object(path: Path) -> tuple[dict[str, Any], bytes]:
@@ -223,23 +225,36 @@ def promote_release_v5_evidence(
         "drilldown_asset_name": EPISODE_DRILLDOWN_PUBLIC_NAME,
     }
     judge["network_sign_once"] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "attestation_api_template": (
             f"{api_url}/attestations/sha256:{{digest}}"
         ),
-        "bundle_public_url": (
-            f"{demo_base}/evidence/{SIGNATURE_BUNDLE_ASSET_NAME}"
+        "author_bundle_public_url": (
+            f"{demo_base}/evidence/{AUTHOR_SIGNATURE_BUNDLE_ASSET_NAME}"
         ),
-        "bundle_asset_name": SIGNATURE_BUNDLE_ASSET_NAME,
+        "author_bundle_asset_name": AUTHOR_SIGNATURE_BUNDLE_ASSET_NAME,
+        "network_bundle_public_url": (
+            f"{demo_base}/evidence/"
+            "continuum-release-envelope-v2.network-attestations.jsonl"
+        ),
+        "network_bundle_file_name": (
+            "continuum-release-envelope-v2.network-attestations.jsonl"
+        ),
         "subject_name": ENVELOPE_ASSET_NAME,
-        "predicate_type": "https://slsa.dev/provenance/v1",
+        "author_predicate_type": "https://slsa.dev/provenance/v1",
         "signer_workflow": (
             f"{repository}/.github/workflows/release-envelope.yml"
         ),
         "source_ref": "refs/heads/main",
         "runner_environment": "github-hosted",
         "transparency_log": "https://rekor.sigstore.dev",
-        "required_attestation_count": 1,
+        "platform_predicate_type": (
+            "https://in-toto.io/attestation/release/v0.2"
+        ),
+        "platform_signer_identity": "https://dotcom.releases.github.com",
+        "required_author_attestation_count": 1,
+        "required_platform_attestation_count": 1,
+        "required_total_attestation_count": 2,
     }
     _write_json(judge_path, judge)
     return judge
@@ -266,7 +281,7 @@ def main() -> None:
         "--repository",
         default="YongHwan2161/continuum-memory-firewall",
     )
-    parser.add_argument("--release-tag", default="hackathon-v8")
+    parser.add_argument("--release-tag", default="hackathon-v9")
     args = parser.parse_args()
     promote_release_v5_evidence(
         repo_root=args.repo_root.resolve(),

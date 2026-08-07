@@ -43,7 +43,8 @@ jobs:
           cp -a public-demo build-pages
           judge=public-demo/evidence/judge-verification.json
           tag="$(jq -r '.release_envelope.tag' "$judge")"
-          asset="$(jq -r '.network_sign_once.bundle_asset_name' "$judge")"
+          asset="$(jq -r '.network_sign_once.author_bundle_asset_name' "$judge")"
+          network_file="$(jq -r '.network_sign_once.network_bundle_file_name' "$judge")"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release download "$tag" \
               --repo "$GITHUB_REPOSITORY" \
@@ -56,6 +57,20 @@ jobs:
               '.assets[] | select(.name == $asset) | .digest' <<<"$receipt")"
             actual="sha256:$(sha256sum "build-pages/evidence/$asset" | cut -d' ' -f1)"
             test "$actual" = "$expected"
+            mkdir -p "$RUNNER_TEMP/network-sign-once"
+            gh release download "$tag" \
+              --repo "$GITHUB_REPOSITORY" \
+              --pattern continuum-release-envelope-v2.json \
+              --dir "$RUNNER_TEMP/network-sign-once"
+            (
+              cd "$RUNNER_TEMP/network-sign-once"
+              gh attestation download continuum-release-envelope-v2.json \
+                --repo "$GITHUB_REPOSITORY"
+              mapfile -t bundles < <(find . -maxdepth 1 -type f -name 'sha256:*.jsonl')
+              test "${#bundles[@]}" = 1
+              test "$(wc -l <"${bundles[0]}")" = 2
+              mv "${bundles[0]}" "$GITHUB_WORKSPACE/build-pages/evidence/$network_file"
+            )
           else
             echo "signed release is pending; verifier will remain fail-closed"
           fi

@@ -439,21 +439,29 @@ def build_envelope(
             )
         ),
         "network_sign_once_contract_bound": (
-            network_sign_once.get("schema_version") == 1
+            network_sign_once.get("schema_version") == 2
             and network_sign_once.get("attestation_api_template")
             == (
                 f"https://api.github.com/repos/{repository}/attestations/"
                 "sha256:{digest}"
             )
-            and network_sign_once.get("bundle_public_url")
+            and network_sign_once.get("author_bundle_public_url")
             == (
                 judge["public_demo"]["url"].rstrip("/")
                 + f"/evidence/{SIGNATURE_BUNDLE_ASSET}"
             )
-            and network_sign_once.get("bundle_asset_name")
+            and network_sign_once.get("author_bundle_asset_name")
             == SIGNATURE_BUNDLE_ASSET
+            and network_sign_once.get("network_bundle_public_url")
+            == (
+                judge["public_demo"]["url"].rstrip("/")
+                + "/evidence/continuum-release-envelope-v2."
+                "network-attestations.jsonl"
+            )
+            and network_sign_once.get("network_bundle_file_name")
+            == "continuum-release-envelope-v2.network-attestations.jsonl"
             and network_sign_once.get("subject_name") == ENVELOPE_ASSET
-            and network_sign_once.get("predicate_type")
+            and network_sign_once.get("author_predicate_type")
             == "https://slsa.dev/provenance/v1"
             and network_sign_once.get("signer_workflow")
             == f"{repository}/.github/workflows/release-envelope.yml"
@@ -462,7 +470,20 @@ def build_envelope(
             == "github-hosted"
             and network_sign_once.get("transparency_log")
             == "https://rekor.sigstore.dev"
-            and network_sign_once.get("required_attestation_count") == 1
+            and network_sign_once.get("platform_predicate_type")
+            == "https://in-toto.io/attestation/release/v0.2"
+            and network_sign_once.get("platform_signer_identity")
+            == "https://dotcom.releases.github.com"
+            and network_sign_once.get(
+                "required_author_attestation_count"
+            )
+            == 1
+            and network_sign_once.get(
+                "required_platform_attestation_count"
+            )
+            == 1
+            and network_sign_once.get("required_total_attestation_count")
+            == 2
         ),
         "key_rotation_retired_old_material": (
             int(managed.get("rotation_workflow_run_id", 0)) > 0
@@ -489,7 +510,7 @@ def build_envelope(
             "publication_contract": "GitHub immutable release; workflow verifies immutable=true after draft publication.",
             "assets": {
                 "envelope": release_reference["asset_url"],
-                "signature_bundle": (
+                "author_signature_bundle": (
                     f"https://github.com/{repository}/releases/download/"
                     f"{release_tag}/{SIGNATURE_BUNDLE_ASSET}"
                 ),
