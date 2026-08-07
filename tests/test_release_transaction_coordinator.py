@@ -103,6 +103,7 @@ class ReleaseTransactionCoordinatorTests(unittest.TestCase):
                 "status": "success",
                 "pages_workflow_run_id": 99,
                 "pages_workflow_url": "https://github.com/owner/repository/actions/runs/99",
+                "pages_source_digest": self.source,
                 "public_receipt_url": "https://example.test/receipt.json",
                 "release_tag": self.tag,
                 "release_target": self.source,

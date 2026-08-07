@@ -166,6 +166,8 @@ def _validate_evidence(
             raise RuntimeError("PAGES_MATERIALIZED requires status=success")
         if int(evidence.get("pages_workflow_run_id", 0)) < 1:
             raise RuntimeError("PAGES_MATERIALIZED requires a workflow run")
+        if not SHA_PATTERN.fullmatch(str(evidence.get("pages_source_digest", ""))):
+            raise RuntimeError("PAGES_MATERIALIZED materializer digest is invalid")
         if not str(evidence.get("pages_workflow_url", "")).startswith(
             "https://github.com/"
         ):

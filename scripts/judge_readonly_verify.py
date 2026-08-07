@@ -628,7 +628,7 @@ def verify_evidence(
                         and transaction_pages_workflow.get("conclusion")
                         == "success"
                         and transaction_pages_workflow.get("head_sha")
-                        == release.get("target_commitish")
+                        == transaction_pages_evidence.get("pages_source_digest")
                         and envelope.get("release_transaction")
                         == transaction_reference
                     )
