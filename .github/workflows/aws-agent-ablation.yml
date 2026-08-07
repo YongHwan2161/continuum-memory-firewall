@@ -167,7 +167,11 @@ jobs:
             .deployment_artifact_sha256 == env.CONTINUUM_ABLATION_DEPLOYMENT_ARTIFACT_SHA256 and
             .migration_version >= 31 and
             .synthetic_non_effecting == true and
+            .episode_trace_schema_version == 1 and
             (.observations | length) == 540 and
+            ([.observations[].retrieval.issued_only] | all(. == true)) and
+            ([.observations[].cross_scope_leak_count] | all(. == 0)) and
+            ([.observations[] | select(.provider_receipt != null) | .provider_receipt.receipt_digest] | all(test("^[0-9a-f]{64}$"))) and
             (.arms | keys | sort) == ["continuum","raw_rag","stateless"] and
             .methodology.case_count_per_seed == 36 and
             .methodology.case_count_per_arm == 180 and
@@ -198,13 +202,30 @@ jobs:
             ([.arms[].failure_codes["ORCHESTRATION_PROPOSAL_CITES_A_HANDLE_NOT_ISSUED_BY_SEARCH"] // 0] | add) == 0 and
             ([.arms[].cross_scope_leak_count] | all(. == 0))
           ' "$report" >/dev/null
+          PYTHONPATH=src python - "$report" "$RUNNER_TEMP/continuum-ablation/episode-drilldown-v1.json" <<'PY'
+          import json
+          from pathlib import Path
+          import sys
+
+          from continuum.drilldown import build_public_episode_drilldown
+
+          report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          projection = build_public_episode_drilldown(report)
+          Path(sys.argv[2]).write_text(
+              json.dumps(projection, indent=2, ensure_ascii=False) + "\n",
+              encoding="utf-8",
+          )
+          PY
           sha256sum "$report"
+          sha256sum "$RUNNER_TEMP/continuum-ablation/episode-drilldown-v1.json"
           jq '{schema_version,source_head,deployment_artifact_sha256,evaluation_id,generated_at,agent_model,embedding_model,migration_version,methodology,arms,continuum_lift_percentage_points,paired_comparisons,paired_safety_comparisons,variant_counts}' "$report"
       - name: Upload private immutable ablation artifact
         uses: actions/upload-artifact@v4
         with:
           name: continuum-agent-ablation-${{ github.sha }}
-          path: ${{ runner.temp }}/continuum-ablation/agent-ablation.json
+          path: |
+            ${{ runner.temp }}/continuum-ablation/agent-ablation.json
+            ${{ runner.temp }}/continuum-ablation/episode-drilldown-v1.json
           if-no-files-found: error
           retention-days: 90
       - name: Revoke temporary capability and remove staging object

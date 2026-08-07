@@ -199,6 +199,14 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(result.proposal.action_type, "invalidate_cache")
         self.assertEqual(result.proposal.citation_memory_ids, (MEMORY_ID,))
         self.assertEqual(result.tool_calls, 2)
+        self.assertTrue(result.search_attempted)
+        self.assertFalse(result.fetch_performed)
+        self.assertEqual(
+            result.issued_citation_handles,
+            ((CITATION_HANDLE, MEMORY_ID),),
+        )
+        self.assertEqual(result.selected_citation_handles, (CITATION_HANDLE,))
+        self.assertEqual(result.fetched_citation_handles, ())
         self.assertEqual(memory.searches, [("slow checkout", 3)])
         first_tools = model.calls[0]["toolConfig"]["tools"]
         names = {item["toolSpec"]["name"] for item in first_tools}

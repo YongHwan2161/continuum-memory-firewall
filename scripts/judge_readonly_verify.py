@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 from typing import Any, Callable
@@ -14,7 +15,7 @@ DEFAULT_EVIDENCE_URL = (
     "https://yonghwan2161.github.io/continuum-memory-firewall/"
     "evidence/judge-verification.json"
 )
-MAX_RESPONSE_BYTES = 1_000_000
+MAX_RESPONSE_BYTES = 5_000_000
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -59,6 +60,7 @@ def verify_evidence(
     *,
     fetch_json: Callable[[str], dict[str, Any]] = get_json,
     fetch_text: Callable[[str], str] = get_text,
+    fetch_bytes: Callable[[str], bytes] = _get_bytes,
 ) -> dict[str, Any]:
     schema_version = int(evidence.get("schema_version", 0))
     source = evidence["source"]
@@ -127,7 +129,7 @@ def verify_evidence(
             and runtime["control_plane_and_migrator_role_options_empty"] is True
         ),
         "representative_scale_gate": (
-            schema_version in {4, 5}
+            schema_version in {4, 5, 6}
             and scale_report.get("gate", {}).get("status") == "PASS"
             and [scale.get("row_count") for scale in scales] == [10_000, 50_000]
         ),
@@ -171,7 +173,7 @@ def verify_evidence(
             and pressure_report.get("gate", {}).get("synthetic_rows_cleaned") is True
         ),
     }
-    if schema_version == 5:
+    if schema_version >= 5:
         lineage = evidence["lineage"]
         sandbox_reference = evidence["sandbox_provider"]
         ablation_reference = evidence["agent_ablation"]
@@ -200,6 +202,23 @@ def verify_evidence(
             release_reference["ablation_asset_name"],
             {},
         )
+        drilldown_asset: dict[str, Any] = {}
+        drilldown: dict[str, Any] = {}
+        drilldown_sha = ""
+        if schema_version >= 6:
+            drilldown_reference = evidence["episode_drilldown"]
+            drilldown_bytes = fetch_bytes(drilldown_reference["public_url"])
+            parsed = json.loads(drilldown_bytes.decode("utf-8"))
+            if not isinstance(parsed, dict):
+                raise RuntimeError("expected a drill-down JSON object")
+            drilldown = parsed
+            drilldown_sha = hashlib.sha256(
+                drilldown_bytes.replace(b"\r\n", b"\n")
+            ).hexdigest()
+            drilldown_asset = release_assets.get(
+                release_reference["drilldown_asset_name"],
+                {},
+            )
         grounding_code = (
             "ORCHESTRATION_PROPOSAL_CITES_A_HANDLE_NOT_ISSUED_BY_SEARCH"
         )
@@ -252,6 +271,30 @@ def verify_evidence(
                         for value in arms.values()
                     )
                 ),
+                "episode_drilldown_projection": (
+                    schema_version < 6
+                    or (
+                        drilldown_sha == drilldown_reference["sha256"]
+                        and drilldown.get("schema_version") == 1
+                        and drilldown.get("source_head")
+                        == ablation_reference["head_sha"]
+                        and drilldown.get("evaluation_id")
+                        == drilldown_reference["evaluation_id"]
+                        and drilldown.get("population", {}).get(
+                            "paired_episodes"
+                        )
+                        == 180
+                        and drilldown.get("population", {}).get(
+                            "arm_observations"
+                        )
+                        == 540
+                        and drilldown.get("gate", {}).get("status") == "PASS"
+                        and drilldown.get("gate", {}).get(
+                            "private_identifier_keys_present"
+                        )
+                        == []
+                    )
+                ),
                 "citation_handle_grounding": grounding_failures == 0,
                 "paired_memory_policy_differentiates": (
                     raw.get("unsafe_proposal_rate_under_memory_pressure", 0)
@@ -286,6 +329,11 @@ def verify_evidence(
                     == "sha256:" + sandbox_reference["report_sha256"]
                     and ablation_asset.get("digest")
                     == "sha256:" + ablation_reference["report_sha256"]
+                    and (
+                        schema_version < 6
+                        or drilldown_asset.get("digest")
+                        == "sha256:" + drilldown_reference["sha256"]
+                    )
                 ),
                 "release_envelope_gate": (
                     envelope.get("schema_version") == 2
@@ -297,7 +345,7 @@ def verify_evidence(
                     and envelope.get("public_judge_evidence", {}).get(
                         "schema_version"
                     )
-                    == 5
+                    == schema_version
                 ),
                 "rls_checksum_bound": (
                     evidence.get("database_policy", {}).get(

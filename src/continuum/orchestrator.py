@@ -167,6 +167,11 @@ class OrchestrationResult:
     citations: tuple[RetrievedCitation, ...]
     model_turns: int
     tool_calls: int
+    search_attempted: bool = False
+    fetch_performed: bool = False
+    issued_citation_handles: tuple[tuple[str, str], ...] = ()
+    selected_citation_handles: tuple[str, ...] = ()
+    fetched_citation_handles: tuple[str, ...] = ()
 
 
 class BedrockConverseClient:
@@ -315,6 +320,7 @@ class AgentOrchestrator:
         ]
         citations: dict[str, RetrievedCitation] = {}
         citation_handles: dict[str, str] = {}
+        fetched_citation_handles: list[str] = []
         tool_calls = 0
         search_attempted = False
         fetch_performed = False
@@ -422,6 +428,9 @@ class AgentOrchestrator:
                         citations,
                         citation_handles,
                     )
+                    fetched_citation_handles.append(
+                        str(tool_input["citation_handle"])
+                    )
                     fetch_performed = True
                     tool_result_blocks.append(self._tool_result(tool_use_id, result))
                 elif name in self._proposal_tools:
@@ -454,6 +463,15 @@ class AgentOrchestrator:
                     citations=durable_citations,
                     model_turns=model_turn,
                     tool_calls=tool_calls,
+                    search_attempted=search_attempted,
+                    fetch_performed=fetch_performed,
+                    issued_citation_handles=tuple(citation_handles.items()),
+                    selected_citation_handles=tuple(
+                        handle
+                        for handle, memory_id in citation_handles.items()
+                        if memory_id in terminal.citation_memory_ids
+                    ),
+                    fetched_citation_handles=tuple(fetched_citation_handles),
                 )
 
             if not tool_result_blocks:
@@ -470,6 +488,10 @@ class AgentOrchestrator:
                     citations=tuple(citations.values()),
                     model_turns=model_turn,
                     tool_calls=tool_calls,
+                    search_attempted=search_attempted,
+                    fetch_performed=fetch_performed,
+                    issued_citation_handles=tuple(citation_handles.items()),
+                    fetched_citation_handles=tuple(fetched_citation_handles),
                 )
             messages.append({"role": "user", "content": tool_result_blocks})
 

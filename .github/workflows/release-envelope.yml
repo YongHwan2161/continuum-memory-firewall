@@ -6,7 +6,7 @@ on:
       release_tag:
         description: New immutable GitHub Release tag
         required: true
-        default: hackathon-v6
+        default: hackathon-v7
 
 permissions:
   actions: read
@@ -94,6 +94,10 @@ jobs:
             "$(jq -r '.sandbox_provider.report_sha256' "$judge")"
           test "$(sha256sum build/evidence/ablation/agent-ablation.json | cut -d' ' -f1)" = \
             "$(jq -r '.agent_ablation.report_sha256' "$judge")"
+          test "$(sha256sum build/evidence/ablation/episode-drilldown-v1.json | cut -d' ' -f1)" = \
+            "$(jq -r '.episode_drilldown.sha256' "$judge")"
+          cmp build/evidence/ablation/episode-drilldown-v1.json \
+            public-demo/evidence/episode-drilldown-v1.json
       - name: Build fail-closed envelope
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
@@ -105,6 +109,7 @@ jobs:
             --sandbox-evidence build/evidence/sandbox/sandbox-provider-proof.json \
             --ablation-evidence build/evidence/ablation/agent-ablation.json \
             --ablation-aggregate public-demo/evidence/agent-ablation-v3.json \
+            --episode-drilldown public-demo/evidence/episode-drilldown-v1.json \
             --repo-root . \
             --repository "$GITHUB_REPOSITORY" \
             --commit-sha "$GITHUB_SHA" \
@@ -116,10 +121,13 @@ jobs:
             build/release/sandbox-provider-proof.json
           cp build/evidence/ablation/agent-ablation.json \
             build/release/agent-ablation-v3.json
+          cp public-demo/evidence/episode-drilldown-v1.json \
+            build/release/episode-drilldown-v1.json
           (
             cd build/release
             sha256sum sandbox-provider-proof.json >sandbox-provider-proof.json.sha256
             sha256sum agent-ablation-v3.json >agent-ablation-v3.json.sha256
+            sha256sum episode-drilldown-v1.json >episode-drilldown-v1.json.sha256
           )
       - uses: actions/upload-artifact@v4
         with:
@@ -139,6 +147,8 @@ jobs:
             build/release/sandbox-provider-proof.json.sha256 \
             build/release/agent-ablation-v3.json \
             build/release/agent-ablation-v3.json.sha256 \
+            build/release/episode-drilldown-v1.json \
+            build/release/episode-drilldown-v1.json.sha256 \
             --target "$GITHUB_SHA" \
             --draft \
             --title "Continuum Memory Firewall evidence envelope" \
