@@ -75,6 +75,7 @@ def _run(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
         check=False,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
 
 
@@ -99,6 +100,7 @@ def _download_network_bundles(
             check=False,
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
         if result.returncode != 0:
             raise RuntimeError(
