@@ -15,11 +15,12 @@ client-credentials tokens and uses Bedrock Titan Text Embeddings v2. A
 0.8667/0.9833/1.0, zero cross-scope leakage, and p50/p95 =
 248.149/279.012 ms. Remote search/fetch and direct cross-scope denial passed.
 The participant cluster also completed a five-replication, 180-case-per-arm
-Bedrock experiment: provider-receipt success was 33.3% stateless, 96.1%
-raw-RAG, and 93.9% Continuum, with zero leakage and zero false canonical
-promotions. Continuum's +60.556 percentage-point paired lift over stateless was
-clear, while its -2.222 point difference from raw-RAG was statistically
-unresolved. Crash
+Bedrock experiment after strengthening stale, poison, and conflict pressure:
+verified provider outcomes were 44.4% stateless, 52.8% raw-RAG, and 100%
+Continuum. Continuum improved over raw-RAG by 47.222 percentage points
+(10,000-resample paired cluster-bootstrap 95% CI +30.556 to +63.889), with
+zero cross-scope rows, zero unsafe proposals, zero poison exposure, and zero
+false canonical promotions. Crash
 injection proved idempotent reconciliation with zero duplicate effects and an
 explicit non-idempotent `ambiguous` terminal state.
 The Devpost entry is submitted to the CockroachDB x AWS hackathon as submission
@@ -43,7 +44,7 @@ evidence, and explicit non-claims.
 | Existing-schema adoption | Implemented and fail-closed | Unmanaged tables are refused by default; explicit adoption validates required columns, indexes, and composite scope foreign keys |
 | Semantic live-DB evaluation | Live-smoked on participant CockroachDB Cloud | Titan v2 ran 60 adversarial and similar-meaning queries across six variant classes; Recall@1/3/5 = 0.8667/0.9833/1.0, zero forbidden-scope rows, p50 = 248.149 ms, p95 = 279.012 ms |
 | Bedrock episode contract | Implemented, integration-tested, and live-evaluated | Durable runs, frozen citations, allowlisted proposals, verified outcomes, and server-owned scope are coupled to a phased `search -> optional fetch -> proposal` tool contract; rejected runs retain bounded failure codes and progress |
-| Outcome-gated three-arm ablation | 180 identical paired cases per arm completed live | Five isolated replications of 36 cases produced 540 observations. Provider-receipt success: stateless 60/180, raw-RAG 173/180, Continuum 169/180. Continuum beat stateless by 60.556 points (cluster-bootstrap 95% +41.111 to +78.333), while Continuum versus raw-RAG was -2.222 points (95% -9.444 to +4.444, p=0.480682); leakage, false promotions, and ambiguous outcomes remained zero |
+| Outcome-gated three-arm ablation | 180 identical paired cases per arm completed live | Five isolated replications of 36 stale/poison/conflict-aware cases produced 540 observations. Verified provider outcomes: stateless 80/180, raw-RAG 95/180, Continuum 180/180. Continuum beat raw-RAG by 47.222 points (paired cluster-bootstrap 95% +30.556 to +63.889); Continuum retained zero unsafe proposals, poison exposure, cross-scope rows, false promotions, and ambiguous outcomes |
 | Transactional outbox | Implemented, integration-tested, and participant-cluster fault-smoked | Before-send, idempotent after-send, and before-ack crashes converged to one logical effect and zero duplicates; a non-idempotent after-send crash became `ambiguous`, was not resent, and did not promote memory |
 | Tenant and incident integrity | Implemented | Composite foreign keys and query predicates bind candidates, canonical memory, actions, and retrieval audit to the same scope |
 | Vector write and retrieval | Implemented and participant-cluster live-smoked | Deterministic local embeddings remain for tests; the live deployment uses `amazon.titan-embed-text-v2:0` with 512 dimensions and mandatory tenant/incident scope |
@@ -94,9 +95,9 @@ evidence, and explicit non-claims.
 - Submitted Devpost project page; submission `1121568` returned `Submitted` at
   2026-08-02 00:22 KST:
   <https://devpost.com/software/continuum-memory-firewall>
-- Public 109.081-second story-first demonstration video embedded by Devpost:
-  <https://youtu.be/ik76Q8Z8IoA> (SHA-256
-  `870094a0ec515da6b4edb8c476407624ba358d97677b41da6b551cb2f8440f4b`)
+- Public 100.918-second outcome-first demonstration video embedded by Devpost:
+  <https://youtu.be/T90h0qLGubk> (SHA-256
+  `9027ead148849d1a052c40ffbcac8c297c72b9691830e61fdd139aae02ec1e4c`)
 - Redacted live AWS and CockroachDB evidence:
   [2026-07-31-cloud-live-smoke.md](evidence/2026-07-31-cloud-live-smoke.md)
 - Redacted live SQL migration and vector evidence:
@@ -194,19 +195,19 @@ The AWS, Managed MCP, participant-cluster SQL, least-privilege runtime, fixed
 egress, authenticated remote MCP, and Devpost submission gates are closed. The
 highest-value work before the submission deadline is:
 
-1. **Protect the judge path:** keep the demo, authenticated MCP, fixed egress,
-   main-only OIDC environment, and public video live; recheck them before material
-   submission edits.
-2. **Make the measured agent behavior judge-visible:** expose a read-only
-   episode/citation/outcome page and a judge-facing aggregate view of the
-   completed five-replication ablation.
-3. **Bind the release:** publish the reviewed public demo, current video,
-   deployment, RLS/control-plane checksums, vector report, key rotation, and
-   Devpost receipt as one immutable GitHub release envelope.
-4. **Prove the product differentiator:** add paired stale/poison/conflict cases
-   whose unsafe raw-memory failure is measurable, retain identical labels and
-   provider verification, and show Continuum safety/outcome lift without
-   relaxing fail-closed citation enforcement.
+1. **Close release v6:** bind the outcome-first video, Devpost version 14,
+   paired ablation, sandbox receipt, exact runtime, RLS checksum, and current
+   source commit in one immutable release and signed attestation.
+2. **Protect the judge path:** keep the demo, authenticated MCP, fixed egress,
+   main-only OIDC environment, public video, and release assets live; recheck
+   them after every material change and through the judging window.
+3. **Make the causal contrast inspectable:** expose a read-only per-episode
+   view that places the same stale/poison/conflict case across stateless,
+   raw-RAG, and Continuum, including issued handles, proposal, provider receipt,
+   and promotion decision.
+4. **Measure useful latency:** report outcome-weighted p95 and time-to-verified
+   recovery so failed/censored raw-RAG episodes cannot look faster than a system
+   that completes all recoveries.
 
 The exact commands and stop conditions are in
 [CLOUD_DEPLOYMENT_RUNBOOK.md](CLOUD_DEPLOYMENT_RUNBOOK.md).
@@ -222,11 +223,11 @@ The exact commands and stop conditions are in
   competition evidence but are not a statistically broad production workload.
   “First pass” includes a fresh SQL connection, not a server cache flush.
 - The five-replication agent ablation uses a synthetic non-effecting provider.
-  Continuum beat stateless by 60.556 percentage points, but its 169/180 versus
-  raw-RAG 173/180 result is statistically unresolved. All 11 Continuum and all
-  7 raw-RAG failures cited memory outside the server-returned search set,
-  identifying retrieval/proposal grounding as an availability bottleneck
-  rather than grounds to relax the fail-closed policy.
+  After server-issued citation handles removed grounding failures and paired
+  stale/poison/conflict pressure was strengthened, Continuum completed 180/180
+  verified outcomes versus raw-RAG 95/180, a +47.222-point lift with paired
+  cluster-bootstrap 95% CI +30.556 to +63.889. This is strong bounded evidence,
+  not a claim about every real provider or incident distribution.
 - The outbox proof establishes safe reconciliation for a bounded provider
   contract. A production provider must declare idempotency and receipt-lookup
   capabilities before it may use the automatic retry path.

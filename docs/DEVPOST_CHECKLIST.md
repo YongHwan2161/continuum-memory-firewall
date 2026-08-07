@@ -102,11 +102,17 @@ complete attestations and organizer agreements.
       incident, verifier, 10k/50k ANN, and 10/25/50-agent pressure evidence
 - [x] Secret-free screenshots captured for the live overview, policy rejection,
       and one-owner failover in [docs/demo/](demo/)
-- [x] Updated demo uploaded publicly to YouTube and embedded on Devpost:
-      <https://youtu.be/ik76Q8Z8IoA>; 109.081 seconds; SHA-256
-      `870094a0ec515da6b4edb8c476407624ba358d97677b41da6b551cb2f8440f4b`
-- [x] Problem, approach, architecture, and technical challenge narrative
-      rendered on the public Devpost project page
+- [x] Outcome-first demo uploaded publicly to YouTube and embedded on Devpost:
+      <https://youtu.be/T90h0qLGubk>; 100.918 seconds; SHA-256
+      `9027ead148849d1a052c40ffbcac8c297c72b9691830e61fdd139aae02ec1e4c`.
+      It leads with the live incident, then the 540-observation paired outcome
+      result, episode contract, authorization chain, scale proof, and one-click
+      verifier. English (US) metadata, public visibility, and a no-issues
+      copyright check were confirmed on 2026-08-07.
+- [x] Devpost project version 14 reflects the outcome-gated episode contract,
+      180 cases per arm, +47.2-point paired lift over raw RAG, 0% Continuum
+      unsafe proposals/poison exposure, and the new public video; project
+      timestamp `2026-08-07T03:14:57.385-04:00`
 - [x] Measured 60-query, 10k/50k, and 10/25/50-agent results recorded;
       production-quality generalization remains an explicit non-claim
 - [x] Final technology inventory limited to deployed/tested components in

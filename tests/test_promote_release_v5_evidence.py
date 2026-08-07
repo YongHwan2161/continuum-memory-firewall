@@ -195,7 +195,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
                     release_tag="hackathon-v5",
                 )
 
-    def test_repository_public_evidence_has_v5_source_closure(self) -> None:
+    def test_repository_public_evidence_has_v6_source_closure(self) -> None:
         judge_path = self.repo_root / "public-demo/evidence/judge-verification.json"
         aggregate_path = self.repo_root / "public-demo/evidence/agent-ablation-v3.json"
         judge = json.loads(judge_path.read_bytes())
@@ -203,7 +203,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         aggregate = json.loads(aggregate_bytes)
 
         self.assertEqual(judge["schema_version"], 5)
-        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v5")
+        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v6")
         self.assertEqual(
             judge["lineage"]["candidate_runtime_sha"],
             judge["source"]["deployment_head_sha"],

@@ -1,11 +1,12 @@
 # Immutable competition release envelope
 
-`hackathon-v5` is the next proof unit for the competition build. It is
+`hackathon-v6` is the next proof unit for the competition build. It is
 published only by `.github/workflows/release-envelope.yml` after every
 fail-closed gate passes.
 
-`hackathon-v1` through `hackathon-v4` remain immutable audit history. Version 5
-adds the citation-handle and paired memory-pressure candidate while preserving
+`hackathon-v1` through `hackathon-v5` remain immutable audit history. Version 6
+adds the outcome-first public video and refreshed Devpost version 14 receipt to
+the citation-handle and paired memory-pressure candidate while preserving
 the prior live runtime (`1291e27`) and documentation (`2a94b46`) as explicit
 baseline lineage rather than silently relabeling them as the new candidate.
 
@@ -69,7 +70,7 @@ asset state, and SHA-256 digest. A judge can independently download the envelope
 and validate its sidecar without trusting the public page:
 
 ```bash
-gh release download hackathon-v5 --pattern 'continuum-release-envelope-v2.json*'
+gh release download hackathon-v6 --pattern 'continuum-release-envelope-v2.json*'
 sha256sum -c continuum-release-envelope-v2.json.sha256
 ```
 

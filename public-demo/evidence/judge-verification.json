@@ -6,10 +6,10 @@
     "id": 1121568,
     "status": "Submitted",
     "project_url": "https://devpost.com/software/continuum-memory-firewall",
-    "project_updated_at": "2026-08-02T05:05:28.543-04:00",
-    "video_url": "https://youtu.be/ik76Q8Z8IoA",
-    "video_duration_seconds": 109.081,
-    "video_sha256": "870094a0ec515da6b4edb8c476407624ba358d97677b41da6b551cb2f8440f4b",
+    "project_updated_at": "2026-08-07T03:14:57.385-04:00",
+    "video_url": "https://youtu.be/T90h0qLGubk",
+    "video_duration_seconds": 100.918,
+    "video_sha256": "9027ead148849d1a052c40ffbcac8c297c72b9691830e61fdd139aae02ec1e4c",
     "deadline_kst": "2026-08-19T06:00:00+09:00"
   },
   "source": {
@@ -145,14 +145,14 @@
     "temporary_github_secret_deleted": true
   },
   "release_envelope": {
-    "tag": "hackathon-v5",
-    "release_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v5",
-    "release_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/releases/tags/hackathon-v5",
-    "asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v5/continuum-release-envelope-v2.json",
+    "tag": "hackathon-v6",
+    "release_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v6",
+    "release_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/releases/tags/hackathon-v6",
+    "asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v6/continuum-release-envelope-v2.json",
     "asset_name": "continuum-release-envelope-v2.json",
-    "sandbox_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v5/sandbox-provider-proof.json",
+    "sandbox_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v6/sandbox-provider-proof.json",
     "sandbox_asset_name": "sandbox-provider-proof.json",
-    "ablation_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v5/agent-ablation-v3.json",
+    "ablation_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v6/agent-ablation-v3.json",
     "ablation_asset_name": "agent-ablation-v3.json"
   },
   "public_demo": {
