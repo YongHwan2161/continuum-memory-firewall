@@ -13,6 +13,8 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
+  attestations: read
   contents: read
   pages: write
   id-token: write
@@ -62,6 +64,10 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --pattern continuum-release-envelope-v2.json \
               --dir "$RUNNER_TEMP/network-sign-once"
+            gh release download "$tag" \
+              --repo "$GITHUB_REPOSITORY" \
+              --pattern release-transaction-receipt.json \
+              --dir "$RUNNER_TEMP/network-sign-once"
             (
               cd "$RUNNER_TEMP/network-sign-once"
               gh attestation download continuum-release-envelope-v2.json \
@@ -71,6 +77,48 @@ jobs:
               test "$(wc -l <"${bundles[0]}")" = 2
               mv "${bundles[0]}" "$GITHUB_WORKSPACE/build-pages/evidence/$network_file"
             )
+
+            envelope_digest="$(jq -r '.envelope_sha256' "$RUNNER_TEMP/network-sign-once/release-transaction-receipt.json")"
+            author_count="$(gh api \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
+              "repos/$GITHUB_REPOSITORY/attestations/sha256:$envelope_digest?predicate_type=https%3A%2F%2Fslsa.dev%2Fprovenance%2Fv1" \
+              --jq '.attestations | length')"
+            platform_count="$(gh api \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
+              "repos/$GITHUB_REPOSITORY/attestations/sha1:$(jq -r '.target_commitish' <<<"$receipt")?predicate_type=https%3A%2F%2Fin-toto.io%2Fattestation%2Frelease%2Fv0.2" \
+              --jq '.attestations | length')"
+            test "$author_count" = 1
+            test "$platform_count" = 1
+            jq -n \
+              --arg release_target "$(jq -r '.target_commitish' <<<"$receipt")" \
+              --arg release_tag "$tag" \
+              '{immutable:true,release_draft:false,release_target:$release_target,release_tag:$release_tag,author_attestation_count:1,platform_attestation_count:1,total_attestation_count:2}' \
+              >"$RUNNER_TEMP/network-sign-once/immutable.json"
+            python scripts/release_transaction_coordinator.py advance \
+              --input "$RUNNER_TEMP/network-sign-once/release-transaction-receipt.json" \
+              --to-state IMMUTABLE \
+              --evidence "$RUNNER_TEMP/network-sign-once/immutable.json" \
+              --observed-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              --output "$RUNNER_TEMP/network-sign-once/immutable-receipt.json"
+            network_sha="$(sha256sum "build-pages/evidence/$network_file" | cut -d' ' -f1)"
+            jq -n \
+              --argjson pages_workflow_run_id "$GITHUB_RUN_ID" \
+              --arg pages_workflow_url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+              --arg public_receipt_url "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/release-transaction-receipt.json" \
+              --arg release_tag "$tag" \
+              --arg release_target "$(jq -r '.target_commitish' <<<"$receipt")" \
+              --arg public_bundle_sha256 "$network_sha" \
+              '{status:"success",pages_workflow_run_id:$pages_workflow_run_id,pages_workflow_url:$pages_workflow_url,public_receipt_url:$public_receipt_url,release_tag:$release_tag,release_target:$release_target,public_bundle_sha256:$public_bundle_sha256}' \
+              >"$RUNNER_TEMP/network-sign-once/pages.json"
+            python scripts/release_transaction_coordinator.py advance \
+              --input "$RUNNER_TEMP/network-sign-once/immutable-receipt.json" \
+              --to-state PAGES_MATERIALIZED \
+              --evidence "$RUNNER_TEMP/network-sign-once/pages.json" \
+              --observed-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              --output build-pages/evidence/release-transaction-receipt.json
+            python scripts/release_transaction_coordinator.py verify \
+              --input build-pages/evidence/release-transaction-receipt.json \
+              --expected-state PAGES_MATERIALIZED
           else
             echo "signed release is pending; verifier will remain fail-closed"
           fi
@@ -83,3 +131,22 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Verify the materialized transaction receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(sha256sum build-pages/evidence/release-transaction-receipt.json | cut -d' ' -f1)"
+          url="https://yonghwan2161.github.io/continuum-memory-firewall/evidence/release-transaction-receipt.json?run=$GITHUB_RUN_ID"
+          for attempt in $(seq 1 12); do
+            if curl --fail --silent --show-error "$url" \
+                --output "$RUNNER_TEMP/public-release-transaction-receipt.json" && \
+               [ "$(sha256sum "$RUNNER_TEMP/public-release-transaction-receipt.json" | cut -d' ' -f1)" = "$expected" ]; then
+              break
+            fi
+            sleep 5
+          done
+          test "$(sha256sum "$RUNNER_TEMP/public-release-transaction-receipt.json" | cut -d' ' -f1)" = "$expected"
+          python scripts/release_transaction_coordinator.py verify \
+            --input "$RUNNER_TEMP/public-release-transaction-receipt.json" \
+            --expected-state PAGES_MATERIALIZED

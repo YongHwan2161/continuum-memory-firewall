@@ -11,13 +11,13 @@ from scripts.verify_network_sign_once import verify_network_sign_once
 class NetworkSignOnceTests(unittest.TestCase):
     def setUp(self) -> None:
         self.repository = "owner/repository"
-        self.tag = "hackathon-v9"
+        self.tag = "hackathon-v10"
         self.source_digest = "a" * 40
         self.envelope = b'{"schema_version":2}\n'
         self.envelope_digest = hashlib.sha256(self.envelope).hexdigest()
         self.release_url = (
             "https://api.github.com/repos/owner/repository/releases/tags/"
-            "hackathon-v9"
+            "hackathon-v10"
         )
         self.envelope_url = "https://downloads.example.test/envelope.json"
         self.author_bundle_url = (
@@ -287,7 +287,13 @@ class NetworkSignOnceTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertEqual(release_workflow.count("uses: actions/attest@v4"), 1)
-        self.assertIn("Refuse a second author envelope signature", release_workflow)
+        self.assertIn(
+            "Reconcile the author attestation before signing",
+            release_workflow,
+        )
+        self.assertIn("Create the durable draft before author signing", release_workflow)
+        self.assertIn("release_transaction_coordinator.py", release_workflow)
+        self.assertIn("cancel-in-progress: false", release_workflow)
         self.assertIn("required", release_workflow)
         self.assertIn("--deny-self-hosted-runners", release_workflow)
         self.assertIn("continuum-release-envelope-v2.sigstore.jsonl", release_workflow)
@@ -304,6 +310,8 @@ class NetworkSignOnceTests(unittest.TestCase):
         )
         self.assertIn("release:\n    types:\n      - published", pages_workflow)
         self.assertIn("Materialize the signed envelope bundle", pages_workflow)
+        self.assertIn("PAGES_MATERIALIZED", pages_workflow)
+        self.assertIn("Verify the materialized transaction receipt", pages_workflow)
 
 
 if __name__ == "__main__":

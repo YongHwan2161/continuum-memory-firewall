@@ -70,6 +70,10 @@ complete attestations and organizer agreements.
       separately identifies GitHub's immutable-release countersignature. The
       strict command binds author workflow, main ref, source SHA, hosted runner,
       Rekor timestamp, and the one-author/one-platform authority cardinality.
+- [x] Release transaction coordinator creates the durable draft before signing,
+      reuses an existing author attestation after a crash, verifies every asset
+      digest, fails closed on `AMBIGUOUS`, and publishes a hash-chained terminal
+      `PAGES_MATERIALIZED` receipt through the one-click judge page.
 - [x] Byte-identical 10k/50k non-sensitive vector benchmark report proves the
       complete `1/32/128/512` beam trade-off, natural vector-search plan, no
       full scan, and zero foreign rows; at 50k/beam 512 Recall@10 was 0.96875

@@ -5,6 +5,10 @@ import json
 from pathlib import Path
 
 from scripts.judge_readonly_verify import verify_evidence
+from scripts.release_transaction_coordinator import (
+    advance_receipt,
+    initialize_receipt,
+)
 
 
 class JudgeVerificationTests(unittest.TestCase):
@@ -302,6 +306,99 @@ class JudgeVerificationTests(unittest.TestCase):
             "required_platform_attestation_count": 1,
             "required_total_attestation_count": 2,
         }
+        transaction_url = (
+            "https://demo.example.test/release-transaction-receipt.json"
+        )
+        transaction_states = [
+            "PREPARED",
+            "AUTHOR_ATTESTED",
+            "ASSETS_UPLOADED",
+            "IMMUTABLE",
+            "PAGES_MATERIALIZED",
+        ]
+        self.evidence["release_transaction"] = {
+            "schema_version": 1,
+            "coordinator_script": "scripts/release_transaction_coordinator.py",
+            "receipt_asset_name": "release-transaction-receipt.json",
+            "public_receipt_url": transaction_url,
+            "states": transaction_states,
+            "required_terminal_state": "PAGES_MATERIALIZED",
+            "ambiguous_state_fails_closed": True,
+        }
+        transaction_assets = {
+            "continuum-release-envelope-v2.json": "e" * 64,
+            "continuum-release-envelope-v2.sigstore.jsonl": signature_bundle_sha,
+        }
+        transaction_receipt = initialize_receipt(
+            repository="o/r",
+            release_tag="hackathon-v5",
+            source_digest=candidate,
+            envelope_sha256="e" * 64,
+            evidence={
+                "release_id": 55,
+                "release_draft": True,
+                "release_target": candidate,
+                "envelope_sha256": "e" * 64,
+                "expected_asset_digests": {
+                    "continuum-release-envelope-v2.json": "e" * 64,
+                },
+            },
+            observed_at="2026-08-08T00:00:00Z",
+        )
+        transaction_receipt = advance_receipt(
+            transaction_receipt,
+            to_state="AUTHOR_ATTESTED",
+            evidence={
+                "author_attestation_count": 1,
+                "author_bundle_sha256": signature_bundle_sha,
+                "signer_workflow": "o/r/.github/workflows/release-envelope.yml",
+                "source_ref": "refs/heads/main",
+                "rekor_log": "https://rekor.sigstore.dev",
+            },
+            observed_at="2026-08-08T00:01:00Z",
+        )
+        transaction_receipt = advance_receipt(
+            transaction_receipt,
+            to_state="ASSETS_UPLOADED",
+            evidence={
+                "release_draft": True,
+                "expected_asset_digests": transaction_assets,
+                "observed_asset_digests": transaction_assets,
+            },
+            observed_at="2026-08-08T00:02:00Z",
+        )
+        transaction_receipt = advance_receipt(
+            transaction_receipt,
+            to_state="IMMUTABLE",
+            evidence={
+                "immutable": True,
+                "release_draft": False,
+                "release_target": candidate,
+                "release_tag": "hackathon-v5",
+                "author_attestation_count": 1,
+                "platform_attestation_count": 1,
+                "total_attestation_count": 2,
+            },
+            observed_at="2026-08-08T00:03:00Z",
+        )
+        transaction_receipt = advance_receipt(
+            transaction_receipt,
+            to_state="PAGES_MATERIALIZED",
+            evidence={
+                "status": "success",
+                "pages_workflow_run_id": 12,
+                "pages_workflow_url": (
+                    "https://github.com/o/r/actions/runs/12"
+                ),
+                "public_receipt_url": transaction_url,
+                "release_tag": "hackathon-v5",
+                "release_target": candidate,
+                "public_bundle_sha256": hashlib.sha256(
+                    network_bundle_bytes
+                ).hexdigest(),
+            },
+            observed_at="2026-08-08T00:04:00Z",
+        )
         self.evidence["database_policy"] = {
             "rls_combined_sha256": "f" * 64,
         }
@@ -383,12 +480,18 @@ class JudgeVerificationTests(unittest.TestCase):
                         "state": "uploaded",
                         "digest": "sha256:" + signature_bundle_sha,
                     },
+                    {
+                        "name": "release-transaction-receipt.json",
+                        "state": "uploaded",
+                        "digest": "sha256:" + "9" * 64,
+                    },
                 ],
             },
             self.evidence["release_envelope"]["asset_url"]: {
                 "schema_version": 2,
                 "lineage": {"candidate_runtime_sha": candidate},
                 "public_judge_evidence": {"schema_version": 7},
+                "release_transaction": self.evidence["release_transaction"],
                 "database_policy": {
                     "rls": {"combined_sha256": "f" * 64},
                 },
@@ -408,6 +511,11 @@ class JudgeVerificationTests(unittest.TestCase):
                     {"bundle_url": platform_api_bundle_url},
                     {"bundle_url": author_api_bundle_url},
                 ]
+            },
+            transaction_url: transaction_receipt,
+            "https://api.github.com/repos/o/r/actions/runs/12": {
+                "conclusion": "success",
+                "head_sha": candidate,
             },
         }
 
@@ -437,6 +545,7 @@ class JudgeVerificationTests(unittest.TestCase):
         self.assertTrue(report["checks"]["immutable_release_assets"])
         self.assertTrue(report["checks"]["episode_drilldown_projection"])
         self.assertTrue(report["checks"]["network_sign_once_subject_visible"])
+        self.assertTrue(report["checks"]["release_transaction_terminal"])
 
         ablation["arms"]["raw_rag"]["failure_codes"] = {
             "ORCHESTRATION_PROPOSAL_CITES_A_HANDLE_NOT_ISSUED_BY_SEARCH": 1

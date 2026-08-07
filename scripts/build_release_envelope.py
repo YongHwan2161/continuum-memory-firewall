@@ -159,6 +159,7 @@ def build_envelope(
     database_policy_reference = judge["database_policy"]
     release_reference = judge["release_envelope"]
     network_sign_once = judge["network_sign_once"]
+    release_transaction = judge["release_transaction"]
     scales = scale.get("scales", [])
     beams = [beam for item in scales for beam in item.get("beams", [])]
     beam_grid = [
@@ -485,6 +486,29 @@ def build_envelope(
             and network_sign_once.get("required_total_attestation_count")
             == 2
         ),
+        "release_transaction_contract_bound": (
+            release_transaction.get("schema_version") == 1
+            and release_transaction.get("coordinator_script")
+            == "scripts/release_transaction_coordinator.py"
+            and release_transaction.get("receipt_asset_name")
+            == "release-transaction-receipt.json"
+            and release_transaction.get("public_receipt_url")
+            == (
+                judge["public_demo"]["url"].rstrip("/")
+                + "/evidence/release-transaction-receipt.json"
+            )
+            and release_transaction.get("states")
+            == [
+                "PREPARED",
+                "AUTHOR_ATTESTED",
+                "ASSETS_UPLOADED",
+                "IMMUTABLE",
+                "PAGES_MATERIALIZED",
+            ]
+            and release_transaction.get("required_terminal_state")
+            == "PAGES_MATERIALIZED"
+            and release_transaction.get("ambiguous_state_fails_closed") is True
+        ),
         "key_rotation_retired_old_material": (
             int(managed.get("rotation_workflow_run_id", 0)) > 0
             and managed.get("read_tools") == ["list_databases", "list_tables"]
@@ -631,6 +655,7 @@ def build_envelope(
         },
         "public_release_reference": release_reference,
         "network_sign_once": network_sign_once,
+        "release_transaction": release_transaction,
         "database_policy": {
             "rls": rls_receipt,
             "tenant_control_plane": control_plane_receipt,

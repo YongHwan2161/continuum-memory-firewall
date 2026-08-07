@@ -1,10 +1,10 @@
 # Immutable competition release envelope
 
-`hackathon-v9` is the proof unit for the paired-episode competition build. It is
+`hackathon-v10` is the proof unit for the paired-episode competition build. It is
 published only by `.github/workflows/release-envelope.yml` after every
 fail-closed gate passes.
 
-`hackathon-v1` through `hackathon-v8` remain immutable audit history. Version 6
+`hackathon-v1` through `hackathon-v9` remain immutable audit history. Version 6
 adds the outcome-first public video and refreshed Devpost version 14 receipt to
 the citation-handle and paired memory-pressure candidate while preserving
 the prior live runtime (`1291e27`) and documentation (`2a94b46`) as explicit
@@ -67,6 +67,20 @@ publication. Version 9 makes the authority boundary explicit and requires
 exactly one author SLSA attestation, one platform release countersignature, and
 two total records.
 
+Version 10 closes the release crash gap. The workflow creates a durable draft
+and uploads the exact envelope before invoking the author signer. Its
+hash-chained `release-transaction-receipt.json` advances only in this order:
+
+`PREPARED -> AUTHOR_ATTESTED -> ASSETS_UPLOADED -> IMMUTABLE -> PAGES_MATERIALIZED`
+
+On retry, the coordinator downloads the draft assets and inspects the public
+attestation index. Zero author attestations produces `SIGN_AUTHOR`; one produces
+`RECORD_AUTHOR_ATTESTED`; more than one, a changed target, or a changed envelope
+digest produces `AMBIGUOUS` and stops. A crash after immutable publication is
+reconciled from the immutable provider receipt without changing release assets.
+Pages publishes the terminal receipt and verifies the public bytes before its
+workflow succeeds. Sensitive evidence keys are rejected by the coordinator.
+
 The differentiator gate is directional rather than cosmetic: raw-RAG must show
 more unsafe proposals, unsafe-memory exposure, and poison exposure than
 Continuum, while Continuum must show higher verified-outcome success and
@@ -93,7 +107,7 @@ asset state, and SHA-256 digest. A judge can independently download the envelope
 and validate its sidecar without trusting the public page:
 
 ```bash
-gh release download hackathon-v9 --pattern 'continuum-release-envelope-v2.json*'
+gh release download hackathon-v10 --pattern 'continuum-release-envelope-v2.json*'
 sha256sum -c continuum-release-envelope-v2.json.sha256
 ```
 
@@ -104,7 +118,7 @@ attestation API and the in-toto subject digest. Full cryptographic policy
 verification is one repository command:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v9
+python scripts/verify_network_sign_once.py --release-tag hackathon-v10
 ```
 
 That command downloads the immutable envelope, detached author bundle, and both
@@ -115,6 +129,12 @@ the exact signer workflow, `refs/heads/main`, release target SHA, and
 `--deny-self-hosted-runners`. The platform countersignature is reported as
 network-visible material; only the author signature's completed `gh`
 verification is reported as cryptographic proof.
+
+The public verifier additionally downloads the terminal transaction receipt,
+checks its complete five-state event sequence and receipt hash, requires the
+Pages workflow receipt to be successful at the release target, and binds the
+public two-attestation bundle SHA-256 to the terminal event. The Python
+coordinator independently verifies every event and evidence hash in the chain.
 
 The JSON `gates.checks` object is the machine-readable explanation of why the
 release was admitted. Any missing lineage, checksum mismatch, incomplete beam
