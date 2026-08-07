@@ -9,6 +9,15 @@ adds the citation-handle and paired memory-pressure candidate while preserving
 the prior live runtime (`1291e27`) and documentation (`2a94b46`) as explicit
 baseline lineage rather than silently relabeling them as the new candidate.
 
+Before publication, `scripts/promote_release_v5_evidence.py` consumes the full
+private ablation report plus the GitHub run/artifact receipts. It writes only
+the observation-free public aggregate and updates the judge evidence as one
+operation. Promotion fails if an artifact name does not contain its exact
+source head, a digest is malformed, the sandbox receipt is not tied to the
+baseline runtime, or the report does not contain all 540 observations. The
+judge evidence timestamp comes from the immutable ablation report, so repeating
+promotion with identical inputs is byte-stable.
+
 The envelope binds:
 
 - the exact reviewed release commit and release workflow run;
