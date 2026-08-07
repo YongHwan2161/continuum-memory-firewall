@@ -292,6 +292,8 @@ class NetworkSignOnceTests(unittest.TestCase):
         self.assertIn("--deny-self-hosted-runners", release_workflow)
         self.assertIn("continuum-release-envelope-v2.sigstore.jsonl", release_workflow)
         self.assertIn("attestations/sha1:$GITHUB_SHA", release_workflow)
+        self.assertIn("actions: write", release_workflow)
+        self.assertIn("gh workflow run pages.yml --ref main", release_workflow)
         self.assertFalse(
             (
                 repository_root
