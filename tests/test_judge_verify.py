@@ -147,6 +147,7 @@ class JudgeVerificationTests(unittest.TestCase):
         self.evidence["schema_version"] = 7
         self.evidence["source"].update(
             {
+                "repository": "o/r",
                 "deployment_head_sha": candidate,
                 "artifact_sha256": "a" * 64,
             }
@@ -204,6 +205,8 @@ class JudgeVerificationTests(unittest.TestCase):
             "https://api.example.test/attestations/sha256:" + "e" * 64
         )
         bundle_url = "https://demo.example.test/envelope.sigstore.jsonl"
+        author_api_bundle_url = "https://sig.test/author"
+        platform_api_bundle_url = "https://sig.test/platform"
         statement = {
             "_type": "https://in-toto.io/Statement/v1",
             "subject": [
@@ -241,18 +244,63 @@ class JudgeVerificationTests(unittest.TestCase):
             json.dumps(signature_bundle, separators=(",", ":")) + "\n"
         ).encode()
         signature_bundle_sha = hashlib.sha256(signature_bundle_bytes).hexdigest()
+        platform_statement = {
+            "_type": "https://in-toto.io/Statement/v1",
+            "subject": [
+                {
+                    "uri": "pkg:github/o/r@hackathon-v5",
+                    "digest": {"sha1": candidate},
+                },
+                {
+                    "name": "continuum-release-envelope-v2.json",
+                    "digest": {"sha256": "e" * 64},
+                },
+            ],
+            "predicateType": (
+                "https://in-toto.io/attestation/release/v0.2"
+            ),
+            "predicate": {"tag": "hackathon-v5"},
+        }
+        platform_bundle = {
+            "mediaType": "application/vnd.dev.sigstore.bundle.v0.3+json",
+            "verificationMaterial": {
+                "certificate": {"rawBytes": "platform-certificate"},
+                "timestampVerificationData": {
+                    "rfc3161Timestamps": [{"signedTimestamp": "timestamp"}]
+                },
+            },
+            "dsseEnvelope": {
+                "payload": base64.b64encode(
+                    json.dumps(platform_statement).encode()
+                ).decode(),
+                "payloadType": "application/vnd.in-toto+json",
+                "signatures": [{"sig": "platform-signature"}],
+            },
+        }
+        platform_bundle_bytes = (
+            json.dumps(platform_bundle, separators=(",", ":")) + "\n"
+        ).encode()
+        network_bundle_url = "https://demo.example.test/network.jsonl"
+        network_bundle_bytes = platform_bundle_bytes + signature_bundle_bytes
         self.evidence["network_sign_once"] = {
-            "schema_version": 1,
+            "schema_version": 2,
             "attestation_api_template": (
                 "https://api.example.test/attestations/sha256:{digest}"
             ),
-            "bundle_public_url": bundle_url,
-            "bundle_asset_name": (
+            "author_bundle_public_url": bundle_url,
+            "author_bundle_asset_name": (
                 "continuum-release-envelope-v2.sigstore.jsonl"
             ),
+            "network_bundle_public_url": network_bundle_url,
+            "network_bundle_file_name": "network.jsonl",
             "subject_name": "continuum-release-envelope-v2.json",
-            "predicate_type": "https://slsa.dev/provenance/v1",
-            "required_attestation_count": 1,
+            "author_predicate_type": "https://slsa.dev/provenance/v1",
+            "platform_predicate_type": (
+                "https://in-toto.io/attestation/release/v0.2"
+            ),
+            "required_author_attestation_count": 1,
+            "required_platform_attestation_count": 1,
+            "required_total_attestation_count": 2,
         }
         self.evidence["database_policy"] = {
             "rls_combined_sha256": "f" * 64,
@@ -307,6 +355,7 @@ class JudgeVerificationTests(unittest.TestCase):
             self.evidence["release_envelope"]["release_api_url"]: {
                 "immutable": True,
                 "tag_name": "hackathon-v5",
+                "target_commitish": candidate,
                 "assets": [
                     {
                         "name": "continuum-release-envelope-v2.json",
@@ -354,7 +403,12 @@ class JudgeVerificationTests(unittest.TestCase):
                     "receipt_lookup": True,
                 },
             },
-            attestation_url: {"attestations": [{"bundle_url": "https://sig.test/1"}]},
+            attestation_url: {
+                "attestations": [
+                    {"bundle_url": platform_api_bundle_url},
+                    {"bundle_url": author_api_bundle_url},
+                ]
+            },
         }
 
         def fetch(url):
@@ -370,7 +424,11 @@ class JudgeVerificationTests(unittest.TestCase):
                 drilldown_bytes
                 if url == self.evidence["episode_drilldown"]["public_url"]
                 else signature_bundle_bytes
-                if url == bundle_url
+                if url in {bundle_url, author_api_bundle_url}
+                else platform_bundle_bytes
+                if url == platform_api_bundle_url
+                else network_bundle_bytes
+                if url == network_bundle_url
                 else b""
             ),
         )
@@ -391,7 +449,11 @@ class JudgeVerificationTests(unittest.TestCase):
                 drilldown_bytes
                 if url == self.evidence["episode_drilldown"]["public_url"]
                 else signature_bundle_bytes
-                if url == bundle_url
+                if url in {bundle_url, author_api_bundle_url}
+                else platform_bundle_bytes
+                if url == platform_api_bundle_url
+                else network_bundle_bytes
+                if url == network_bundle_url
                 else b""
             ),
         )

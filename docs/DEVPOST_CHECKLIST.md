@@ -64,10 +64,12 @@ complete attestations and organizer agreements.
       stateless, raw-RAG, and Continuum, with scoped search, handle fingerprints,
       typed proposal, provider outcome evidence, and promotion decision:
       <https://yonghwan2161.github.io/continuum-memory-firewall/episodes.html>
-- [x] Network-visible sign-once release flow refuses a second envelope
-      attestation, attaches the one verified Fulcio/Rekor bundle before release
-      immutability, serves identical bundle bytes through Pages, and provides a
-      strict signer-workflow/main/source-SHA CLI verification command.
+- [x] Network-visible sign-once release flow refuses a second author
+      attestation, attaches the one verified Fulcio/Rekor author bundle before
+      release immutability, serves identical bundle bytes through Pages, and
+      separately identifies GitHub's immutable-release countersignature. The
+      strict command binds author workflow, main ref, source SHA, hosted runner,
+      Rekor timestamp, and the one-author/one-platform authority cardinality.
 - [x] Byte-identical 10k/50k non-sensitive vector benchmark report proves the
       complete `1/32/128/512` beam trade-off, natural vector-search plan, no
       full scan, and zero foreign rows; at 50k/beam 512 Recall@10 was 0.96875

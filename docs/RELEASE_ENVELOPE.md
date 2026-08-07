@@ -1,10 +1,10 @@
 # Immutable competition release envelope
 
-`hackathon-v8` is the proof unit for the paired-episode competition build. It is
+`hackathon-v9` is the proof unit for the paired-episode competition build. It is
 published only by `.github/workflows/release-envelope.yml` after every
 fail-closed gate passes.
 
-`hackathon-v1` through `hackathon-v5` remain immutable audit history. Version 6
+`hackathon-v1` through `hackathon-v8` remain immutable audit history. Version 6
 adds the outcome-first public video and refreshed Devpost version 14 receipt to
 the citation-handle and paired memory-pressure candidate while preserving
 the prior live runtime (`1291e27`) and documentation (`2a94b46`) as explicit
@@ -49,14 +49,23 @@ public-safe episode drill-down JSON as release assets in addition to the
 envelope. This keeps judge evidence available after the shorter-lived GitHub
 Actions artifacts expire.
 
-Version 8 adds a network-visible sign-once contract. The release workflow
-refuses to proceed if the newly built envelope digest already has an
-attestation, signs that envelope once with GitHub OIDC and Fulcio, downloads
-the resulting Sigstore bundle, and verifies the exact signer workflow, main
-ref, source SHA, GitHub-hosted runner, and Rekor timestamp. The detached bundle
-and its SHA-256 sidecar are attached while the release is still a draft. The
-legacy second attestation workflow was removed, so publication and signing no
-longer have independent replay paths.
+Version 9 closes the network-visible sign-once contract. The release workflow
+refuses to proceed if the newly built envelope digest already has author SLSA
+provenance, signs that envelope once with GitHub OIDC and Fulcio, downloads the
+resulting Sigstore bundle, and verifies the exact signer workflow, main ref,
+source SHA, GitHub-hosted runner, and Rekor timestamp. The detached author
+bundle and its SHA-256 sidecar are attached while the release is still a draft.
+The legacy second author-attestation workflow remains removed, so publication
+and author signing have one execution path.
+
+GitHub automatically creates a separate release attestation when the draft is
+published as immutable. It has release predicate v0.2 and the platform signer
+identity `https://dotcom.releases.github.com`; it is not a second execution of
+the author workflow. Version 8 incorrectly treated the resulting two network
+records as an author replay and therefore ended its workflow after successful
+publication. Version 9 makes the authority boundary explicit and requires
+exactly one author SLSA attestation, one platform release countersignature, and
+two total records.
 
 The differentiator gate is directional rather than cosmetic: raw-RAG must show
 more unsafe proposals, unsafe-memory exposure, and poison exposure than
@@ -84,7 +93,7 @@ asset state, and SHA-256 digest. A judge can independently download the envelope
 and validate its sidecar without trusting the public page:
 
 ```bash
-gh release download hackathon-v8 --pattern 'continuum-release-envelope-v2.json*'
+gh release download hackathon-v9 --pattern 'continuum-release-envelope-v2.json*'
 sha256sum -c continuum-release-envelope-v2.json.sha256
 ```
 
@@ -95,14 +104,17 @@ attestation API and the in-toto subject digest. Full cryptographic policy
 verification is one repository command:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v8
+python scripts/verify_network_sign_once.py --release-tag hackathon-v9
 ```
 
-That command downloads the immutable envelope and bundle, checks both release
-asset digests, requires exactly one network attestation, then invokes
-`gh attestation verify` with the exact signer workflow, `refs/heads/main`,
-release target SHA, and `--deny-self-hosted-runners`. Merely parsing the public
-DSSE payload is never reported as cryptographic verification.
+That command downloads the immutable envelope, detached author bundle, and both
+network records. It requires one author SLSA subject and one GitHub release
+subject, checks both release asset digests, proves that the detached author
+bundle is the one indexed by GitHub, then invokes `gh attestation verify` with
+the exact signer workflow, `refs/heads/main`, release target SHA, and
+`--deny-self-hosted-runners`. The platform countersignature is reported as
+network-visible material; only the author signature's completed `gh`
+verification is reported as cryptographic proof.
 
 The JSON `gates.checks` object is the machine-readable explanation of why the
 release was admitted. Any missing lineage, checksum mismatch, incomplete beam

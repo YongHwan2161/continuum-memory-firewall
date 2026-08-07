@@ -46,7 +46,7 @@ evidence, and explicit non-claims.
 | Bedrock episode contract | Implemented, integration-tested, and live-evaluated | Durable runs, frozen citations, allowlisted proposals, verified outcomes, and server-owned scope are coupled to a phased `search -> optional fetch -> proposal` tool contract; rejected runs retain bounded failure codes and progress |
 | Outcome-gated three-arm ablation | 180 identical paired cases per arm completed live | Five isolated replications of 36 stale/poison/conflict-aware cases produced 540 observations. Verified provider outcomes: stateless 80/180, raw-RAG 95/180, Continuum 180/180. Continuum beat raw-RAG by 47.222 points (paired cluster-bootstrap 95% +30.556 to +63.889); Continuum retained zero unsafe proposals, poison exposure, cross-scope rows, false promotions, and ambiguous outcomes |
 | Per-episode paired drill-down | Implemented, live-generated, and checksum-bound | The exact-head `2ef2247` rerun projects 540 observations into 180 three-arm incidents. Each arm exposes scoped search results, SHA-256 citation-handle fingerprints, typed proposal, provider outcome evidence, and promotion decision. Projection gates: exact pairing PASS, issued handles only PASS, Continuum unsafe proposals 0, cross-scope rows 0, private identifier keys 0 |
-| Network-visible sign-once | Implemented and publicly verifiable | `hackathon-v8` is built, signed, and published in one main-only workflow. It refuses a pre-existing envelope attestation, emits exactly one Fulcio/Rekor Sigstore bundle, verifies exact workflow/ref/source/runner policy, includes the bundle before immutability, and serves the identical bytes through Pages. The strict CLI verifier performs cryptographic policy verification; the browser exposes the network subject and transparency proof without claiming that parsing alone verifies the signature. |
+| Network-visible sign-once | Implemented and publicly verifiable | `hackathon-v9` is built, author-signed, and published in one main-only workflow. It refuses a pre-existing author provenance, emits exactly one Fulcio/Rekor author bundle, verifies exact workflow/ref/source/runner policy, includes the bundle before immutability, and serves identical bytes through Pages. The gate separately requires GitHub's one immutable-release countersignature, so platform signing is not misreported as an author replay. The strict CLI cryptographically verifies the author signature; the browser exposes both network subjects without claiming that parsing alone verifies either signature. |
 | Transactional outbox | Implemented, integration-tested, and participant-cluster fault-smoked | Before-send, idempotent after-send, and before-ack crashes converged to one logical effect and zero duplicates; a non-idempotent after-send crash became `ambiguous`, was not resent, and did not promote memory |
 | Tenant and incident integrity | Implemented | Composite foreign keys and query predicates bind candidates, canonical memory, actions, and retrieval audit to the same scope |
 | Vector write and retrieval | Implemented and participant-cluster live-smoked | Deterministic local embeddings remain for tests; the live deployment uses `amazon.titan-embed-text-v2:0` with 512 dimensions and mandatory tenant/incident scope |
@@ -205,9 +205,10 @@ highest-value work before the submission deadline is:
 2. **Turn the explorer into a judge narrative:** preselect three representative
    poison/stale/conflict episodes and link them from Devpost without hiding the
    complete 180-case population.
-3. **Burn in the signed judge path:** monitor the Pages bundle, immutable release
-   asset, public attestation index, Rekor proof, and strict verifier through the
-   judging window. Alert on a second attestation or any digest divergence.
+3. **Burn in the signed judge path:** monitor the Pages author bundle, immutable
+   release asset, public attestation index, Rekor proof, platform release
+   countersignature, and strict verifier through the judging window. Alert on a
+   second author provenance, a missing platform receipt, or digest divergence.
 
 The exact commands and stop conditions are in
 [CLOUD_DEPLOYMENT_RUNBOOK.md](CLOUD_DEPLOYMENT_RUNBOOK.md).

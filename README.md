@@ -149,13 +149,16 @@ receives a token or database credential. The executable database evidence is
 the integration suite and linked exact-head workflows in
 [Project Status](docs/PROJECT_STATUS.md).
 
-The v8 release envelope is signed exactly once in the same main-only workflow
-that publishes it. Its Fulcio/Rekor Sigstore bundle is an immutable release
-asset and a byte-identical Pages resource. Perform strict cryptographic policy
-verification with:
+The v9 release envelope receives exactly one author-controlled signature in
+the same main-only workflow that publishes it. Its Fulcio/Rekor Sigstore bundle
+is an immutable release asset and a byte-identical Pages resource. GitHub also
+adds one distinguishable immutable-release countersignature; the verifier
+classifies the two authorities instead of miscounting the platform receipt as
+a second author signing operation. Perform strict cryptographic policy
+verification of the author signature with:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v8
+python scripts/verify_network_sign_once.py --release-tag hackathon-v9
 ```
 
 The redacted private-worker deployment proof is recorded in

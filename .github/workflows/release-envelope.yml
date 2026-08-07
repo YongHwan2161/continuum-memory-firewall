@@ -6,7 +6,7 @@ on:
       release_tag:
         description: New immutable GitHub Release tag
         required: true
-        default: hackathon-v8
+        default: hackathon-v9
 
 permissions:
   actions: read
@@ -132,25 +132,25 @@ jobs:
             sha256sum agent-ablation-v3.json >agent-ablation-v3.json.sha256
             sha256sum episode-drilldown-v1.json >episode-drilldown-v1.json.sha256
           )
-      - name: Refuse a second envelope signature
+      - name: Refuse a second author envelope signature
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           digest="$(sha256sum build/release/continuum-release-envelope-v2.json | cut -d' ' -f1)"
           if receipt="$(gh api \
               -H "X-GitHub-Api-Version: 2026-03-10" \
-              "repos/$GITHUB_REPOSITORY/attestations/sha256:$digest" \
+              "repos/$GITHUB_REPOSITORY/attestations/sha256:$digest?predicate_type=https%3A%2F%2Fslsa.dev%2Fprovenance%2Fv1" \
               2>build/release/attestation-lookup.err)"; then
             test "$(jq '.attestations | length' <<<"$receipt")" = 0
           else
             grep -q 'HTTP 404' build/release/attestation-lookup.err
           fi
           rm -f build/release/attestation-lookup.err
-      - name: Sign the evidence envelope exactly once
+      - name: Sign the author evidence envelope exactly once
         uses: actions/attest@v4
         with:
           subject-path: build/release/continuum-release-envelope-v2.json
-      - name: Materialize and verify the network-visible signature bundle
+      - name: Materialize and verify the author signature bundle
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -225,8 +225,24 @@ jobs:
           done
           envelope_digest="$(sha256sum \
             build/release/continuum-release-envelope-v2.json | cut -d' ' -f1)"
-          attestation_receipt="$(gh api \
-            -H "X-GitHub-Api-Version: 2026-03-10" \
-            "repos/$GITHUB_REPOSITORY/attestations/sha256:$envelope_digest")"
-          test "$(jq '.attestations | length' <<<"$attestation_receipt")" = 1
+          for attempt in $(seq 1 12); do
+            attestation_receipt="$(gh api \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
+              "repos/$GITHUB_REPOSITORY/attestations/sha256:$envelope_digest")"
+            author_receipt="$(gh api \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
+              "repos/$GITHUB_REPOSITORY/attestations/sha256:$envelope_digest?predicate_type=https%3A%2F%2Fslsa.dev%2Fprovenance%2Fv1")"
+            platform_receipt="$(gh api \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
+              "repos/$GITHUB_REPOSITORY/attestations/sha1:$GITHUB_SHA?predicate_type=https%3A%2F%2Fin-toto.io%2Fattestation%2Frelease%2Fv0.2")"
+            if [ "$(jq '.attestations | length' <<<"$attestation_receipt")" = 2 ] && \
+               [ "$(jq '.attestations | length' <<<"$author_receipt")" = 1 ] && \
+               [ "$(jq '.attestations | length' <<<"$platform_receipt")" = 1 ]; then
+              break
+            fi
+            sleep 5
+          done
+          test "$(jq '.attestations | length' <<<"$attestation_receipt")" = 2
+          test "$(jq '.attestations | length' <<<"$author_receipt")" = 1
+          test "$(jq '.attestations | length' <<<"$platform_receipt")" = 1
           jq '{id,tag_name,target_commitish,immutable,assets:[.assets[]|{name,state,digest}]}' <<<"$release_receipt"
