@@ -6,11 +6,13 @@ on:
       release_tag:
         description: New immutable GitHub Release tag
         required: true
-        default: hackathon-v7
+        default: hackathon-v8
 
 permissions:
   actions: read
+  attestations: write
   contents: write
+  id-token: write
 
 jobs:
   publish:
@@ -130,6 +132,52 @@ jobs:
             sha256sum agent-ablation-v3.json >agent-ablation-v3.json.sha256
             sha256sum episode-drilldown-v1.json >episode-drilldown-v1.json.sha256
           )
+      - name: Refuse a second envelope signature
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          digest="$(sha256sum build/release/continuum-release-envelope-v2.json | cut -d' ' -f1)"
+          if receipt="$(gh api \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
+              "repos/$GITHUB_REPOSITORY/attestations/sha256:$digest" \
+              2>build/release/attestation-lookup.err)"; then
+            test "$(jq '.attestations | length' <<<"$receipt")" = 0
+          else
+            grep -q 'HTTP 404' build/release/attestation-lookup.err
+          fi
+          rm -f build/release/attestation-lookup.err
+      - name: Sign the evidence envelope exactly once
+        uses: actions/attest@v4
+        with:
+          subject-path: build/release/continuum-release-envelope-v2.json
+      - name: Materialize and verify the network-visible signature bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd build/release
+          for attempt in $(seq 1 12); do
+            rm -f sha256:*.jsonl
+            if gh attestation download continuum-release-envelope-v2.json \
+              --repo "$GITHUB_REPOSITORY"; then
+              break
+            fi
+            sleep 5
+          done
+          mapfile -t bundles < <(find . -maxdepth 1 -type f -name 'sha256:*.jsonl')
+          test "${#bundles[@]}" = 1
+          mv "${bundles[0]}" continuum-release-envelope-v2.sigstore.jsonl
+          test "$(wc -l <continuum-release-envelope-v2.sigstore.jsonl)" = 1
+          gh attestation verify continuum-release-envelope-v2.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --bundle continuum-release-envelope-v2.sigstore.jsonl \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release-envelope.yml" \
+            --source-ref refs/heads/main \
+            --source-digest "$GITHUB_SHA" \
+            --deny-self-hosted-runners
+          sha256sum continuum-release-envelope-v2.sigstore.jsonl \
+            >continuum-release-envelope-v2.sigstore.jsonl.sha256
       - uses: actions/upload-artifact@v4
         with:
           name: continuum-release-envelope-${{ github.sha }}
@@ -144,6 +192,8 @@ jobs:
           gh release create "$RELEASE_TAG" \
             build/release/continuum-release-envelope-v2.json \
             build/release/continuum-release-envelope-v2.json.sha256 \
+            build/release/continuum-release-envelope-v2.sigstore.jsonl \
+            build/release/continuum-release-envelope-v2.sigstore.jsonl.sha256 \
             build/release/sandbox-provider-proof.json \
             build/release/sandbox-provider-proof.json.sha256 \
             build/release/agent-ablation-v3.json \
@@ -173,4 +223,10 @@ jobs:
             actual="$(jq -r --arg name "$name" '.assets[] | select(.name == $name) | .digest' <<<"$release_receipt")"
             test "$actual" = "$expected"
           done
+          envelope_digest="$(sha256sum \
+            build/release/continuum-release-envelope-v2.json | cut -d' ' -f1)"
+          attestation_receipt="$(gh api \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            "repos/$GITHUB_REPOSITORY/attestations/sha256:$envelope_digest")"
+          test "$(jq '.attestations | length' <<<"$attestation_receipt")" = 1
           jq '{id,tag_name,target_commitish,immutable,assets:[.assets[]|{name,state,digest}]}' <<<"$release_receipt"

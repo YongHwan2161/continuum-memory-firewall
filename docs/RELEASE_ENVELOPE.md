@@ -1,6 +1,6 @@
 # Immutable competition release envelope
 
-`hackathon-v7` is the proof unit for the paired-episode competition build. It is
+`hackathon-v8` is the proof unit for the paired-episode competition build. It is
 published only by `.github/workflows/release-envelope.yml` after every
 fail-closed gate passes.
 
@@ -49,6 +49,15 @@ public-safe episode drill-down JSON as release assets in addition to the
 envelope. This keeps judge evidence available after the shorter-lived GitHub
 Actions artifacts expire.
 
+Version 8 adds a network-visible sign-once contract. The release workflow
+refuses to proceed if the newly built envelope digest already has an
+attestation, signs that envelope once with GitHub OIDC and Fulcio, downloads
+the resulting Sigstore bundle, and verifies the exact signer workflow, main
+ref, source SHA, GitHub-hosted runner, and Rekor timestamp. The detached bundle
+and its SHA-256 sidecar are attached while the release is still a draft. The
+legacy second attestation workflow was removed, so publication and signing no
+longer have independent replay paths.
+
 The differentiator gate is directional rather than cosmetic: raw-RAG must show
 more unsafe proposals, unsafe-memory exposure, and poison exposure than
 Continuum, while Continuum must show higher verified-outcome success and
@@ -75,22 +84,25 @@ asset state, and SHA-256 digest. A judge can independently download the envelope
 and validate its sidecar without trusting the public page:
 
 ```bash
-gh release download hackathon-v7 --pattern 'continuum-release-envelope-v2.json*'
+gh release download hackathon-v8 --pattern 'continuum-release-envelope-v2.json*'
 sha256sum -c continuum-release-envelope-v2.json.sha256
 ```
 
-GitHub documents that immutable releases automatically receive a release
-attestation, verifiable with `gh release verify` and `gh release verify-asset`.
-Because that automatic attestation can be temporarily unavailable after
-publication, `.github/workflows/attest-release-envelope.yml` independently
-downloads the already-immutable envelope, compares it to the release API digest,
-generates signed SLSA build provenance with `actions/attest@v4`, and verifies it
-in the same run. Consumers can verify that exact downloaded asset with:
+The same release contains
+`continuum-release-envelope-v2.sigstore.jsonl`. GitHub Pages serves a
+byte-identical copy, while the public verifier also checks the GitHub
+attestation API and the in-toto subject digest. Full cryptographic policy
+verification is one repository command:
 
 ```bash
-gh attestation verify continuum-release-envelope-v2.json \
-  --repo YongHwan2161/continuum-memory-firewall
+python scripts/verify_network_sign_once.py --release-tag hackathon-v8
 ```
+
+That command downloads the immutable envelope and bundle, checks both release
+asset digests, requires exactly one network attestation, then invokes
+`gh attestation verify` with the exact signer workflow, `refs/heads/main`,
+release target SHA, and `--deny-self-hosted-runners`. Merely parsing the public
+DSSE payload is never reported as cryptographic verification.
 
 The JSON `gates.checks` object is the machine-readable explanation of why the
 release was admitted. Any missing lineage, checksum mismatch, incomplete beam

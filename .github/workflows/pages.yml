@@ -7,6 +7,9 @@ on:
     paths:
       - "public-demo/**"
       - ".github/workflows/pages.yml"
+  release:
+    types:
+      - published
   workflow_dispatch:
 
 permissions:
@@ -31,10 +34,36 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
+      - name: Materialize the signed envelope bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp -a public-demo build-pages
+          judge=public-demo/evidence/judge-verification.json
+          tag="$(jq -r '.release_envelope.tag' "$judge")"
+          asset="$(jq -r '.network_sign_once.bundle_asset_name' "$judge")"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release download "$tag" \
+              --repo "$GITHUB_REPOSITORY" \
+              --pattern "$asset" \
+              --dir build-pages/evidence
+            receipt="$(gh api \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
+              "repos/$GITHUB_REPOSITORY/releases/tags/$tag")"
+            expected="$(jq -r --arg asset "$asset" \
+              '.assets[] | select(.name == $asset) | .digest' <<<"$receipt")"
+            actual="sha256:$(sha256sum "build-pages/evidence/$asset" | cut -d' ' -f1)"
+            test "$actual" = "$expected"
+          else
+            echo "signed release is pending; verifier will remain fail-closed"
+          fi
+
       - name: Upload public proof console
         uses: actions/upload-pages-artifact@v3
         with:
-          path: public-demo
+          path: build-pages
 
       - name: Deploy
         id: deployment

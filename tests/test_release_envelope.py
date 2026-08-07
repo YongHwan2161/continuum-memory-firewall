@@ -187,7 +187,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         from scripts.build_release_envelope import sha256_bytes
 
         self.judge = {
-            "schema_version": 6,
+            "schema_version": 7,
             "source": {
                 "workflow_run_id": 10,
                 "workflow_attempt": 1,
@@ -296,6 +296,29 @@ class ReleaseEnvelopeTests(unittest.TestCase):
                 "drilldown_asset_url": "https://github.com/o/r/releases/download/hackathon-v1/episode-drilldown-v1.json",
                 "drilldown_asset_name": "episode-drilldown-v1.json",
             },
+            "network_sign_once": {
+                "schema_version": 1,
+                "attestation_api_template": (
+                    "https://api.github.com/repos/o/r/attestations/"
+                    "sha256:{digest}"
+                ),
+                "bundle_public_url": (
+                    "https://demo.example.test/evidence/"
+                    "continuum-release-envelope-v2.sigstore.jsonl"
+                ),
+                "bundle_asset_name": (
+                    "continuum-release-envelope-v2.sigstore.jsonl"
+                ),
+                "subject_name": "continuum-release-envelope-v2.json",
+                "predicate_type": "https://slsa.dev/provenance/v1",
+                "signer_workflow": (
+                    "o/r/.github/workflows/release-envelope.yml"
+                ),
+                "source_ref": "refs/heads/main",
+                "runner_environment": "github-hosted",
+                "transparency_log": "https://rekor.sigstore.dev",
+                "required_attestation_count": 1,
+            },
             "public_demo": {
                 "url": "https://demo.example.test/",
                 "verifier_url": "https://demo.example.test/verify.html",
@@ -348,6 +371,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         )
         self.assertEqual(envelope["agent_ablation"]["arms"]["continuum"]["cases"], 180)
         self.assertEqual(envelope["episode_drilldown"]["population"]["paired_episodes"], 180)
+        self.assertEqual(envelope["network_sign_once"]["required_attestation_count"], 1)
 
     def test_scale_checksum_and_leakage_fail_closed(self) -> None:
         self.judge["vector_scale"]["report_sha256"] = "0" * 64
