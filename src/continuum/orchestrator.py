@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 import re
+import secrets
 from typing import Any, Callable, Mapping, Protocol, Sequence
 
 from continuum.episode import (
@@ -32,8 +33,9 @@ SYSTEM_PROMPT = """You are a bounded incident-response planning agent.
 You may search and fetch memory only through the supplied tools. Tenant and
 incident scope are owned by the server and are never caller-selectable. You may
 finish only by calling one supplied propose_* tool. A proposal is not execution. Cite every
-memory that materially supports a non-stateless proposal. Never invent a
-provider receipt or claim that an action succeeded."""
+memory that materially supports a non-stateless proposal using only a citation
+handle returned by the current search. Never invent a provider receipt or claim
+that an action succeeded."""
 
 
 class OrchestrationError(RuntimeError):
@@ -200,6 +202,7 @@ class AgentOrchestrator:
         action_policies: Mapping[str, ActionPolicy] = DEFAULT_ACTION_POLICIES,
         max_model_turns: int = MAX_MODEL_TURNS,
         max_tool_calls: int = MAX_TOOL_CALLS,
+        citation_handle_factory: Callable[[], str] | None = None,
     ) -> None:
         if max_model_turns < 1 or max_tool_calls < 1:
             raise ValueError("model and tool limits must be positive")
@@ -220,6 +223,9 @@ class AgentOrchestrator:
             self._proposal_tools[policy.tool_name] = policy
         self._max_model_turns = max_model_turns
         self._max_tool_calls = max_tool_calls
+        self._citation_handle_factory = citation_handle_factory or (
+            lambda: f"cit_{secrets.token_urlsafe(18)}"
+        )
 
     def run(
         self,
@@ -308,6 +314,7 @@ class AgentOrchestrator:
             {"role": "user", "content": [{"text": input_text}]}
         ]
         citations: dict[str, RetrievedCitation] = {}
+        citation_handles: dict[str, str] = {}
         tool_calls = 0
         search_attempted = False
         fetch_performed = False
@@ -319,6 +326,7 @@ class AgentOrchestrator:
                 search_attempted=search_attempted,
                 has_search_hits=bool(citations),
                 fetch_performed=fetch_performed,
+                citation_handles=tuple(citation_handles),
             )
             allowed_tools = {
                 str(item["toolSpec"]["name"]) for item in tool_specs
@@ -393,7 +401,12 @@ class AgentOrchestrator:
                         raise OrchestrationError("stateless arm requested memory search")
                     if search_attempted:
                         raise OrchestrationError("memory search may run only once")
-                    result = self._search(memory_tools, tool_input, citations)
+                    result = self._search(
+                        memory_tools,
+                        tool_input,
+                        citations,
+                        citation_handles,
+                    )
                     search_attempted = True
                     tool_result_blocks.append(
                         self._tool_result(tool_use_id, {"hits": result})
@@ -403,7 +416,12 @@ class AgentOrchestrator:
                         raise OrchestrationError("stateless arm requested memory fetch")
                     if fetch_performed:
                         raise OrchestrationError("memory fetch may run only once")
-                    result = self._fetch(memory_tools, tool_input, citations)
+                    result = self._fetch(
+                        memory_tools,
+                        tool_input,
+                        citations,
+                        citation_handles,
+                    )
                     fetch_performed = True
                     tool_result_blocks.append(self._tool_result(tool_use_id, result))
                 elif name in self._proposal_tools:
@@ -414,6 +432,7 @@ class AgentOrchestrator:
                         self._proposal_tools[name],
                         tool_input,
                         citations,
+                        citation_handles,
                         search_attempted=search_attempted,
                     )
                 else:
@@ -486,8 +505,12 @@ class AgentOrchestrator:
         search_attempted: bool,
         has_search_hits: bool,
         fetch_performed: bool,
+        citation_handles: Sequence[str],
     ) -> list[Mapping[str, Any]]:
-        proposal_tools = [self._proposal_tool(policy) for policy in self._proposal_tools.values()]
+        proposal_tools = [
+            self._proposal_tool(policy, citation_handles)
+            for policy in self._proposal_tools.values()
+        ]
         if arm is AgentArm.STATELESS:
             return proposal_tools
         if not search_attempted:
@@ -524,8 +547,13 @@ class AgentOrchestrator:
                         "inputSchema": {
                             "json": {
                                 "type": "object",
-                                "properties": {"memory_id": {"type": "string"}},
-                                "required": ["memory_id"],
+                                "properties": {
+                                    "citation_handle": {
+                                        "type": "string",
+                                        "enum": list(citation_handles),
+                                    }
+                                },
+                                "required": ["citation_handle"],
                                 "additionalProperties": False,
                             },
                         },
@@ -536,7 +564,13 @@ class AgentOrchestrator:
         return tools
 
     @staticmethod
-    def _proposal_tool(policy: ActionPolicy) -> Mapping[str, Any]:
+    def _proposal_tool(
+        policy: ActionPolicy,
+        citation_handles: Sequence[str],
+    ) -> Mapping[str, Any]:
+        handle_items: dict[str, Any] = {"type": "string"}
+        if citation_handles:
+            handle_items["enum"] = list(citation_handles)
         return {
             "toolSpec": {
                 "name": policy.tool_name,
@@ -550,17 +584,18 @@ class AgentOrchestrator:
                             "action_key": {"type": "string", "minLength": 1},
                             "parameters": policy.parameter_schema(),
                             "rationale": {"type": "string", "minLength": 1},
-                            "citation_memory_ids": {
+                            "citation_handles": {
                                 "type": "array",
-                                "items": {"type": "string"},
-                                "maxItems": 20,
+                                "items": handle_items,
+                                "maxItems": min(20, len(citation_handles)),
+                                "uniqueItems": True,
                             },
                         },
                         "required": [
                             "action_key",
                             "parameters",
                             "rationale",
-                            "citation_memory_ids",
+                            "citation_handles",
                         ],
                         "additionalProperties": False,
                     }
@@ -573,6 +608,7 @@ class AgentOrchestrator:
         memory_tools: ScopedMemoryTools,
         value: Mapping[str, Any],
         citations: dict[str, RetrievedCitation],
+        citation_handles: dict[str, str],
     ) -> list[Mapping[str, Any]]:
         if set(value) - {"query", "limit"}:
             raise OrchestrationError("search contains forbidden fields")
@@ -596,7 +632,18 @@ class AgentOrchestrator:
                     retrieval_id=hit.retrieval_id,
                 )
                 citations[hit.memory_id] = citation
-            result.append(self._public_hit(citation))
+            handle = next(
+                (
+                    candidate
+                    for candidate, memory_id in citation_handles.items()
+                    if memory_id == hit.memory_id
+                ),
+                None,
+            )
+            if handle is None:
+                handle = self._new_citation_handle(citation_handles)
+                citation_handles[handle] = hit.memory_id
+            result.append(self._public_hit(citation, handle))
         self._bounded_tool_result({"hits": result})
         return result
 
@@ -605,12 +652,14 @@ class AgentOrchestrator:
         memory_tools: ScopedMemoryTools,
         value: Mapping[str, Any],
         citations: dict[str, RetrievedCitation],
+        citation_handles: Mapping[str, str],
     ) -> Mapping[str, Any]:
-        if set(value) != {"memory_id"}:
-            raise OrchestrationError("fetch accepts only memory_id")
-        memory_id = value.get("memory_id")
-        if not isinstance(memory_id, str) or memory_id not in citations:
+        if set(value) != {"citation_handle"}:
+            raise OrchestrationError("fetch accepts only citation_handle")
+        handle = value.get("citation_handle")
+        if not isinstance(handle, str) or handle not in citation_handles:
             raise OrchestrationError("fetch may read only a prior search hit")
+        memory_id = citation_handles[handle]
         hit = memory_tools.fetch(memory_id=memory_id)
         if hit.memory_id != memory_id:
             raise OrchestrationError("memory tool returned a mismatched identity")
@@ -623,7 +672,7 @@ class AgentOrchestrator:
             retrieval_id=prior.retrieval_id,
         )
         citations[memory_id] = citation
-        result = self._public_hit(citation)
+        result = self._public_hit(citation, handle)
         self._bounded_tool_result(result)
         return result
 
@@ -633,6 +682,7 @@ class AgentOrchestrator:
         policy: ActionPolicy,
         value: Mapping[str, Any],
         citations: Mapping[str, RetrievedCitation],
+        citation_handles: Mapping[str, str],
         *,
         search_attempted: bool,
     ) -> ProposedAction:
@@ -640,30 +690,33 @@ class AgentOrchestrator:
             "action_key",
             "parameters",
             "rationale",
-            "citation_memory_ids",
+            "citation_handles",
         }
         if set(value) != expected:
             raise OrchestrationError("action proposal fields do not match contract")
         action_key = value.get("action_key")
         rationale = value.get("rationale")
-        cited = value.get("citation_memory_ids")
+        cited = value.get("citation_handles")
         if not isinstance(action_key, str) or not action_key.strip():
             raise OrchestrationError("action_key is required")
         if not isinstance(rationale, str) or not rationale.strip():
             raise OrchestrationError("action rationale is required")
         if not isinstance(cited, Sequence) or isinstance(cited, (str, bytes)):
-            raise OrchestrationError("citation_memory_ids must be an array")
-        cited_ids = tuple(cited)
-        if not all(isinstance(item, str) for item in cited_ids):
-            raise OrchestrationError("citation memory IDs must be strings")
+            raise OrchestrationError("citation_handles must be an array")
+        cited_handles = tuple(cited)
+        if not all(isinstance(item, str) for item in cited_handles):
+            raise OrchestrationError("citation handles must be strings")
+        if len(set(cited_handles)) != len(cited_handles):
+            raise OrchestrationError("citation handles must be unique")
         if arm is not AgentArm.STATELESS and not search_attempted:
             raise OrchestrationError("memory-enabled proposal must search first")
-        if arm is not AgentArm.STATELESS and citations and not cited_ids:
+        if arm is not AgentArm.STATELESS and citations and not cited_handles:
             raise OrchestrationError("memory-enabled proposal must cite memory")
-        if arm is AgentArm.STATELESS and cited_ids:
+        if arm is AgentArm.STATELESS and cited_handles:
             raise OrchestrationError("stateless proposal cannot cite memory")
-        if not set(cited_ids).issubset(citations):
-            raise OrchestrationError("proposal cites memory not returned by search")
+        if not set(cited_handles).issubset(citation_handles):
+            raise OrchestrationError("proposal cites a handle not issued by search")
+        cited_ids = tuple(citation_handles[handle] for handle in cited_handles)
         parameters = policy.validate_parameters(value.get("parameters"))
         return ProposedAction(
             action_key=action_key.strip(),
@@ -674,10 +727,24 @@ class AgentOrchestrator:
             risk_class=policy.risk_class,
         )
 
+    def _new_citation_handle(self, issued: Mapping[str, str]) -> str:
+        for _ in range(8):
+            handle = self._citation_handle_factory()
+            if (
+                isinstance(handle, str)
+                and re.fullmatch(r"cit_[A-Za-z0-9_-]{8,64}", handle)
+                and handle not in issued
+            ):
+                return handle
+        raise OrchestrationError("citation handle issuance failed")
+
     @staticmethod
-    def _public_hit(citation: RetrievedCitation) -> Mapping[str, Any]:
+    def _public_hit(
+        citation: RetrievedCitation,
+        citation_handle: str,
+    ) -> Mapping[str, Any]:
         return {
-            "memory_id": citation.memory_id,
+            "citation_handle": citation_handle,
             "rank": citation.rank,
             "similarity": citation.similarity,
             "payload": dict(citation.payload),

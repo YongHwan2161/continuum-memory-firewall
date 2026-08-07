@@ -14,6 +14,7 @@ from continuum.orchestrator import (
 TENANT_ID = "00000000-0000-0000-0000-000000000101"
 INCIDENT_ID = "00000000-0000-0000-0000-000000000201"
 MEMORY_ID = "00000000-0000-0000-0000-000000000301"
+CITATION_HANDLE = "cit_serverissued01"
 
 
 class FakeModel:
@@ -76,7 +77,7 @@ class OrchestratorTests(unittest.TestCase):
                             "action_key": "checkout:inspect:seeded:v1",
                             "parameters": {"service": "checkout"},
                             "rationale": "inspect without memory",
-                            "citation_memory_ids": [],
+                            "citation_handles": [],
                         },
                     )
                 )
@@ -124,7 +125,7 @@ class OrchestratorTests(unittest.TestCase):
                             "action_key": "cold-start:inspect:v1",
                             "parameters": {"service": "checkout"},
                             "rationale": "No memory matched; inspect first.",
-                            "citation_memory_ids": [],
+                            "citation_handles": [],
                         },
                     )
                 ),
@@ -173,7 +174,7 @@ class OrchestratorTests(unittest.TestCase):
                             "action_key": "checkout:invalidate:v1",
                             "parameters": {"cache": "checkout"},
                             "rationale": "A cited successful episode matches.",
-                            "citation_memory_ids": [MEMORY_ID],
+                            "citation_handles": [CITATION_HANDLE],
                         },
                     )
                 ),
@@ -185,6 +186,7 @@ class OrchestratorTests(unittest.TestCase):
             store=store,
             model=model,
             model_id="amazon.nova-micro-v1:0",
+            citation_handle_factory=lambda: CITATION_HANDLE,
         ).run(
             tenant_id=TENANT_ID,
             incident_id=INCIDENT_ID,
@@ -218,6 +220,55 @@ class OrchestratorTests(unittest.TestCase):
         search_schema = first_tools[0]["toolSpec"]["inputSchema"]["json"]
         self.assertNotIn("tenant_id", search_schema["properties"])
         self.assertNotIn("incident_id", search_schema["properties"])
+        proposal_schema = next(
+            item["toolSpec"]["inputSchema"]["json"]
+            for item in model.calls[1]["toolConfig"]["tools"]
+            if item["toolSpec"]["name"] == "propose_invalidate_cache"
+        )
+        self.assertEqual(
+            proposal_schema["properties"]["citation_handles"]["items"]["enum"],
+            [CITATION_HANDLE],
+        )
+        search_result = next(
+            block["toolResult"]["content"][0]["json"]["hits"][0]
+            for message in model.calls[1]["messages"]
+            for block in message["content"]
+            if "toolResult" in block
+        )
+        self.assertEqual(search_result["citation_handle"], CITATION_HANDLE)
+        self.assertNotIn("memory_id", search_result)
+
+    def test_model_cannot_fabricate_a_citation_handle(self):
+        model = FakeModel(
+            [
+                response(tool_use("t1", "search_memory", {"query": "slow checkout"})),
+                response(
+                    tool_use(
+                        "t2",
+                        "propose_invalidate_cache",
+                        {
+                            "action_key": "checkout:invalidate:forged:v1",
+                            "parameters": {"cache": "checkout"},
+                            "rationale": "Try a handle that the server did not issue.",
+                            "citation_handles": ["cit_fabricated000"],
+                        },
+                    )
+                ),
+            ]
+        )
+        with self.assertRaisesRegex(OrchestrationError, "not issued by search"):
+            AgentOrchestrator(
+                store=InMemoryEpisodeStore(),
+                model=model,
+                model_id="amazon.nova-micro-v1:0",
+                citation_handle_factory=lambda: CITATION_HANDLE,
+            ).run(
+                tenant_id=TENANT_ID,
+                incident_id=INCIDENT_ID,
+                arm=AgentArm.CONTINUUM,
+                incident={"symptom": "slow checkout"},
+                memory_tools=FakeMemoryTools(),
+            )
 
     def test_fetch_is_confined_to_prior_search_results(self):
         model = FakeModel(
@@ -226,7 +277,7 @@ class OrchestratorTests(unittest.TestCase):
                     tool_use(
                         "t1",
                         "fetch_memory",
-                        {"memory_id": MEMORY_ID},
+                        {"citation_handle": CITATION_HANDLE},
                     )
                 )
             ]
@@ -253,7 +304,13 @@ class OrchestratorTests(unittest.TestCase):
         model = FakeModel(
             [
                 response(tool_use("t1", "search_memory", {"query": "slow checkout"})),
-                response(tool_use("t2", "fetch_memory", {"memory_id": MEMORY_ID})),
+                response(
+                    tool_use(
+                        "t2",
+                        "fetch_memory",
+                        {"citation_handle": CITATION_HANDLE},
+                    )
+                ),
                 response(
                     tool_use(
                         "t3",
@@ -262,7 +319,7 @@ class OrchestratorTests(unittest.TestCase):
                             "action_key": "checkout:invalidate:fetched:v1",
                             "parameters": {"cache": "checkout"},
                             "rationale": "Fetched successful memory matches.",
-                            "citation_memory_ids": [MEMORY_ID],
+                            "citation_handles": [CITATION_HANDLE],
                         },
                     )
                 ),
@@ -273,6 +330,7 @@ class OrchestratorTests(unittest.TestCase):
             store=InMemoryEpisodeStore(),
             model=model,
             model_id="amazon.nova-micro-v1:0",
+            citation_handle_factory=lambda: CITATION_HANDLE,
         ).run(
             tenant_id=TENANT_ID,
             incident_id=INCIDENT_ID,
@@ -341,7 +399,7 @@ class OrchestratorTests(unittest.TestCase):
                             "action_key": "x",
                             "parameters": {"service": "checkout", "shell": "rm -rf /"},
                             "rationale": "test",
-                            "citation_memory_ids": [],
+                            "citation_handles": [],
                         },
                     )
                 )
@@ -371,7 +429,7 @@ class OrchestratorTests(unittest.TestCase):
                             "action_key": "checkout:inspect:v1",
                             "parameters": {"service": "checkout"},
                             "rationale": "inspect without memory",
-                            "citation_memory_ids": [],
+                            "citation_handles": [],
                         },
                     )
                 )
@@ -413,7 +471,7 @@ class OrchestratorTests(unittest.TestCase):
                             "action_key": "checkout:inspect:v2",
                             "parameters": {"service": "checkout"},
                             "rationale": "inspect without memory",
-                            "citation_memory_ids": [],
+                            "citation_handles": [],
                         },
                     )
                 )

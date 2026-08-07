@@ -21,8 +21,8 @@ The Bedrock Converse orchestrator uses client-side tool calling. The model can
 request only:
 
 - `search_memory(query, limit)`;
-- `fetch_memory(memory_id)`, limited to an ID returned by the current run's
-  search;
+- `fetch_memory(citation_handle)`, limited to an opaque server-issued handle
+  returned by the current run's search;
 - action-specific proposal tools such as `propose_restart_service(...)`, each
   generated from one server-maintained action policy.
 
@@ -31,6 +31,15 @@ the retrieval adapter. A `propose_*` tool only writes a proposal; it cannot
 call a provider, enqueue delivery, approve destructive work, record success,
 or promote canonical memory. Its name fixes the action type and its closed
 parameter schema omits every field owned by another action.
+
+Search results never expose database memory IDs to the model. For each current
+search hit the server issues an unpredictable `cit_*` handle, keeps the
+handle-to-memory mapping inside the episode, and rebuilds every fetch and
+proposal schema with an `enum` containing exactly those handles. Proposal tools
+accept `citation_handles`, not memory IDs; the server resolves accepted handles
+back to durable memory IDs only after schema and phase validation. With no hits,
+the proposal schema permits zero handles. A fabricated, previous-run, duplicated,
+or otherwise unissued handle fails closed even if a provider ignores JSON Schema.
 
 Tool availability is an explicit episode phase machine, not one broad
 allowlist. A memory arm receives only `search_memory` on its first turn. An
@@ -45,7 +54,8 @@ turning a cold start into an invalid fetch loop.
 - eight model turns and sixteen tool calls per run by default;
 - five search hits per call and twenty citations per episode;
 - 32 KiB agent input, 24 KiB tool result, and 16 KiB action parameters;
-- memory-enabled proposals must cite a memory returned in the same run;
+- memory-enabled proposals with hits must cite a server handle issued by that
+  same run;
 - stateless proposals cannot cite memory;
 - unknown tools, action types, parameters, scope fields, or pre-search fetches
   terminate the run as failed.
