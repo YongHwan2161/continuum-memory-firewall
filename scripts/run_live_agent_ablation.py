@@ -26,6 +26,7 @@ from continuum.episode import (
     AgentArm,
     CockroachEpisodeStore,
     OutcomeStatus,
+    payload_digest,
 )
 from continuum.migrate import Migrator
 from continuum.orchestrator import (
@@ -468,12 +469,25 @@ def main() -> None:
                     }
                 receipt_trace = None
                 if provider_outcome is not None and outcome_result is not None:
-                    if outcome_result.receipt_digest is None:
-                        raise RuntimeError("provider outcome has no receipt digest")
+                    receipt_digest = outcome_result.receipt_digest or payload_digest(
+                        {
+                            "evidence": provider_outcome.evidence,
+                            "provider": provider_outcome.provider,
+                            "provider_receipt_id": (
+                                provider_outcome.provider_receipt_id
+                            ),
+                            "status": provider_outcome.status.value,
+                        }
+                    )
                     receipt_trace = {
                         "provider": provider_outcome.provider,
                         "status": provider_outcome.status.value,
-                        "receipt_digest": outcome_result.receipt_digest,
+                        "receipt_digest": receipt_digest,
+                        "digest_kind": (
+                            "verified_receipt"
+                            if outcome_result.receipt_digest is not None
+                            else "unverified_outcome_evidence"
+                        ),
                         "receipt_id_sha256": _sha256_text(
                             str(provider_outcome.provider_receipt_id)
                         ),
