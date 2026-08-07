@@ -295,6 +295,7 @@ class NetworkSignOnceTests(unittest.TestCase):
         self.assertIn("release_transaction_coordinator.py", release_workflow)
         self.assertIn("cancel-in-progress: false", release_workflow)
         self.assertIn("releases?per_page=100", release_workflow)
+        self.assertNotIn("--slurp", release_workflow)
         self.assertIn("uploads.github.com", release_workflow)
         self.assertNotIn(
             'repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG',

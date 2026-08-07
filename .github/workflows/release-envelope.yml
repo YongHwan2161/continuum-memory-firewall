@@ -36,10 +36,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build/release "$RUNNER_TEMP/release-transaction"
-          releases="$(gh api --paginate --slurp \
+          releases="$(gh api \
             "repos/$GITHUB_REPOSITORY/releases?per_page=100")"
           release="$(jq -c --arg tag "$RELEASE_TAG" \
-            '[.[][] | select(.tag_name == $tag)] | if length == 0 then empty elif length == 1 then .[0] else error("duplicate release tag") end' \
+            '[.[] | select(.tag_name == $tag)] | if length == 0 then empty elif length == 1 then .[0] else error("duplicate release tag") end' \
             <<<"$releases")"
           if [ -n "$release" ]; then
             test "$(jq -r '.target_commitish' <<<"$release")" = "$GITHUB_SHA"
@@ -194,10 +194,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          releases="$(gh api --paginate --slurp \
+          releases="$(gh api \
             "repos/$GITHUB_REPOSITORY/releases?per_page=100")"
           release_id="$(jq -r --arg tag "$RELEASE_TAG" \
-            '[.[][] | select(.tag_name == $tag)] | if length == 1 then .[0].id else error("release draft not unique") end' \
+            '[.[] | select(.tag_name == $tag)] | if length == 1 then .[0].id else error("release draft not unique") end' \
             <<<"$releases")"
           while IFS=$'\t' read -r asset_id asset_name; do
             gh api \
@@ -219,10 +219,10 @@ jobs:
           receipt=build/release/release-transaction-receipt.json
           if [ ! -f "$receipt" ]; then
             test "$TRANSACTION_MODE" != immutable
-            releases="$(gh api --paginate --slurp \
+            releases="$(gh api \
               "repos/$GITHUB_REPOSITORY/releases?per_page=100")"
             release="$(jq -c --arg tag "$RELEASE_TAG" \
-              '[.[][] | select(.tag_name == $tag)] | if length == 1 then .[0] else error("release draft not unique") end' \
+              '[.[] | select(.tag_name == $tag)] | if length == 1 then .[0] else error("release draft not unique") end' \
               <<<"$releases")"
             python - <<'PY' >"$RUNNER_TEMP/release-transaction/expected-assets.json"
           import hashlib, json
