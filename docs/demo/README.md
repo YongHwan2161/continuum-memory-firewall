@@ -23,6 +23,10 @@ identifier, or private participant information.
   representative-scale ANN proof, and key rotation.
 - `DEMO_NARRATION_V3.md` — story-first 90–120 second narration that adds the
   live checkout incident and measured 10/25/50-agent pressure result.
+- `DEMO_NARRATION_V4.md` — outcome-first narration that compares the three
+  paired arms before explaining the episode contract and one-click proof.
+- `continuum-memory-firewall-v4.en.srt` — exact English captions for the
+  public 100.918-second outcome demo.
 
 The browser console is an executable simulation of the policy and concurrency
 contract. The OIDC, RLS, Titan, Recall@3, and leakage statements shown in its
@@ -78,3 +82,29 @@ python scripts/build_demo_video_v3.py `
 
 The v3 builder additionally fails closed unless the agent-pressure evidence is
 `PASS`.
+
+For the outcome-first v4 entry, synthesize nine disposable narration segments
+and build from the exact paired-ablation, pressure, live-incident, and verifier
+inputs:
+
+```powershell
+powershell -File scripts/synthesize_demo_narration_v4.ps1 `
+  -Narration docs/demo/DEMO_NARRATION_V4.md `
+  -OutputDirectory build/demo-v4/narration `
+  -Rate 4
+
+python scripts/build_demo_video_v4.py `
+  --judge-evidence public-demo/evidence/judge-verification.json `
+  --ablation-evidence public-demo/evidence/agent-ablation-v3.json `
+  --pressure-evidence public-demo/evidence/agent-pressure.json `
+  --story-screenshot build/demo-v4/live-story.png `
+  --verifier-screenshot build/demo-v4/verifier-pass.png `
+  --narration-text docs/demo/DEMO_NARRATION_V4.md `
+  --narration-dir build/demo-v4/narration `
+  --subtitles build/demo-v4/continuum-memory-firewall-v4.en.srt `
+  --output build/demo-v4/continuum-memory-firewall-demo-v4.mp4
+```
+
+The builder refuses evidence other than judge schema v5, the 180-case-per-arm
+ablation schema v3, pressure `PASS`, and Continuum's 100% verified-outcome / zero
+false-promotion result. It also enforces a 90–120 second narration duration.

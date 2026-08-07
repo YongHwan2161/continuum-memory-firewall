@@ -163,6 +163,9 @@ recorded in
 The main-only OIDC cutover, actual AWS sandbox receipt proof, and
 five-replication 540-observation ablation are recorded in
 [Main OIDC, AWS sandbox, and five-replication evidence](docs/evidence/2026-08-07-main-oidc-sandbox-five-seed-ablation.md).
+The outcome-first public video, English captions, and refreshed Devpost receipt
+are recorded in
+[Outcome-first video and Devpost v4 evidence](docs/evidence/2026-08-07-outcome-video-devpost-v4.md).
 
 ## Safety boundary
 

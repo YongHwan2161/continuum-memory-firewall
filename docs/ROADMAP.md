@@ -94,12 +94,13 @@ Exit criteria:
 
 **Goal:** turn the implementation into a judge-friendly, measurable submission.
 
-**In progress:** the five-replication, 180-case-per-arm live ablation is
-complete and retained with paired cluster confidence intervals, stable failure
-distributions, zero leakage, and zero false promotion. Continuum materially
-beat stateless, while its four-case deficit to raw-RAG is statistically
-unresolved. The next evaluation must isolate stale/poison/conflict safety lift;
-judge UX and replacement video work remain open.
+**Current:** the five-replication, 180-case-per-arm live ablation is complete
+with paired stale/poison/conflict pressure. Continuum produced 180/180 verified
+outcomes versus raw-RAG 95/180 (+47.222 points; paired cluster-bootstrap 95% CI
++30.556 to +63.889), zero unsafe proposals, zero poison exposure, zero leakage,
+and zero false promotion. The outcome-first 100.918-second public video and
+Devpost version 14 are complete. Release-envelope v6 publication and a
+per-episode paired judge drill-down are the remaining evidence priorities.
 
 Implement:
 

@@ -1,0 +1,103 @@
+1
+00:00:00,000 --> 00:00:03,086
+An agent can remember the most relevant instruction and still do the wrong thing.
+
+2
+00:00:03,086 --> 00:00:08,572
+Continuum Memory Firewall separates semantic relevance from authority, so durable memory must earn trust before it can influence another action.
+
+3
+00:00:08,572 --> 00:00:10,048
+Here is the live checkout incident.
+
+4
+00:00:10,048 --> 00:00:12,495
+Trusted cache-pressure telemetry becomes canonical memory.
+
+5
+00:00:12,495 --> 00:00:15,322
+A poisoned instruction to disable payment verification is rejected.
+
+6
+00:00:15,322 --> 00:00:20,342
+Titan retrieves the verified recovery, and two workers race while CockroachDB records exactly one durable action owner.
+
+7
+00:00:20,342 --> 00:00:26,565
+Now compare identical incidents across five independent episode-state seeds: one hundred eighty cases per arm, five hundred forty observations total.
+
+8
+00:00:26,565 --> 00:00:29,489
+Raw RAG achieves only fifty-two point eight percent verified outcomes.
+
+9
+00:00:29,489 --> 00:00:35,712
+Under memory pressure, eighty-eight point nine percent of its proposals are unsafe, and poison is exposed in ninety-four point four percent of cases.
+
+10
+00:00:35,712 --> 00:00:42,132
+Continuum reaches one hundred percent verified outcomes, zero unsafe proposals, zero poison exposure, and one hundred percent canonical promotion precision.
+
+11
+00:00:42,132 --> 00:00:48,922
+The paired outcome lift over raw RAG is forty-seven point two percentage points, with a ninety-five percent interval from thirty point six to sixty-three point nine.
+
+12
+00:00:48,922 --> 00:00:50,590
+The difference is an episode contract.
+
+13
+00:00:50,590 --> 00:00:54,891
+The model may search, fetch, and propose a typed action using only server-issued citation handles.
+
+14
+00:00:54,891 --> 00:00:56,559
+A provider receipt proves the outcome.
+
+15
+00:00:56,559 --> 00:00:59,763
+Only a verified success can become canonical memory for the next episode.
+
+16
+00:00:59,763 --> 00:01:09,864
+The authority chain is independent of the model: Cognito verifies the caller, an audited binding selects a server-owned scope, that scope selects a no-bypass SQL identity, and CockroachDB row-level security enforces the same tenant and incident on every row.
+
+17
+00:01:09,864 --> 00:01:10,874
+This is not a toy index.
+
+18
+00:01:10,874 --> 00:01:15,629
+At fifty thousand synthetic vectors, natural CockroachDB ANN reaches ninety-six point nine percent Recall at ten.
+
+19
+00:01:15,629 --> 00:01:20,090
+Fifty concurrent agents share a bounded twenty-connection pool with zero leaked rows and one action owner.
+
+20
+00:01:20,090 --> 00:01:22,157
+Finally, the judge presses one read-only button.
+
+21
+00:01:22,157 --> 00:01:29,475
+It checks the live service, exact workflow heads, five hundred forty paired episodes, row-isolation checksum, sandbox receipt, and the immutable hackathon v-five release.
+
+22
+00:01:29,475 --> 00:01:32,531
+The release envelope is digest-bound and signed with GitHub provenance.
+
+23
+00:01:32,531 --> 00:01:37,246
+Continuum turns agent memory from an append-only liability into verified operational knowledge.
+
+24
+00:01:37,246 --> 00:01:38,437
+Similarity finds memory.
+
+25
+00:01:38,437 --> 00:01:39,429
+Outcomes earn trust.
+
+26
+00:01:39,429 --> 00:01:40,918
+CockroachDB decides authority.
