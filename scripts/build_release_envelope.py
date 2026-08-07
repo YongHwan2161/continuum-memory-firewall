@@ -102,7 +102,7 @@ def _migration_receipt(repo_root: Path, names: tuple[str, ...]) -> dict[str, Any
         files.append(
             {
                 "path": path.relative_to(repo_root).as_posix(),
-                "sha256": sha256_bytes(path.read_bytes()),
+                "sha256": sha256_bytes(repository_text_bytes(path.read_bytes())),
             }
         )
     combined = "".join(f"{item['path']}:{item['sha256']}\n" for item in files)

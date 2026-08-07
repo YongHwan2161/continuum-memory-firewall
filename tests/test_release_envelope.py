@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 
 from scripts.build_release_envelope import (
@@ -16,6 +17,23 @@ from scripts.build_release_envelope import (
 class ReleaseEnvelopeTests(unittest.TestCase):
     def test_repository_text_digest_is_checkout_line_ending_stable(self) -> None:
         self.assertEqual(repository_text_bytes(b"one\r\ntwo\r\n"), b"one\ntwo\n")
+
+    def test_migration_receipt_is_checkout_line_ending_stable(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            migration_root = root / "src/continuum/migrations"
+            migration_root.mkdir(parents=True)
+            names = ("0001_one.sql", "0002_two.sql")
+            values = (b"SELECT 1;\n", b"SELECT 2;\n")
+            for name, value in zip(names, values, strict=True):
+                (migration_root / name).write_bytes(value)
+            lf_receipt = _migration_receipt(root, names)
+            for name, value in zip(names, values, strict=True):
+                (migration_root / name).write_bytes(
+                    value.replace(b"\n", b"\r\n")
+                )
+            crlf_receipt = _migration_receipt(root, names)
+            self.assertEqual(crlf_receipt, lf_receipt)
 
     def setUp(self) -> None:
         self.scale = {
