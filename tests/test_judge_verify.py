@@ -139,6 +139,164 @@ class JudgeVerificationTests(unittest.TestCase):
         self.assertFalse(report["ok"])
         self.assertFalse(report["checks"]["workflow_head_matches"])
 
+    def test_schema_five_binds_ablation_sandbox_and_release(self):
+        candidate = "d" * 40
+        sandbox_report_sha = "b" * 64
+        ablation_report_sha = "c" * 64
+        self.evidence["schema_version"] = 5
+        self.evidence["source"].update(
+            {
+                "deployment_head_sha": candidate,
+                "artifact_sha256": "a" * 64,
+            }
+        )
+        self.evidence["lineage"] = {
+            "baseline_runtime_sha": (
+                "1291e2707880700492fe1d7cd431bcba03d68b4c"
+            ),
+            "baseline_documentation_sha": (
+                "2a94b4653ab0efe6f2ddeb8701ab05bdbaf403e1"
+            ),
+            "candidate_runtime_sha": candidate,
+        }
+        self.evidence["sandbox_provider"] = {
+            "workflow_run_id": 10,
+            "workflow_api_url": "https://api.example.test/sandbox-run/10",
+            "head_sha": "1291e2707880700492fe1d7cd431bcba03d68b4c",
+            "report_sha256": sandbox_report_sha,
+        }
+        self.evidence["agent_ablation"] = {
+            "workflow_run_id": 11,
+            "workflow_api_url": "https://api.example.test/ablation-run/11",
+            "public_aggregate_url": "https://demo.example.test/ablation.json",
+            "head_sha": candidate,
+            "report_sha256": ablation_report_sha,
+        }
+        self.evidence["release_envelope"] = {
+            "tag": "hackathon-v5",
+            "release_api_url": "https://api.example.test/release/v5",
+            "asset_name": "continuum-release-envelope-v2.json",
+            "asset_url": "https://demo.example.test/release-envelope.json",
+            "sandbox_asset_name": "sandbox-provider-proof.json",
+            "sandbox_asset_url": "https://demo.example.test/sandbox.json",
+            "ablation_asset_name": "agent-ablation-v3.json",
+        }
+        self.evidence["database_policy"] = {
+            "rls_combined_sha256": "f" * 64,
+        }
+        arm = {
+            "cases": 180,
+            "memory_pressure_cases": 90,
+            "recovery_cases": 30,
+            "cross_scope_leak_count": 0,
+            "failure_codes": {},
+            "false_canonical_promotions": 0,
+            "unsafe_proposal_rate_under_memory_pressure": 0.0,
+            "unsafe_memory_exposure_rate": 0.0,
+            "poison_exposure_rate": 0.0,
+            "verified_outcome_success_rate": 0.9,
+            "canonical_promotion_precision": 1.0,
+            "recovery_success_rate": 1.0,
+        }
+        ablation = {
+            "schema_version": 3,
+            "source_head": candidate,
+            "deployment_artifact_sha256": "a" * 64,
+            "arms": {
+                "stateless": {**arm, "verified_outcome_success_rate": 0.4},
+                "raw_rag": {
+                    **arm,
+                    "unsafe_proposal_rate_under_memory_pressure": 0.3,
+                    "unsafe_memory_exposure_rate": 0.8,
+                    "poison_exposure_rate": 0.5,
+                    "verified_outcome_success_rate": 0.6,
+                    "canonical_promotion_precision": 0.6,
+                    "recovery_success_rate": 0.8,
+                    "false_canonical_promotions": 40,
+                },
+                "continuum": arm,
+            },
+        }
+        payloads = {
+            self.evidence["source"]["workflow_api_url"]: {
+                "conclusion": "success",
+                "head_sha": candidate,
+            },
+            self.evidence["sandbox_provider"]["workflow_api_url"]: {
+                "conclusion": "success",
+                "head_sha": self.evidence["sandbox_provider"]["head_sha"],
+            },
+            self.evidence["agent_ablation"]["workflow_api_url"]: {
+                "conclusion": "success",
+                "head_sha": candidate,
+            },
+            self.evidence["agent_ablation"]["public_aggregate_url"]: ablation,
+            self.evidence["release_envelope"]["release_api_url"]: {
+                "immutable": True,
+                "tag_name": "hackathon-v5",
+                "assets": [
+                    {
+                        "name": "continuum-release-envelope-v2.json",
+                        "state": "uploaded",
+                        "digest": "sha256:" + "e" * 64,
+                    },
+                    {
+                        "name": "sandbox-provider-proof.json",
+                        "state": "uploaded",
+                        "digest": "sha256:" + sandbox_report_sha,
+                    },
+                    {
+                        "name": "agent-ablation-v3.json",
+                        "state": "uploaded",
+                        "digest": "sha256:" + ablation_report_sha,
+                    },
+                ],
+            },
+            self.evidence["release_envelope"]["asset_url"]: {
+                "schema_version": 2,
+                "lineage": {"candidate_runtime_sha": candidate},
+                "public_judge_evidence": {"schema_version": 5},
+                "database_policy": {
+                    "rls": {"combined_sha256": "f" * 64},
+                },
+                "gates": {"status": "PASS"},
+            },
+            self.evidence["release_envelope"]["sandbox_asset_url"]: {
+                "send_count": 2,
+                "logical_effect_count": 1,
+                "receipt_lookup_matched": True,
+                "provider_capabilities": {
+                    "supports_idempotency": True,
+                    "receipt_lookup": True,
+                },
+            },
+        }
+
+        def fetch(url):
+            if url in payloads:
+                return payloads[url]
+            return self.fetch_json(url)
+
+        report = verify_evidence(
+            self.evidence,
+            fetch_json=fetch,
+            fetch_text=lambda _url: "Continuum Memory Firewall",
+        )
+        self.assertTrue(report["ok"])
+        self.assertTrue(report["checks"]["paired_memory_policy_differentiates"])
+        self.assertTrue(report["checks"]["immutable_release_assets"])
+
+        ablation["arms"]["raw_rag"]["failure_codes"] = {
+            "ORCHESTRATION_PROPOSAL_CITES_A_HANDLE_NOT_ISSUED_BY_SEARCH": 1
+        }
+        tampered = verify_evidence(
+            self.evidence,
+            fetch_json=fetch,
+            fetch_text=lambda _url: "Continuum Memory Firewall",
+        )
+        self.assertFalse(tampered["ok"])
+        self.assertFalse(tampered["checks"]["citation_handle_grounding"])
+
     def test_scale_scope_leakage_fails_closed(self):
         self.scale_report["scales"][1]["beams"][0][
             "cross_scope_leaked_rows"

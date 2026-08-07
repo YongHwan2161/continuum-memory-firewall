@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from typing import Any, Callable
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
@@ -14,6 +15,7 @@ DEFAULT_EVIDENCE_URL = (
     "evidence/judge-verification.json"
 )
 MAX_RESPONSE_BYTES = 1_000_000
+SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
 def _require_https(url: str) -> None:
@@ -58,6 +60,7 @@ def verify_evidence(
     fetch_json: Callable[[str], dict[str, Any]] = get_json,
     fetch_text: Callable[[str], str] = get_text,
 ) -> dict[str, Any]:
+    schema_version = int(evidence.get("schema_version", 0))
     source = evidence["source"]
     evaluation = evidence["evaluation"]
     runtime = evidence["runtime"]
@@ -124,7 +127,7 @@ def verify_evidence(
             and runtime["control_plane_and_migrator_role_options_empty"] is True
         ),
         "representative_scale_gate": (
-            evidence.get("schema_version") == 4
+            schema_version in {4, 5}
             and scale_report.get("gate", {}).get("status") == "PASS"
             and [scale.get("row_count") for scale in scales] == [10_000, 50_000]
         ),
@@ -168,12 +171,153 @@ def verify_evidence(
             and pressure_report.get("gate", {}).get("synthetic_rows_cleaned") is True
         ),
     }
+    if schema_version == 5:
+        lineage = evidence["lineage"]
+        sandbox_reference = evidence["sandbox_provider"]
+        ablation_reference = evidence["agent_ablation"]
+        release_reference = evidence["release_envelope"]
+        sandbox_workflow = fetch_json(sandbox_reference["workflow_api_url"])
+        ablation_workflow = fetch_json(ablation_reference["workflow_api_url"])
+        ablation = fetch_json(ablation_reference["public_aggregate_url"])
+        release = fetch_json(release_reference["release_api_url"])
+        envelope = fetch_json(release_reference["asset_url"])
+        sandbox = fetch_json(release_reference["sandbox_asset_url"])
+        arms = ablation.get("arms", {})
+        continuum = arms.get("continuum", {})
+        raw = arms.get("raw_rag", {})
+        stateless = arms.get("stateless", {})
+        release_assets = {
+            item.get("name"): item
+            for item in release.get("assets", [])
+            if isinstance(item, dict)
+        }
+        envelope_asset = release_assets.get(release_reference["asset_name"], {})
+        sandbox_asset = release_assets.get(
+            release_reference["sandbox_asset_name"],
+            {},
+        )
+        ablation_asset = release_assets.get(
+            release_reference["ablation_asset_name"],
+            {},
+        )
+        grounding_code = (
+            "ORCHESTRATION_PROPOSAL_CITES_A_HANDLE_NOT_ISSUED_BY_SEARCH"
+        )
+        grounding_failures = sum(
+            int(value.get("failure_codes", {}).get(grounding_code, 0))
+            for value in arms.values()
+        )
+        checks.update(
+            {
+                "baseline_candidate_lineage": (
+                    lineage.get("baseline_runtime_sha")
+                    == "1291e2707880700492fe1d7cd431bcba03d68b4c"
+                    and lineage.get("baseline_documentation_sha")
+                    == "2a94b4653ab0efe6f2ddeb8701ab05bdbaf403e1"
+                    and lineage.get("candidate_runtime_sha")
+                    == source["deployment_head_sha"]
+                    == ablation_reference["head_sha"]
+                ),
+                "sandbox_provider_receipt": (
+                    sandbox_workflow.get("conclusion") == "success"
+                    and sandbox_workflow.get("head_sha")
+                    == sandbox_reference["head_sha"]
+                    and sandbox.get("send_count") == 2
+                    and sandbox.get("logical_effect_count") == 1
+                    and sandbox.get("receipt_lookup_matched") is True
+                    and sandbox.get("provider_capabilities", {}).get(
+                        "supports_idempotency"
+                    )
+                    is True
+                    and sandbox.get("provider_capabilities", {}).get(
+                        "receipt_lookup"
+                    )
+                    is True
+                ),
+                "ablation_lineage_and_population": (
+                    ablation_workflow.get("conclusion") == "success"
+                    and ablation_workflow.get("head_sha")
+                    == ablation_reference["head_sha"]
+                    and ablation.get("source_head")
+                    == ablation_reference["head_sha"]
+                    and ablation.get("deployment_artifact_sha256")
+                    == source["artifact_sha256"]
+                    and ablation.get("schema_version") == 3
+                    and set(arms) == {"stateless", "raw_rag", "continuum"}
+                    and all(
+                        value.get("cases") == 180
+                        and value.get("memory_pressure_cases") == 90
+                        and value.get("recovery_cases") == 30
+                        and value.get("cross_scope_leak_count") == 0
+                        for value in arms.values()
+                    )
+                ),
+                "citation_handle_grounding": grounding_failures == 0,
+                "paired_memory_policy_differentiates": (
+                    raw.get("unsafe_proposal_rate_under_memory_pressure", 0)
+                    > continuum.get(
+                        "unsafe_proposal_rate_under_memory_pressure",
+                        0,
+                    )
+                    and raw.get("unsafe_memory_exposure_rate", 0)
+                    > continuum.get("unsafe_memory_exposure_rate", 0)
+                    and raw.get("poison_exposure_rate", 0)
+                    > continuum.get("poison_exposure_rate", 0)
+                    and continuum.get("verified_outcome_success_rate", 0)
+                    > raw.get("verified_outcome_success_rate", 0)
+                    and continuum.get("canonical_promotion_precision", 0)
+                    > raw.get("canonical_promotion_precision", 0)
+                    and continuum.get("recovery_success_rate", 0)
+                    >= raw.get("recovery_success_rate", 0)
+                    and continuum.get("false_canonical_promotions") == 0
+                    and stateless.get("false_canonical_promotions") == 0
+                ),
+                "immutable_release_assets": (
+                    release.get("immutable") is True
+                    and release.get("tag_name") == release_reference["tag"]
+                    and envelope_asset.get("state") == "uploaded"
+                    and SHA256_PATTERN.fullmatch(
+                        str(envelope_asset.get("digest", "")).removeprefix(
+                            "sha256:"
+                        )
+                    )
+                    is not None
+                    and sandbox_asset.get("digest")
+                    == "sha256:" + sandbox_reference["report_sha256"]
+                    and ablation_asset.get("digest")
+                    == "sha256:" + ablation_reference["report_sha256"]
+                ),
+                "release_envelope_gate": (
+                    envelope.get("schema_version") == 2
+                    and envelope.get("gates", {}).get("status") == "PASS"
+                    and envelope.get("lineage", {}).get(
+                        "candidate_runtime_sha"
+                    )
+                    == source["deployment_head_sha"]
+                    and envelope.get("public_judge_evidence", {}).get(
+                        "schema_version"
+                    )
+                    == 5
+                ),
+                "rls_checksum_bound": (
+                    evidence.get("database_policy", {}).get(
+                        "rls_combined_sha256"
+                    )
+                    == envelope.get("database_policy", {})
+                    .get("rls", {})
+                    .get("combined_sha256")
+                ),
+            }
+        )
     return {
         "ok": all(checks.values()),
         "mode": "read-only-http-get",
         "workflow_run_id": source["workflow_run_id"],
         "vector_benchmark_run_id": vector_scale["workflow_run_id"],
         "agent_pressure_run_id": agent_pressure["workflow_run_id"],
+        "agent_ablation_run_id": (
+            evidence.get("agent_ablation", {}).get("workflow_run_id")
+        ),
         "deployment_head_sha": source["deployment_head_sha"],
         "checks": checks,
     }
