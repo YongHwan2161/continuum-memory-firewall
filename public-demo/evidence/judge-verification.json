@@ -145,16 +145,16 @@
     "temporary_github_secret_deleted": true
   },
   "release_envelope": {
-    "tag": "hackathon-v9",
-    "release_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v9",
-    "release_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/releases/tags/hackathon-v9",
-    "asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v9/continuum-release-envelope-v2.json",
+    "tag": "hackathon-v10",
+    "release_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v10",
+    "release_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/releases/tags/hackathon-v10",
+    "asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v10/continuum-release-envelope-v2.json",
     "asset_name": "continuum-release-envelope-v2.json",
-    "sandbox_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v9/sandbox-provider-proof.json",
+    "sandbox_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v10/sandbox-provider-proof.json",
     "sandbox_asset_name": "sandbox-provider-proof.json",
-    "ablation_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v9/agent-ablation-v3.json",
+    "ablation_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v10/agent-ablation-v3.json",
     "ablation_asset_name": "agent-ablation-v3.json",
-    "drilldown_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v9/episode-drilldown-v1.json",
+    "drilldown_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v10/episode-drilldown-v1.json",
     "drilldown_asset_name": "episode-drilldown-v1.json"
   },
   "network_sign_once": {
@@ -175,6 +175,21 @@
     "required_author_attestation_count": 1,
     "required_platform_attestation_count": 1,
     "required_total_attestation_count": 2
+  },
+  "release_transaction": {
+    "schema_version": 1,
+    "coordinator_script": "scripts/release_transaction_coordinator.py",
+    "receipt_asset_name": "release-transaction-receipt.json",
+    "public_receipt_url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/release-transaction-receipt.json",
+    "states": [
+      "PREPARED",
+      "AUTHOR_ATTESTED",
+      "ASSETS_UPLOADED",
+      "IMMUTABLE",
+      "PAGES_MATERIALIZED"
+    ],
+    "required_terminal_state": "PAGES_MATERIALIZED",
+    "ambiguous_state_fails_closed": true
   },
   "public_demo": {
     "url": "https://yonghwan2161.github.io/continuum-memory-firewall/",

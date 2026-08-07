@@ -11,6 +11,8 @@ from typing import Any, Callable
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
+from scripts.release_transaction_coordinator import verify_receipt
+
 
 DEFAULT_EVIDENCE_URL = (
     "https://yonghwan2161.github.io/continuum-memory-firewall/"
@@ -228,6 +230,13 @@ def verify_evidence(
         network_attestations: list[Any] = []
         network_bundles: list[dict[str, Any]] = []
         network_statements: list[dict[str, Any]] = []
+        network_bundle_sha = ""
+        transaction_reference: dict[str, Any] = {}
+        transaction_receipt: dict[str, Any] = {}
+        transaction_receipt_asset: dict[str, Any] = {}
+        transaction_pages_evidence: dict[str, Any] = {}
+        transaction_pages_workflow: dict[str, Any] = {}
+        transaction_receipt_valid = False
         if schema_version >= 7:
             network_reference = evidence["network_sign_once"]
             envelope_digest = str(
@@ -243,6 +252,7 @@ def verify_evidence(
             network_bundle_bytes = fetch_bytes(
                 network_reference["network_bundle_public_url"]
             )
+            network_bundle_sha = hashlib.sha256(network_bundle_bytes).hexdigest()
             bundle_lines = [
                 line
                 for line in network_bundle_bytes.decode("utf-8").splitlines()
@@ -290,6 +300,29 @@ def verify_evidence(
                 network_reference["author_bundle_asset_name"],
                 {},
             )
+            transaction_reference = evidence.get("release_transaction", {})
+            if isinstance(transaction_reference, dict) and transaction_reference:
+                try:
+                    transaction_receipt = fetch_json(
+                        transaction_reference["public_receipt_url"]
+                    )
+                    verify_receipt(transaction_receipt)
+                    last_event = transaction_receipt["events"][-1]
+                    transaction_pages_evidence = last_event["evidence"]
+                    pages_run_id = int(
+                        transaction_pages_evidence["pages_workflow_run_id"]
+                    )
+                    pages_api_url = (
+                        f"https://api.github.com/repos/{source['repository']}"
+                        f"/actions/runs/{pages_run_id}"
+                    )
+                    transaction_pages_workflow = fetch_json(pages_api_url)
+                    transaction_receipt_asset = release_assets.get(
+                        transaction_reference["receipt_asset_name"], {}
+                    )
+                    transaction_receipt_valid = True
+                except (KeyError, RuntimeError, TypeError, ValueError):
+                    transaction_receipt_valid = False
         grounding_code = (
             "ORCHESTRATION_PROPOSAL_CITES_A_HANDLE_NOT_ISSUED_BY_SEARCH"
         )
@@ -544,6 +577,60 @@ def verify_evidence(
                             )
                         )
                         == 1
+                    )
+                ),
+                "release_transaction_terminal": (
+                    schema_version < 7
+                    or (
+                        transaction_reference.get("schema_version") == 1
+                        and transaction_reference.get("states")
+                        == [
+                            "PREPARED",
+                            "AUTHOR_ATTESTED",
+                            "ASSETS_UPLOADED",
+                            "IMMUTABLE",
+                            "PAGES_MATERIALIZED",
+                        ]
+                        and transaction_reference.get("required_terminal_state")
+                        == "PAGES_MATERIALIZED"
+                        and transaction_reference.get(
+                            "ambiguous_state_fails_closed"
+                        )
+                        is True
+                        and transaction_receipt_valid
+                        and transaction_receipt.get("state")
+                        == "PAGES_MATERIALIZED"
+                        and transaction_receipt.get("repository")
+                        == source["repository"]
+                        and transaction_receipt.get("release_tag")
+                        == release_reference["tag"]
+                        and transaction_receipt.get("source_digest")
+                        == release.get("target_commitish")
+                        and transaction_receipt.get("envelope_sha256")
+                        == str(envelope_asset.get("digest", "")).removeprefix(
+                            "sha256:"
+                        )
+                        and [
+                            event.get("state")
+                            for event in transaction_receipt.get("events", [])
+                        ]
+                        == transaction_reference.get("states")
+                        and transaction_receipt_asset.get("state") == "uploaded"
+                        and transaction_pages_evidence.get("status") == "success"
+                        and transaction_pages_evidence.get("release_tag")
+                        == release_reference["tag"]
+                        and transaction_pages_evidence.get("release_target")
+                        == release.get("target_commitish")
+                        and transaction_pages_evidence.get(
+                            "public_bundle_sha256"
+                        )
+                        == network_bundle_sha
+                        and transaction_pages_workflow.get("conclusion")
+                        == "success"
+                        and transaction_pages_workflow.get("head_sha")
+                        == release.get("target_commitish")
+                        and envelope.get("release_transaction")
+                        == transaction_reference
                     )
                 ),
             }

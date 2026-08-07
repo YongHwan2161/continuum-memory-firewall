@@ -256,6 +256,23 @@ def promote_release_v5_evidence(
         "required_platform_attestation_count": 1,
         "required_total_attestation_count": 2,
     }
+    judge["release_transaction"] = {
+        "schema_version": 1,
+        "coordinator_script": "scripts/release_transaction_coordinator.py",
+        "receipt_asset_name": "release-transaction-receipt.json",
+        "public_receipt_url": (
+            f"{demo_base}/evidence/release-transaction-receipt.json"
+        ),
+        "states": [
+            "PREPARED",
+            "AUTHOR_ATTESTED",
+            "ASSETS_UPLOADED",
+            "IMMUTABLE",
+            "PAGES_MATERIALIZED",
+        ],
+        "required_terminal_state": "PAGES_MATERIALIZED",
+        "ambiguous_state_fails_closed": True,
+    }
     _write_json(judge_path, judge)
     return judge
 
@@ -281,7 +298,7 @@ def main() -> None:
         "--repository",
         default="YongHwan2161/continuum-memory-firewall",
     )
-    parser.add_argument("--release-tag", default="hackathon-v9")
+    parser.add_argument("--release-tag", default="hackathon-v10")
     args = parser.parse_args()
     promote_release_v5_evidence(
         repo_root=args.repo_root.resolve(),

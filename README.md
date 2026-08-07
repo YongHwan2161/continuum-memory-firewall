@@ -149,7 +149,7 @@ receives a token or database credential. The executable database evidence is
 the integration suite and linked exact-head workflows in
 [Project Status](docs/PROJECT_STATUS.md).
 
-The v9 release envelope receives exactly one author-controlled signature in
+The v10 release envelope receives exactly one author-controlled signature in
 the same main-only workflow that publishes it. Its Fulcio/Rekor Sigstore bundle
 is an immutable release asset and a byte-identical Pages resource. GitHub also
 adds one distinguishable immutable-release countersignature; the verifier
@@ -158,8 +158,15 @@ a second author signing operation. Perform strict cryptographic policy
 verification of the author signature with:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v9
+python scripts/verify_network_sign_once.py --release-tag hackathon-v10
 ```
+
+Version 10 also creates a durable draft before signing and advances a
+hash-chained release receipt through `PREPARED`, `AUTHOR_ATTESTED`,
+`ASSETS_UPLOADED`, `IMMUTABLE`, and `PAGES_MATERIALIZED`. A retry adopts the
+exact draft bytes and any existing author attestation instead of rebuilding or
+signing a second envelope. Contradictory provider state is reported as
+`AMBIGUOUS` and publication stops.
 
 The redacted private-worker deployment proof is recorded in
 [Live AWS and Managed MCP evidence](docs/evidence/2026-07-31-cloud-live-smoke.md).

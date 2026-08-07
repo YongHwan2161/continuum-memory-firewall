@@ -336,6 +336,26 @@ class ReleaseEnvelopeTests(unittest.TestCase):
                 "required_platform_attestation_count": 1,
                 "required_total_attestation_count": 2,
             },
+            "release_transaction": {
+                "schema_version": 1,
+                "coordinator_script": (
+                    "scripts/release_transaction_coordinator.py"
+                ),
+                "receipt_asset_name": "release-transaction-receipt.json",
+                "public_receipt_url": (
+                    "https://demo.example.test/evidence/"
+                    "release-transaction-receipt.json"
+                ),
+                "states": [
+                    "PREPARED",
+                    "AUTHOR_ATTESTED",
+                    "ASSETS_UPLOADED",
+                    "IMMUTABLE",
+                    "PAGES_MATERIALIZED",
+                ],
+                "required_terminal_state": "PAGES_MATERIALIZED",
+                "ambiguous_state_fails_closed": True,
+            },
             "public_demo": {
                 "url": "https://demo.example.test/",
                 "verifier_url": "https://demo.example.test/verify.html",
@@ -395,6 +415,10 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         self.assertEqual(
             envelope["network_sign_once"]["required_total_attestation_count"],
             2,
+        )
+        self.assertEqual(
+            envelope["release_transaction"]["required_terminal_state"],
+            "PAGES_MATERIALIZED",
         )
 
     def test_scale_checksum_and_leakage_fail_closed(self) -> None:
