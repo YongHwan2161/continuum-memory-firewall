@@ -36,10 +36,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build/release "$RUNNER_TEMP/release-transaction"
-          if release="$(gh api \
-              -H "X-GitHub-Api-Version: 2026-03-10" \
-              "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
-              2>"$RUNNER_TEMP/release-transaction/lookup.err")"; then
+          releases="$(gh api --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/releases?per_page=100")"
+          release="$(jq -c --arg tag "$RELEASE_TAG" \
+            '[.[][] | select(.tag_name == $tag)] | if length == 0 then empty elif length == 1 then .[0] else error("duplicate release tag") end' \
+            <<<"$releases")"
+          if [ -n "$release" ]; then
             test "$(jq -r '.target_commitish' <<<"$release")" = "$GITHUB_SHA"
             if [ "$(jq -r '.immutable' <<<"$release")" = true ]; then
               mode=immutable
@@ -50,10 +52,8 @@ jobs:
               exit 1
             fi
           else
-            grep -q 'HTTP 404' "$RUNNER_TEMP/release-transaction/lookup.err"
             mode=new
           fi
-          rm -f "$RUNNER_TEMP/release-transaction/lookup.err"
           echo "mode=$mode" >>"$GITHUB_OUTPUT"
           echo "transaction mode: $mode"
 
@@ -191,7 +191,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.release_tag }}
-        run: gh release download "$RELEASE_TAG" --dir build/release
+        shell: bash
+        run: |
+          set -euo pipefail
+          releases="$(gh api --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/releases?per_page=100")"
+          release_id="$(jq -r --arg tag "$RELEASE_TAG" \
+            '[.[][] | select(.tag_name == $tag)] | if length == 1 then .[0].id else error("release draft not unique") end' \
+            <<<"$releases")"
+          while IFS=$'\t' read -r asset_id asset_name; do
+            gh api \
+              -H "Accept: application/octet-stream" \
+              "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id" \
+              >"build/release/$asset_name"
+          done < <(gh api --paginate \
+            "repos/$GITHUB_REPOSITORY/releases/$release_id/assets?per_page=100" \
+            --jq '.[] | [.id,.name] | @tsv')
 
       - name: Initialize or verify the PREPARED receipt
         env:
@@ -204,9 +219,11 @@ jobs:
           receipt=build/release/release-transaction-receipt.json
           if [ ! -f "$receipt" ]; then
             test "$TRANSACTION_MODE" != immutable
-            release="$(gh api \
-              -H "X-GitHub-Api-Version: 2026-03-10" \
-              "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+            releases="$(gh api --paginate --slurp \
+              "repos/$GITHUB_REPOSITORY/releases?per_page=100")"
+            release="$(jq -c --arg tag "$RELEASE_TAG" \
+              '[.[][] | select(.tag_name == $tag)] | if length == 1 then .[0] else error("release draft not unique") end' \
+              <<<"$releases")"
             python - <<'PY' >"$RUNNER_TEMP/release-transaction/expected-assets.json"
           import hashlib, json
           from pathlib import Path
@@ -238,7 +255,19 @@ jobs:
               --evidence "$RUNNER_TEMP/release-transaction/prepared.json" \
               --observed-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
               --output "$receipt"
-            gh release upload "$RELEASE_TAG" "$receipt" --clobber
+            release_id="$(jq -r '.id' <<<"$release")"
+            existing_id="$(gh api --paginate \
+              "repos/$GITHUB_REPOSITORY/releases/$release_id/assets?per_page=100" \
+              --jq '.[] | select(.name == "release-transaction-receipt.json") | .id')"
+            if [ -n "$existing_id" ]; then
+              gh api --method DELETE \
+                "repos/$GITHUB_REPOSITORY/releases/assets/$existing_id"
+            fi
+            gh api --method POST \
+              -H "Content-Type: application/octet-stream" \
+              --input "$receipt" \
+              "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$release_id/assets?name=release-transaction-receipt.json" \
+              >/dev/null
           fi
           python scripts/release_transaction_coordinator.py verify --input "$receipt"
           test "$(jq -r '.release_tag' "$receipt")" = "$RELEASE_TAG"
@@ -265,7 +294,8 @@ jobs:
           fi
           rm -f "$RUNNER_TEMP/release-transaction/author.err"
           test "$count" -le 1
-          release="$(gh api -H "X-GitHub-Api-Version: 2026-03-10" "repos/$GITHUB_REPOSITORY/releases/tags/${{ inputs.release_tag }}")"
+          release_id="$(jq -r '.events[0].evidence.release_id' build/release/release-transaction-receipt.json)"
+          release="$(gh api -H "X-GitHub-Api-Version: 2026-03-10" "repos/$GITHUB_REPOSITORY/releases/$release_id")"
           platform_count=0
           if [ "$(jq -r '.immutable' <<<"$release")" = true ]; then
             platform_count="$(gh api \
@@ -347,10 +377,28 @@ jobs:
             mv "$RUNNER_TEMP/release-transaction/author-receipt.json" "$receipt"
           fi
 
-          gh release upload "$RELEASE_TAG" \
-            build/release/continuum-release-envelope-v2.sigstore.jsonl \
-            build/release/continuum-release-envelope-v2.sigstore.jsonl.sha256 \
-            --clobber
+          release_id="$(jq -r '.events[0].evidence.release_id' "$receipt")"
+          upload_draft_asset() {
+            path="$1"
+            name="${path##*/}"
+            while read -r existing_id; do
+              if [ -n "$existing_id" ]; then
+                gh api --method DELETE \
+                  "repos/$GITHUB_REPOSITORY/releases/assets/$existing_id"
+              fi
+            done < <(gh api --paginate \
+              "repos/$GITHUB_REPOSITORY/releases/$release_id/assets?per_page=100" \
+              --jq ".[] | select(.name == \"$name\") | .id")
+            gh api --method POST \
+              -H "Content-Type: application/octet-stream" \
+              --input "$path" \
+              "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$release_id/assets?name=$name" \
+              >/dev/null
+          }
+          upload_draft_asset \
+            build/release/continuum-release-envelope-v2.sigstore.jsonl
+          upload_draft_asset \
+            build/release/continuum-release-envelope-v2.sigstore.jsonl.sha256
 
           python - <<'PY' >"$RUNNER_TEMP/release-transaction/expected-assets.json"
           import hashlib, json
@@ -370,7 +418,7 @@ jobs:
           root = Path("build/release")
           print(json.dumps({name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}, sort_keys=True))
           PY
-          release="$(gh api -H "X-GitHub-Api-Version: 2026-03-10" "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+          release="$(gh api -H "X-GitHub-Api-Version: 2026-03-10" "repos/$GITHUB_REPOSITORY/releases/$release_id")"
           jq '[.assets[] | {key:.name,value:(.digest | sub("^sha256:";""))}] | from_entries' \
             <<<"$release" >"$RUNNER_TEMP/release-transaction/observed-assets.json"
           jq -n \
@@ -391,7 +439,7 @@ jobs:
           fi
           python scripts/release_transaction_coordinator.py verify \
             --input "$receipt" --expected-state ASSETS_UPLOADED
-          gh release upload "$RELEASE_TAG" "$receipt" --clobber
+          upload_draft_asset "$receipt"
 
       - name: Publish or adopt the immutable provider receipt
         env:
@@ -401,11 +449,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          receipt=build/release/release-transaction-receipt.json
+          release_id="$(jq -r '.events[0].evidence.release_id' "$receipt")"
           if [ "$TRANSACTION_MODE" != immutable ]; then
-            gh release edit "$RELEASE_TAG" --draft=false
+            gh api --method PATCH \
+              -H "X-GitHub-Api-Version: 2026-03-10" \
+              -F draft=false \
+              "repos/$GITHUB_REPOSITORY/releases/$release_id" \
+              >/dev/null
           fi
           for attempt in $(seq 1 12); do
-            release="$(gh api -H "X-GitHub-Api-Version: 2026-03-10" "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+            release="$(gh api -H "X-GitHub-Api-Version: 2026-03-10" "repos/$GITHUB_REPOSITORY/releases/$release_id")"
             if [ "$(jq -r '.immutable' <<<"$release")" = true ]; then break; fi
             sleep 5
           done
@@ -424,7 +478,6 @@ jobs:
             --arg release_tag "$RELEASE_TAG" \
             '{immutable:true,release_draft:false,release_target:$release_target,release_tag:$release_tag,author_attestation_count:1,platform_attestation_count:1,total_attestation_count:2}' \
             >"$RUNNER_TEMP/release-transaction/immutable.json"
-          receipt=build/release/release-transaction-receipt.json
           test "$(jq -r '.state' "$receipt")" = ASSETS_UPLOADED
           python scripts/release_transaction_coordinator.py advance \
             --input "$receipt" \

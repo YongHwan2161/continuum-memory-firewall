@@ -294,6 +294,12 @@ class NetworkSignOnceTests(unittest.TestCase):
         self.assertIn("Create the durable draft before author signing", release_workflow)
         self.assertIn("release_transaction_coordinator.py", release_workflow)
         self.assertIn("cancel-in-progress: false", release_workflow)
+        self.assertIn("releases?per_page=100", release_workflow)
+        self.assertIn("uploads.github.com", release_workflow)
+        self.assertNotIn(
+            'repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG',
+            release_workflow,
+        )
         self.assertIn("required", release_workflow)
         self.assertIn("--deny-self-hosted-runners", release_workflow)
         self.assertIn("continuum-release-envelope-v2.sigstore.jsonl", release_workflow)
