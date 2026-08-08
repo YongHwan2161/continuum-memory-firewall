@@ -38,6 +38,12 @@ class FakeGitHubClient:
     def release_by_tag(self, tag):
         return self.by_tag.get(tag)
 
+    def release(self, release_id):
+        return next(
+            (item for item in self.by_tag.values() if item["id"] == release_id),
+            None,
+        )
+
     def assets(self, release_id):
         release = next(item for item in self.by_tag.values() if item["id"] == release_id)
         return list(release["assets"])
@@ -71,6 +77,11 @@ class FakeGitHubClient:
 
     def tag_ref_exists(self, tag):
         return False
+
+
+class StaleReleaseListGitHubClient(FakeGitHubClient):
+    def release_by_tag(self, tag):
+        return None
 
 
 class GitHubReleaseProviderTests(unittest.TestCase):
@@ -130,6 +141,28 @@ class GitHubReleaseProviderTests(unittest.TestCase):
         self.assertEqual(outcome.status.value, "failed")
         self.assertEqual(outcome.evidence["effect_count"], 0)
         self.assertEqual(self.provider.cleanup(case.case_id)["residual_count"], 0)
+
+    def test_created_release_id_survives_stale_release_list(self) -> None:
+        client = StaleReleaseListGitHubClient()
+        provider = GitHubReleaseSandboxProvider(
+            client=client,
+            release_target="a" * 40,
+            run_namespace="run-654321",
+        )
+        case = next(
+            item
+            for item in build_release_guardian_cases()
+            if item.family == "missing-asset" and item.variant == "explicit_seed"
+        )
+        provider.prepare(arm="continuum", case=case)
+        outcome = provider.execute(
+            case=case,
+            proposal=self._proposal(case.expected_action_type),
+            idempotency_key="stale-list",
+            observed_at=datetime(2026, 8, 8, tzinfo=timezone.utc),
+        )
+        self.assertEqual(outcome.status.value, "succeeded")
+        self.assertEqual(provider.cleanup(case.case_id)["residual_count"], 0)
 
     def test_conflicting_asset_is_quarantined_not_adopted(self) -> None:
         case = next(

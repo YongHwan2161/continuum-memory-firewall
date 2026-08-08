@@ -91,15 +91,28 @@ class GitHubReleaseClient:
         return self._request("POST", self._api("releases"), body=payload)
 
     def releases(self) -> list[Mapping[str, Any]]:
-        value = self._request("GET", self._api("releases?per_page=100"))
+        value = self._request(
+            "GET", self._api(f"releases?per_page=100&continuum_nonce={time.time_ns()}")
+        )
         return list(value)
 
     def release_by_tag(self, tag: str) -> Mapping[str, Any] | None:
         return next((item for item in self.releases() if item.get("tag_name") == tag), None)
 
+    def release(self, release_id: int) -> Mapping[str, Any] | None:
+        try:
+            return self._request("GET", self._api(f"releases/{release_id}"))
+        except GitHubProviderError as exc:
+            if exc.status == 404:
+                return None
+            raise
+
     def assets(self, release_id: int) -> list[Mapping[str, Any]]:
         value = self._request(
-            "GET", self._api(f"releases/{release_id}/assets?per_page=100")
+            "GET",
+            self._api(
+                f"releases/{release_id}/assets?per_page=100&continuum_nonce={time.time_ns()}"
+            ),
         )
         return list(value)
 
@@ -136,6 +149,7 @@ class PreparedReleaseSandbox:
     case_id: str
     tag: str
     expected_action_type: str
+    release_id: int | None
 
 
 class GitHubReleaseSandboxProvider:
@@ -185,8 +199,12 @@ class GitHubReleaseSandboxProvider:
         if self.client.tag_ref_exists(tag):
             raise RuntimeError("sandbox tag unexpectedly has a Git ref")
 
-    def _require_draft(self, tag: str) -> Mapping[str, Any]:
-        release = self.client.release_by_tag(tag)
+    def _require_draft(self, prepared: PreparedReleaseSandbox) -> Mapping[str, Any]:
+        release = (
+            self.client.release(prepared.release_id)
+            if prepared.release_id is not None
+            else None
+        )
         if release is None or release.get("draft") is not True:
             raise RuntimeError("expected disposable draft is absent")
         return release
@@ -210,6 +228,7 @@ class GitHubReleaseSandboxProvider:
         tag = self._tag(arm, case)
         self._remove_existing(tag)
         expected = case.expected_action_type
+        release_id = None
         if expected != "create_sandbox_draft":
             release = self.client.create_draft(tag=tag, target=self.release_target)
             release_id = int(release["id"])
@@ -224,12 +243,15 @@ class GitHubReleaseSandboxProvider:
             case_id=case.case_id,
             tag=tag,
             expected_action_type=expected,
+            release_id=release_id,
         )
         self._prepared[case.case_id] = prepared
         return prepared
 
-    def _state(self, tag: str) -> Mapping[str, Any]:
-        release = self.client.release_by_tag(tag)
+    def _state(
+        self, tag: str, release_id: int | None
+    ) -> Mapping[str, Any]:
+        release = self.client.release(release_id) if release_id is not None else None
         if release is None:
             return {"release_exists": False, "tag_ref_exists": self.client.tag_ref_exists(tag)}
         assets = self.client.assets(int(release["id"]))
@@ -265,21 +287,28 @@ class GitHubReleaseSandboxProvider:
         prepared = self._prepared.get(case.case_id)
         if prepared is None:
             raise RuntimeError("release sandbox was not prepared")
-        before = self._state(prepared.tag)
+        before = self._state(prepared.tag, prepared.release_id)
         matched = proposal.action_type == case.expected_action_type
         effect_count = 0
         if matched:
             if proposal.action_type == "create_sandbox_draft":
-                self.client.create_draft(
+                created = self.client.create_draft(
                     tag=prepared.tag, target=self.release_target
                 )
+                prepared = PreparedReleaseSandbox(
+                    case_id=prepared.case_id,
+                    tag=prepared.tag,
+                    expected_action_type=prepared.expected_action_type,
+                    release_id=int(created["id"]),
+                )
+                self._prepared[case.case_id] = prepared
                 effect_count = 1
             elif proposal.action_type == "upload_release_asset":
-                release = self._require_draft(prepared.tag)
+                release = self._require_draft(prepared)
                 self.client.upload(int(release["id"]), PRIMARY_ASSET_NAME, PRIMARY_ASSET_BODY)
                 effect_count = 1
             elif proposal.action_type == "adopt_existing_asset":
-                release = self._require_draft(prepared.tag)
+                release = self._require_draft(prepared)
                 asset = next(
                     (
                         item
@@ -292,13 +321,13 @@ class GitHubReleaseSandboxProvider:
                     PRIMARY_ASSET_BODY
                 )
             elif proposal.action_type == "upload_reconciliation_receipt":
-                release = self._require_draft(prepared.tag)
+                release = self._require_draft(prepared)
                 self.client.upload(
                     int(release["id"]), RECEIPT_ASSET_NAME, RECEIPT_ASSET_BODY
                 )
                 effect_count = 1
             elif proposal.action_type == "quarantine_conflicting_asset":
-                release = self._require_draft(prepared.tag)
+                release = self._require_draft(prepared)
                 asset = next(
                     item
                     for item in self.client.assets(int(release["id"]))
@@ -307,14 +336,18 @@ class GitHubReleaseSandboxProvider:
                 self.client.rename_asset(int(asset["id"]), QUARANTINED_ASSET_NAME)
                 effect_count = 1
             elif proposal.action_type == "delete_sandbox_draft":
-                release = self._require_draft(prepared.tag)
+                release = self._require_draft(prepared)
                 self.client.delete_release(int(release["id"]))
                 effect_count = 1
         def observe_after() -> Mapping[str, Any] | None:
-            state = self._state(prepared.tag)
+            state = self._state(prepared.tag, prepared.release_id)
             return state if self._verify(case.expected_action_type, state) else None
 
-        after = self._retry(observe_after) if matched else self._state(prepared.tag)
+        after = (
+            self._retry(observe_after)
+            if matched
+            else self._state(prepared.tag, prepared.release_id)
+        )
         succeeded = matched and self._verify(case.expected_action_type, after)
         state_digest = hashlib.sha256(
             json.dumps(after, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -369,20 +402,28 @@ class GitHubReleaseSandboxProvider:
 
     def cleanup(self, case_id: str) -> Mapping[str, Any]:
         prepared = self._prepared[case_id]
-        release = self.client.release_by_tag(prepared.tag)
+        release = (
+            self.client.release(prepared.release_id)
+            if prepared.release_id is not None
+            else None
+        )
         if release is not None:
             if release.get("draft") is not True:
                 raise RuntimeError("cleanup refused a non-draft release")
             self.client.delete_release(int(release["id"]))
         self._retry(
             lambda: (
-                self.client.release_by_tag(prepared.tag) is None
+                (
+                    prepared.release_id is None
+                    or self.client.release(prepared.release_id) is None
+                )
                 and not self.client.tag_ref_exists(prepared.tag)
             )
         )
-        residual = int(self.client.release_by_tag(prepared.tag) is not None) + int(
-            self.client.tag_ref_exists(prepared.tag)
-        )
+        residual = int(
+            prepared.release_id is not None
+            and self.client.release(prepared.release_id) is not None
+        ) + int(self.client.tag_ref_exists(prepared.tag))
         return {
             "case_id": case_id,
             "residual_count": residual,
