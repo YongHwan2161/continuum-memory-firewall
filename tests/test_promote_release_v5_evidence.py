@@ -214,7 +214,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
                     release_tag="hackathon-v5",
                 )
 
-    def test_repository_public_evidence_has_v11_source_closure(self) -> None:
+    def test_repository_public_evidence_has_v12_source_closure(self) -> None:
         judge_path = self.repo_root / "public-demo/evidence/judge-verification.json"
         aggregate_path = self.repo_root / "public-demo/evidence/agent-ablation-v3.json"
         drilldown_path = (
@@ -232,7 +232,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         guardian = json.loads(guardian_bytes)
 
         self.assertEqual(judge["schema_version"], 8)
-        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v11")
+        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v12")
         self.assertEqual(
             judge["network_sign_once"]["required_total_attestation_count"],
             2,

@@ -1,47 +1,79 @@
 {
-  "schema_version": 8,
-  "generated_at": "2026-08-08T14:17:15+00:00",
-  "claim_boundary": "Read-only verification of live identity-bound memory, real GitHub draft-release effects across 36 paired incidents, CockroachDB vector/RLS evidence, AWS receipts, an immutable release, and Devpost lineage.",
-  "submission": {
-    "id": 1121568,
-    "status": "Submitted",
-    "project_url": "https://devpost.com/software/continuum-memory-firewall",
-    "project_version": 16,
-    "project_updated_at": "2026-08-08T04:51:59.096-04:00",
-    "submitted_at": "2026-08-01T11:22:19.310-04:00",
-    "video_url": "https://youtu.be/OEPYF7cVpbs",
-    "video_duration_seconds": 99.53,
-    "video_sha256": "d5d7cc82bcce93e5db736cfef7331f64ce667eb4ff9055315c8b697717f09f8f",
-    "deadline_kst": "2026-08-19T06:00:00+09:00"
-  },
-  "source": {
-    "repository": "YongHwan2161/continuum-memory-firewall",
-    "deployment_head_sha": "2ef224748ca0bd163e95cdb7d2e1eb755c521c5a",
-    "workflow_run_id": 31162961883,
-    "workflow_attempt": 1,
-    "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31162961883",
+  "agent_ablation": {
+    "artifact_archive_sha256": "4a383dac9070dc201021f03121a865a6d3a40fd3282cf4e9c207534a0476f500",
+    "artifact_id": 8988330323,
+    "artifact_name": "continuum-agent-ablation-2ef224748ca0bd163e95cdb7d2e1eb755c521c5a",
+    "head_sha": "2ef224748ca0bd163e95cdb7d2e1eb755c521c5a",
+    "public_aggregate_sha256": "8bb3663f9d69e7473d342af4d65690b3df5daf4e7b56a26f7038e80cf036475d",
+    "public_aggregate_url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/agent-ablation-v3.json",
+    "report_sha256": "561aefcade82a9f07d10c748b2890b176a0efe94812d0e2942816bcac8db2b20",
     "workflow_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/runs/31162961883",
-    "artifact_sha256": "3ece49e3652a48e902577106e58acacea9cfcedccc32f1d4282c31603648ace8"
+    "workflow_run_id": 31162961883,
+    "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31162961883"
+  },
+  "agent_pressure": {
+    "artifact_id": 8830851472,
+    "artifact_name": "continuum-agent-pressure-c8478b65b13a09c6586fba3000154a9b29f62868",
+    "head_sha": "c8478b65b13a09c6586fba3000154a9b29f62868",
+    "report_sha256": "8ae242a6d793cb56f4b8dfb7ae792b1160124827bb723b124d1aeacc37b9acb8",
+    "url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/agent-pressure.json",
+    "workflow_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/runs/30739691518",
+    "workflow_artifact_sha256": "50b742008025aeb510bb0e150e4ca93679977ad9bbc03a1a2ffef639dda92de9",
+    "workflow_run_id": 30739691518,
+    "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30739691518"
+  },
+  "claim_boundary": "Read-only verification of live identity-bound memory, real GitHub draft-release effects across 36 paired incident definitions repeated in five time-distributed workflow clusters (180 pairs), CockroachDB vector/RLS evidence, AWS receipts, an immutable release, and Devpost lineage. The repeated executions are not claimed as 180 independent incident designs.",
+  "database_policy": {
+    "rls_combined_sha256": "69a168e1e55440bf563483947f5438855e93a715a56eb702f49a845d360b4e02"
+  },
+  "episode_drilldown": {
+    "arm_observations": 540,
+    "continuum_advantage_episodes": 85,
+    "evaluation_id": "2178df35-bf0e-4ab2-b352-f7d3d6f182e2",
+    "page_url": "https://yonghwan2161.github.io/continuum-memory-firewall/episodes.html",
+    "paired_episodes": 180,
+    "public_url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/episode-drilldown-v1.json",
+    "schema_version": 1,
+    "sha256": "89e86e8b7f1f3a48d7c266838839b100de99878c61d2a842d5ad152b828d399f",
+    "source_head": "2ef224748ca0bd163e95cdb7d2e1eb755c521c5a"
   },
   "evaluation": {
+    "cross_scope_leakage_rate": 0.0,
+    "cross_scope_leaked_documents": 0,
     "dataset": "adversarial-semantic-retrieval-v2",
-    "model": "amazon.titan-embed-text-v2:0/512",
     "dimensions": 512,
+    "latency_ms": {
+      "count": 60,
+      "max": 286.224,
+      "p50": 242.775,
+      "p95": 270.569
+    },
+    "model": "amazon.titan-embed-text-v2:0/512",
     "query_count": 60,
-    "returned_document_count_at_3": 180,
+    "query_plan": {
+      "expected_index": "canonical_memories_model_embedding_idx",
+      "index_columns": [
+        "tenant_id",
+        "incident_id",
+        "embedding_model",
+        "embedding"
+      ],
+      "index_present": true,
+      "index_visible": true,
+      "note": "The application corpus is intentionally tiny, so the cost-based optimizer did not select ANN there. The separate 10k/50k report proves natural vector-search selection with the complete filter prefix.",
+      "optimizer_selected_index": false,
+      "plan_line_count": 25,
+      "plan_reports_full_scan": false,
+      "prefix_columns_match": true,
+      "redacted_plan_sha256": "6d58465c28be2ed930986031b129dfd1fef16198463e03590cf7f363455c0db8",
+      "runtime_sql_identity": "continuum_scope_75c9873c721b5a2f"
+    },
     "recall": {
       "1": 0.8666666666666667,
       "3": 0.9833333333333333,
       "5": 1.0
     },
-    "cross_scope_leaked_documents": 0,
-    "cross_scope_leakage_rate": 0.0,
-    "latency_ms": {
-      "count": 60,
-      "p50": 242.775,
-      "p95": 270.569,
-      "max": 286.224
-    },
+    "returned_document_count_at_3": 180,
     "variant_counts": {
       "misleading-scope": 10,
       "multi-intent": 10,
@@ -49,217 +81,208 @@
       "paraphrase": 10,
       "terse": 10,
       "typo": 10
-    },
-    "query_plan": {
-      "runtime_sql_identity": "continuum_scope_75c9873c721b5a2f",
-      "expected_index": "canonical_memories_model_embedding_idx",
-      "index_present": true,
-      "index_visible": true,
-      "index_columns": [
-        "tenant_id",
-        "incident_id",
-        "embedding_model",
-        "embedding"
-      ],
-      "prefix_columns_match": true,
-      "optimizer_selected_index": false,
-      "plan_reports_full_scan": false,
-      "plan_line_count": 25,
-      "redacted_plan_sha256": "6d58465c28be2ed930986031b129dfd1fef16198463e03590cf7f363455c0db8",
-      "note": "The application corpus is intentionally tiny, so the cost-based optimizer did not select ANN there. The separate 10k/50k report proves natural vector-search selection with the complete filter prefix."
     }
   },
-  "runtime": {
-    "health_url": "https://47-131-98-12.sslip.io/healthz",
-    "mcp_url": "https://47-131-98-12.sslip.io/mcp",
-    "demo_url": "https://47-131-98-12.sslip.io/demo/run?scenario=checkout-cache-pressure-v1",
-    "unauthenticated_mcp_status": 401,
-    "token_lifetime_seconds": 300,
-    "tools": [
-      "search",
-      "fetch"
-    ],
-    "remote_search_hit_count": 5,
-    "remote_fetch_ok": true,
-    "cross_scope_fetch_denied": true,
-    "all_visible_rows_in_scope": true,
-    "all_visible_incidents_in_scope": true,
-    "all_visible_audits_in_scope": true,
-    "forbidden_memory_visible": false,
-    "denied_sql_checks": [
-      "row_security_off",
-      "canonical_update",
-      "candidate_update",
-      "action_update"
-    ],
-    "temporary_migration_capability_absent": true,
-    "migration_version": 31,
-    "migration_checksum_drift_absent": true,
-    "authorization_mode": "audited-tenant-control-plane",
-    "database_connections": "bounded-pools-1-4",
-    "tenant_control_plane_active": true,
-    "control_plane_memory_denied": true,
-    "control_plane_bootstrap_options_revoked": true,
-    "control_plane_and_migrator_role_options_empty": true,
-    "binding_version": 1,
-    "binding_event": "unchanged"
+  "generated_at": "2026-08-08T16:07:04.548000+00:00",
+  "lineage": {
+    "baseline_documentation_sha": "2a94b4653ab0efe6f2ddeb8701ab05bdbaf403e1",
+    "baseline_runtime_sha": "1291e2707880700492fe1d7cd431bcba03d68b4c",
+    "candidate_runtime_sha": "2ef224748ca0bd163e95cdb7d2e1eb755c521c5a"
   },
   "live_story": {
-    "scenario": "checkout-cache-pressure-v1",
-    "trusted_memory_decision": "ACCEPTED",
-    "poisoned_memory_decision": "UNTRUSTED_SOURCE",
-    "retrieval_title": "Checkout cache-pressure recovery",
-    "embedding_model": "amazon.titan-embed-text-v2:0/512",
-    "durable_action_claims": 1,
-    "duplicate_worker_result": "DUPLICATE",
     "caller_and_sql_identity_publicly_hashed": true,
-    "public_write_capability": false
-  },
-  "vector_scale": {
-    "workflow_run_id": 30735058404,
-    "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30735058404",
-    "workflow_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/runs/30735058404",
-    "head_sha": "7900248121188284c1a9e7cdc57aa40bdd9c337e",
-    "report_sha256": "f8847c7d08518642240566c26d7a90f4ce216a17bd61cc970d1fe3f903bf25c5",
-    "url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/vector-scale.json"
-  },
-  "agent_pressure": {
-    "workflow_run_id": 30739691518,
-    "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30739691518",
-    "workflow_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/runs/30739691518",
-    "head_sha": "c8478b65b13a09c6586fba3000154a9b29f62868",
-    "artifact_id": 8830851472,
-    "artifact_name": "continuum-agent-pressure-c8478b65b13a09c6586fba3000154a9b29f62868",
-    "report_sha256": "8ae242a6d793cb56f4b8dfb7ae792b1160124827bb723b124d1aeacc37b9acb8",
-    "workflow_artifact_sha256": "50b742008025aeb510bb0e150e4ca93679977ad9bbc03a1a2ffef639dda92de9",
-    "url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/agent-pressure.json"
+    "duplicate_worker_result": "DUPLICATE",
+    "durable_action_claims": 1,
+    "embedding_model": "amazon.titan-embed-text-v2:0/512",
+    "poisoned_memory_decision": "UNTRUSTED_SOURCE",
+    "public_write_capability": false,
+    "retrieval_title": "Checkout cache-pressure recovery",
+    "scenario": "checkout-cache-pressure-v1",
+    "trusted_memory_decision": "ACCEPTED"
   },
   "managed_mcp": {
-    "rotation_workflow_run_id": 30709230016,
-    "rotation_workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30709230016",
     "key_version": "v3",
+    "old_provider_key_deleted": true,
     "read_tools": [
       "list_databases",
       "list_tables"
     ],
-    "write_denied_before_secret_access": true,
-    "old_provider_key_deleted": true,
-    "temporary_github_secret_deleted": true
-  },
-  "release_envelope": {
-    "tag": "hackathon-v11",
-    "release_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v11",
-    "release_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/releases/tags/hackathon-v11",
-    "asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v11/continuum-release-envelope-v2.json",
-    "asset_name": "continuum-release-envelope-v2.json",
-    "sandbox_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v11/sandbox-provider-proof.json",
-    "sandbox_asset_name": "sandbox-provider-proof.json",
-    "ablation_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v11/agent-ablation-v3.json",
-    "ablation_asset_name": "agent-ablation-v3.json",
-    "drilldown_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v11/episode-drilldown-v1.json",
-    "drilldown_asset_name": "episode-drilldown-v1.json",
-    "guardian_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v11/release-guardian-v1.json",
-    "guardian_asset_name": "release-guardian-v1.json"
+    "rotation_workflow_run_id": 30709230016,
+    "rotation_workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30709230016",
+    "temporary_github_secret_deleted": true,
+    "write_denied_before_secret_access": true
   },
   "network_sign_once": {
-    "schema_version": 2,
     "attestation_api_template": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/attestations/sha256:{digest}",
-    "author_bundle_public_url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/continuum-release-envelope-v2.sigstore.jsonl",
     "author_bundle_asset_name": "continuum-release-envelope-v2.sigstore.jsonl",
-    "network_bundle_public_url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/continuum-release-envelope-v2.network-attestations.jsonl",
-    "network_bundle_file_name": "continuum-release-envelope-v2.network-attestations.jsonl",
-    "subject_name": "continuum-release-envelope-v2.json",
+    "author_bundle_public_url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/continuum-release-envelope-v2.sigstore.jsonl",
     "author_predicate_type": "https://slsa.dev/provenance/v1",
-    "signer_workflow": "YongHwan2161/continuum-memory-firewall/.github/workflows/release-envelope.yml",
-    "source_ref": "refs/heads/main",
-    "runner_environment": "github-hosted",
-    "transparency_log": "https://rekor.sigstore.dev",
+    "network_bundle_file_name": "continuum-release-envelope-v2.network-attestations.jsonl",
+    "network_bundle_public_url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/continuum-release-envelope-v2.network-attestations.jsonl",
     "platform_predicate_type": "https://in-toto.io/attestation/release/v0.2",
     "platform_signer_identity": "https://dotcom.releases.github.com",
     "required_author_attestation_count": 1,
     "required_platform_attestation_count": 1,
-    "required_total_attestation_count": 2
+    "required_total_attestation_count": 2,
+    "runner_environment": "github-hosted",
+    "schema_version": 2,
+    "signer_workflow": "YongHwan2161/continuum-memory-firewall/.github/workflows/release-envelope.yml",
+    "source_ref": "refs/heads/main",
+    "subject_name": "continuum-release-envelope-v2.json",
+    "transparency_log": "https://rekor.sigstore.dev"
+  },
+  "public_demo": {
+    "evidence_url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/judge-verification.json",
+    "marker": "Continuum Memory Firewall",
+    "url": "https://yonghwan2161.github.io/continuum-memory-firewall/",
+    "verifier_url": "https://yonghwan2161.github.io/continuum-memory-firewall/verify.html"
+  },
+  "release_envelope": {
+    "ablation_asset_name": "agent-ablation-v3.json",
+    "ablation_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v12/agent-ablation-v3.json",
+    "asset_name": "continuum-release-envelope-v2.json",
+    "asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v12/continuum-release-envelope-v2.json",
+    "drilldown_asset_name": "episode-drilldown-v1.json",
+    "drilldown_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v12/episode-drilldown-v1.json",
+    "guardian_asset_name": "release-guardian-v1.json",
+    "guardian_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v12/release-guardian-v1.json",
+    "release_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/releases/tags/hackathon-v12",
+    "release_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v12",
+    "replication_asset_name": "release-guardian-replication-v1.json",
+    "replication_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v12/release-guardian-replication-v1.json",
+    "sandbox_asset_name": "sandbox-provider-proof.json",
+    "sandbox_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v12/sandbox-provider-proof.json",
+    "tag": "hackathon-v12"
+  },
+  "release_guardian": {
+    "arm_observations": 72,
+    "artifact_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/artifacts/9018594439",
+    "artifact_archive_sha256": "5137bbb1a1099b896935f9d65fda0334e3336aca763eee4b5ea12e49d32ca814",
+    "artifact_id": 9018594439,
+    "artifact_name": "continuum-release-guardian-a23792cdc30c0936057169b886c7e1f64530c7ab",
+    "head_sha": "a23792cdc30c0936057169b886c7e1f64530c7ab",
+    "page_url": "https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian.html",
+    "paired_cases": 36,
+    "provider": "github-releases-disposable-sandbox",
+    "public_sha256": "ba9a6e5c981142e20c63b474ff0bbcb1bb000f9ca8df17f2c1e33a696aefcfb1",
+    "public_url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/release-guardian-v1.json",
+    "real_external_provider": true,
+    "report_sha256": "27ab9c92b44bcac021e789a91c157b292cd283a9f61d7adbd9d1bffecaba262c",
+    "schema_version": 1,
+    "workflow_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/runs/31245814421",
+    "workflow_attempt": 1,
+    "workflow_run_id": 31245814421,
+    "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31245814421"
   },
   "release_transaction": {
-    "schema_version": 1,
+    "ambiguous_state_fails_closed": true,
     "coordinator_script": "scripts/release_transaction_coordinator.py",
-    "receipt_asset_name": "release-transaction-receipt.json",
     "public_receipt_url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/release-transaction-receipt.json",
+    "receipt_asset_name": "release-transaction-receipt.json",
+    "required_terminal_state": "PAGES_MATERIALIZED",
+    "schema_version": 1,
     "states": [
       "PREPARED",
       "AUTHOR_ATTESTED",
       "ASSETS_UPLOADED",
       "IMMUTABLE",
       "PAGES_MATERIALIZED"
+    ]
+  },
+  "runtime": {
+    "all_visible_audits_in_scope": true,
+    "all_visible_incidents_in_scope": true,
+    "all_visible_rows_in_scope": true,
+    "authorization_mode": "audited-tenant-control-plane",
+    "binding_event": "unchanged",
+    "binding_version": 1,
+    "control_plane_and_migrator_role_options_empty": true,
+    "control_plane_bootstrap_options_revoked": true,
+    "control_plane_memory_denied": true,
+    "cross_scope_fetch_denied": true,
+    "database_connections": "bounded-pools-1-4",
+    "demo_url": "https://47-131-98-12.sslip.io/demo/run?scenario=checkout-cache-pressure-v1",
+    "denied_sql_checks": [
+      "row_security_off",
+      "canonical_update",
+      "candidate_update",
+      "action_update"
     ],
-    "required_terminal_state": "PAGES_MATERIALIZED",
-    "ambiguous_state_fails_closed": true
-  },
-  "public_demo": {
-    "url": "https://yonghwan2161.github.io/continuum-memory-firewall/",
-    "verifier_url": "https://yonghwan2161.github.io/continuum-memory-firewall/verify.html",
-    "evidence_url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/judge-verification.json",
-    "marker": "Continuum Memory Firewall"
-  },
-  "lineage": {
-    "baseline_runtime_sha": "1291e2707880700492fe1d7cd431bcba03d68b4c",
-    "baseline_documentation_sha": "2a94b4653ab0efe6f2ddeb8701ab05bdbaf403e1",
-    "candidate_runtime_sha": "2ef224748ca0bd163e95cdb7d2e1eb755c521c5a"
+    "forbidden_memory_visible": false,
+    "health_url": "https://47-131-98-12.sslip.io/healthz",
+    "mcp_url": "https://47-131-98-12.sslip.io/mcp",
+    "migration_checksum_drift_absent": true,
+    "migration_version": 31,
+    "remote_fetch_ok": true,
+    "remote_search_hit_count": 5,
+    "temporary_migration_capability_absent": true,
+    "tenant_control_plane_active": true,
+    "token_lifetime_seconds": 300,
+    "tools": [
+      "search",
+      "fetch"
+    ],
+    "unauthenticated_mcp_status": 401
   },
   "sandbox_provider": {
-    "workflow_run_id": 31112544426,
-    "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31112544426",
-    "workflow_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/runs/31112544426",
-    "head_sha": "1291e2707880700492fe1d7cd431bcba03d68b4c",
+    "artifact_archive_sha256": "1bf16fd0fdeec25355530b46ba141ae937a366dc79b8ea1dcc4c9dfc9074e9f1",
     "artifact_id": 8972337513,
     "artifact_name": "aws-sandbox-provider-proof-1291e2707880700492fe1d7cd431bcba03d68b4c",
-    "artifact_archive_sha256": "1bf16fd0fdeec25355530b46ba141ae937a366dc79b8ea1dcc4c9dfc9074e9f1",
-    "report_sha256": "df9385a4beddde78810e5c68cfb7fd1624647c9e5ae0517b7ffc71f5a8df4953"
+    "head_sha": "1291e2707880700492fe1d7cd431bcba03d68b4c",
+    "report_sha256": "df9385a4beddde78810e5c68cfb7fd1624647c9e5ae0517b7ffc71f5a8df4953",
+    "workflow_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/runs/31112544426",
+    "workflow_run_id": 31112544426,
+    "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31112544426"
   },
-  "agent_ablation": {
-    "workflow_run_id": 31162961883,
-    "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31162961883",
+  "schema_version": 8,
+  "source": {
+    "artifact_sha256": "3ece49e3652a48e902577106e58acacea9cfcedccc32f1d4282c31603648ace8",
+    "deployment_head_sha": "2ef224748ca0bd163e95cdb7d2e1eb755c521c5a",
+    "repository": "YongHwan2161/continuum-memory-firewall",
     "workflow_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/runs/31162961883",
-    "head_sha": "2ef224748ca0bd163e95cdb7d2e1eb755c521c5a",
-    "artifact_id": 8988330323,
-    "artifact_name": "continuum-agent-ablation-2ef224748ca0bd163e95cdb7d2e1eb755c521c5a",
-    "artifact_archive_sha256": "4a383dac9070dc201021f03121a865a6d3a40fd3282cf4e9c207534a0476f500",
-    "report_sha256": "561aefcade82a9f07d10c748b2890b176a0efe94812d0e2942816bcac8db2b20",
-    "public_aggregate_sha256": "8bb3663f9d69e7473d342af4d65690b3df5daf4e7b56a26f7038e80cf036475d",
-    "public_aggregate_url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/agent-ablation-v3.json"
-  },
-  "database_policy": {
-    "rls_combined_sha256": "69a168e1e55440bf563483947f5438855e93a715a56eb702f49a845d360b4e02"
-  },
-  "episode_drilldown": {
-    "schema_version": 1,
-    "source_head": "2ef224748ca0bd163e95cdb7d2e1eb755c521c5a",
-    "evaluation_id": "2178df35-bf0e-4ab2-b352-f7d3d6f182e2",
-    "public_url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/episode-drilldown-v1.json",
-    "page_url": "https://yonghwan2161.github.io/continuum-memory-firewall/episodes.html",
-    "sha256": "89e86e8b7f1f3a48d7c266838839b100de99878c61d2a842d5ad152b828d399f",
-    "paired_episodes": 180,
-    "arm_observations": 540,
-    "continuum_advantage_episodes": 85
-  },
-  "release_guardian": {
-    "schema_version": 1,
-    "workflow_run_id": 31245814421,
     "workflow_attempt": 1,
-    "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31245814421",
-    "workflow_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/runs/31245814421",
-    "head_sha": "a23792cdc30c0936057169b886c7e1f64530c7ab",
-    "artifact_id": 9018594439,
-    "artifact_name": "continuum-release-guardian-a23792cdc30c0936057169b886c7e1f64530c7ab",
-    "artifact_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/artifacts/9018594439",
-    "artifact_archive_sha256": "5137bbb1a1099b896935f9d65fda0334e3336aca763eee4b5ea12e49d32ca814",
-    "report_sha256": "27ab9c92b44bcac021e789a91c157b292cd283a9f61d7adbd9d1bffecaba262c",
-    "public_sha256": "ba9a6e5c981142e20c63b474ff0bbcb1bb000f9ca8df17f2c1e33a696aefcfb1",
-    "public_url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/release-guardian-v1.json",
-    "page_url": "https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian.html",
-    "provider": "github-releases-disposable-sandbox",
-    "real_external_provider": true,
-    "paired_cases": 36,
-    "arm_observations": 72
+    "workflow_run_id": 31162961883,
+    "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31162961883"
+  },
+  "submission": {
+    "deadline_kst": "2026-08-19T06:00:00+09:00",
+    "id": 1121568,
+    "project_updated_at": "2026-08-08T12:07:04.548-04:00",
+    "project_url": "https://devpost.com/software/continuum-memory-firewall",
+    "project_version": 17,
+    "status": "Submitted",
+    "submitted_at": "2026-08-01T11:22:19.310-04:00",
+    "video_duration_seconds": 99.53,
+    "video_sha256": "d5d7cc82bcce93e5db736cfef7331f64ce667eb4ff9055315c8b697717f09f8f",
+    "video_url": "https://youtu.be/OEPYF7cVpbs"
+  },
+  "time_distributed_replication": {
+    "arm_observations": 360,
+    "artifact_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/artifacts/9024090415",
+    "artifact_archive_sha256": "de6c03895611f9fffcb315537d779c14f519611b44d739b79a6be50ee2425cdd",
+    "artifact_id": 9024090415,
+    "artifact_name": "continuum-release-guardian-replication-38c2cdfaca676d001977ab94ab44891ca6c6de04",
+    "case_population_sha256": "590cf77ef7413cec463a066a3fc8123533418a736f11958ffeaf3ec954959b70",
+    "head_sha": "38c2cdfaca676d001977ab94ab44891ca6c6de04",
+    "minimum_start_separation_seconds": 843,
+    "page_url": "https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian-replication.html",
+    "paired_cases": 180,
+    "public_sha256": "6ae6fce4a58c0e8b862c5aef482ef5330a52678121696b065d9bf0886f3e5e5b",
+    "public_url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/release-guardian-replication-v1.json",
+    "replication_count": 5,
+    "report_sha256": "6ae6fce4a58c0e8b862c5aef482ef5330a52678121696b065d9bf0886f3e5e5b",
+    "schema_version": 1,
+    "workflow_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/runs/31265768185",
+    "workflow_run_attempt": 1,
+    "workflow_run_id": 31265768185,
+    "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31265768185"
+  },
+  "vector_scale": {
+    "head_sha": "7900248121188284c1a9e7cdc57aa40bdd9c337e",
+    "report_sha256": "f8847c7d08518642240566c26d7a90f4ce216a17bd61cc970d1fe3f903bf25c5",
+    "url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/vector-scale.json",
+    "workflow_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/runs/30735058404",
+    "workflow_run_id": 30735058404,
+    "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30735058404"
   }
 }

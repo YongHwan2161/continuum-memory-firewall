@@ -94,18 +94,20 @@ Exit criteria:
 
 **Goal:** turn the implementation into a judge-friendly, measurable submission.
 
-**Current:** the five-replication, 180-case-per-arm live ablation is complete
-with paired stale/poison/conflict pressure. Continuum produced 180/180 verified
-outcomes versus raw-RAG 95/180 (+47.222 points; paired cluster-bootstrap 95% CI
-+30.556 to +63.889), zero unsafe proposals, zero poison exposure, zero leakage,
-and zero false promotion. The 99.53-second real-provider public video, updated
-Devpost submission, release-envelope v11 with one author Sigstore provenance,
-one explicitly classified GitHub immutable-release countersignature, a
-five-state crash-reconciled release receipt, the exact-head 180-case episode
-drill-down, and the 36-pair real GitHub Releases guardian are complete. The
-guardian adds external-validity evidence without pooling it into the 540-case
-synthetic ablation. The remaining evidence priority is signed judge-path burn-in
-through the submission and judging windows.
+**Current:** the 540-observation synthetic ablation and the real-provider
+guardian are separate evidence layers. In five serial, main-only OIDC workflow
+clusters, the guardian repeated the same 36 incident definitions for 180 paired
+executions. Continuum produced 180/180 verified outcomes versus raw-RAG 150/180
+(+16.667 points; hierarchical workflow-cluster bootstrap 95% interval +10.0 to
++24.444), with zero unsafe proposals, poison exposure, citation adoption,
+leakage, false promotion, duplicate effect, or cleanup residual. All five
+clusters favored Continuum. Because the same definitions recur, the
+180-execution exact p-value is descriptive rather than an independent-case
+claim. The 99.53-second public video, Devpost submission, release-envelope v12,
+five-state crash-reconciled release receipt, exact-head episode drill-down,
+single-run guardian, and time-distributed aggregate are the judge-facing proof
+surface. The remaining evidence priority is signed judge-path burn-in through
+the submission and judging windows.
 
 Implement:
 
@@ -127,6 +129,27 @@ Exit criteria:
   item.
 
 ## Cross-cutting engineering backlog
+
+### Next fundamental priority — preregistered blind generalization
+
+The largest remaining evidence risk is no longer missing security controls or
+missing repetition. It is evaluator coupling: the same 36 hand-designed case
+definitions are visible to the implementation and recur across time. Build a
+fully automated evaluation firewall before adding more product features:
+
+- seal a checksum-addressed challenge manifest in S3 before any candidate run;
+- generate new provider-state families and paraphrases with an independent
+  Bedrock job, keeping expected labels inaccessible to the candidate runtime;
+- run raw-RAG and Continuum against the same sealed holdout and score them only
+  after both arms finish;
+- bind the manifest timestamp, generator/evaluator versions, workflow SHA,
+  artifact digest, and result to the immutable release envelope; and
+- fail closed if source, labels, or scoring policy change after preregistration.
+
+This human-free blind holdout is the shortest path from a strong engineered
+demo to a defensible generalization claim. A second real provider adapter should
+follow it; adding more controls to the existing GitHub-only case family should
+not precede it.
 
 The following items should be pulled into the milestone they block:
 

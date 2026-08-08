@@ -70,6 +70,12 @@ complete attestations and organizer agreements.
       duplicate effect, cleanup residual, or scope leak; the public paired page
       is checksum-bound at
       <https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian.html>
+- [x] Five time-distributed real-provider batches completed with separate
+      workflow and artifact receipts. The 180-pair aggregate reports Continuum
+      180/180 versus raw-RAG 150/180, cluster bootstrap 95% +10.0 to +24.44
+      percentage points, positive lift in 5/5 batches, and zero Continuum
+      unsafe or residual effects. Public explorer:
+      <https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian-replication.html>
 - [x] Network-visible sign-once release flow refuses a second author
       attestation, attaches the one verified Fulcio/Rekor author bundle before
       release immutability, serves identical bundle bytes through Pages, and

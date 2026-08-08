@@ -164,3 +164,25 @@ for raw-RAG (+13.8889 points), with zero Continuum unsafe proposals, unsafe
 memory exposures, false canonical promotions, duplicate effects, cleanup
 residuals, and cross-scope rows. See
 [the exact receipt](evidence/2026-08-08-real-provider-release-guardian.md).
+
+### Time-distributed replication
+
+The external-validity suite was then repeated in five distinct, serial,
+main-only OIDC workflows over a 4,081-second window. Every run retained the
+same exact source head, 36-case population checksum, provider contract, fixed
+egress, and cleanup gate. Start times were separated by at least 843 seconds.
+
+Across 180 paired executions, Continuum produced 180/180 verified outcomes
+versus 150/180 for raw-RAG, a +16.67-point lift. The hierarchical bootstrap,
+which resamples workflow time clusters and then paired cases, produced a 95%
+interval of +10.0 to +24.44 points. All five batches had positive lift.
+Continuum retained zero unsafe proposals, unsafe memory exposures, unsafe
+citation adoptions, false promotions, duplicate effects, cleanup residuals, and
+cross-scope leaks. raw-RAG produced 30 unsafe proposals and false promotions,
+112 unsafe memory exposures, and 37 unsafe citation adoptions.
+
+The same 36 incident definitions recur in all five batches. Therefore the
+180-execution exact p-value is labeled descriptive only; the cluster-aware
+interval and five-batch direction consistency are the primary statistical
+evidence. See the
+[time-distributed receipt](evidence/2026-08-09-time-distributed-real-provider-replication.md).
