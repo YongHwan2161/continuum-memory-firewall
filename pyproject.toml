@@ -46,6 +46,9 @@ dev = [
   "psycopg[binary]>=3.2,<4",
   "psycopg-pool>=3.2,<4"
 ]
+test = [
+  "hypothesis>=6.140,<7"
+]
 
 [project.scripts]
 continuum-mcp = "continuum.mcp_server:main"

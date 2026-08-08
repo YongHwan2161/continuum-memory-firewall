@@ -1,0 +1,53 @@
+name: github-release-fault-matrix
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: github-release-fault-matrix
+  cancel-in-progress: false
+
+jobs:
+  disposable-draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Inject reversible GitHub Release crash boundaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: sandbox-release-tx-${{ github.run_id }}
+        run: |
+          python scripts/run_github_release_fault_matrix.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --release-tag "$RELEASE_TAG" \
+            --release-target "$GITHUB_SHA" \
+            --output "$RUNNER_TEMP/github-release-fault-matrix.json"
+      - name: Validate cleanup and zero-signature contract
+        run: |
+          jq -e --arg head "$GITHUB_SHA" '
+            .schema_version == 1 and
+            .provider == "github-releases-draft-sandbox" and
+            .release_target == $head and
+            .synthetic_non_sensitive == true and
+            .author_attestation_count == 0 and
+            .published_release_count == 0 and
+            (.scenarios | length) == 5 and
+            .gate.status == "PASS" and
+            .gate.all_crash_points_recovered == true and
+            .gate.duplicate_assets_zero == true and
+            .gate.draft_and_tag_removed == true
+          ' "$RUNNER_TEMP/github-release-fault-matrix.json" >/dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: github-release-fault-matrix-${{ github.sha }}
+          path: ${{ runner.temp }}/github-release-fault-matrix.json
+          if-no-files-found: error
+          retention-days: 90
