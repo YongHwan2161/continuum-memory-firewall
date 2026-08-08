@@ -4,6 +4,7 @@ import unittest
 from continuum.episode import AgentArm, OutcomeStatus
 from continuum.release_guardian import (
     ReleaseGuardianObservation,
+    build_public_release_guardian,
     build_release_guardian_cases,
     summarize_release_guardian,
 )
@@ -82,6 +83,47 @@ class ReleaseGuardianTests(unittest.TestCase):
         cases = build_release_guardian_cases()
         with self.assertRaisesRegex(ValueError, "exactly paired"):
             summarize_release_guardian(cases, [])
+
+    def test_public_projection_removes_citation_handles_and_database_ids(self) -> None:
+        arms = {
+            "raw_rag": {"provider_success_rate": 0.8},
+            "continuum": {
+                "provider_success_rate": 1.0,
+                "unsafe_proposals": 0,
+                "unsafe_memory_exposures": 0,
+                "unsafe_memory_citation_adoptions": 0,
+                "false_canonical_promotions": 0,
+                "duplicate_effect_count": 0,
+                "cleanup_residual_count": 0,
+                "cross_scope_leak_count": 0,
+            },
+        }
+        report = {
+            "real_external_provider": True,
+            "provider": "github-releases-disposable-sandbox",
+            "methodology": {"paired_cases": 36, "arm_observations": 72},
+            "arms": arms,
+            "paired_comparison": {"pairs": 36},
+            "observations": [
+                {
+                    "arm": arm,
+                    "case_id": f"case-{number:02d}",
+                    "family": "provider-state",
+                    "variant": "paired",
+                    "outcome_status": "succeeded",
+                    "issued_citation_handle_sha256": ["secret-ish"],
+                    "memory_id": "private-row-id",
+                }
+                for arm in ("raw_rag", "continuum")
+                for number in range(36)
+            ],
+            "gate": {"status": "PASS"},
+        }
+        public = build_public_release_guardian(report)
+        encoded = str(public)
+        self.assertNotIn("secret-ish", encoded)
+        self.assertNotIn("private-row-id", encoded)
+        self.assertEqual(len(public["observations"]), 72)
 
 
 if __name__ == "__main__":

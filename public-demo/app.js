@@ -1,6 +1,7 @@
 const judgeUrl = './evidence/judge-verification.json';
 const scaleUrl = './evidence/vector-scale.json';
 const pressureUrl = './evidence/agent-pressure.json';
+const guardianUrl = './evidence/release-guardian-v1.json';
 const byId = id => document.getElementById(id);
 const percent = value => `${(Number(value) * 100).toFixed(1)}%`;
 const latency = value => `${Number(value).toFixed(1)} ms`;
@@ -23,9 +24,19 @@ function renderJudge(evidence) {
   byId('token-life').textContent = `${evidence.runtime.token_lifetime_seconds}s`;
   byId('submission').textContent = evidence.submission.status;
   byId('video-link').href = evidence.submission.video_url;
+  if (evidence.release_guardian) byId('guardian-workflow').href = evidence.release_guardian.workflow_url;
   liveStoryUrl = evidence.runtime.demo_url
     || evidence.runtime.health_url.replace(/\/healthz$/, '/demo/run?scenario=checkout-cache-pressure-v1');
   byId('proof-status').textContent = 'EVIDENCE READY';
+}
+
+function renderGuardian(evidence) {
+  const raw = evidence.arms.raw_rag;
+  const continuum = evidence.arms.continuum;
+  byId('guardian-continuum').textContent = percent(continuum.provider_success_rate);
+  byId('guardian-raw').textContent = percent(raw.provider_success_rate);
+  byId('guardian-unsafe').textContent = `${raw.unsafe_proposals} / ${continuum.unsafe_proposals}`;
+  byId('guardian-residual').textContent = String(raw.cleanup_residual_count + continuum.cleanup_residual_count);
 }
 
 async function runStory() {
@@ -108,8 +119,8 @@ async function quickCheck() {
   button.disabled = true;
   result.textContent = 'Checking immutable evidence, workflow, Pages, and MCP health…';
   try {
-    const [judge, scale, pressure] = await Promise.all([
-      json(judgeUrl), json(scaleUrl), json(pressureUrl)
+    const [judge, scale, pressure, guardian] = await Promise.all([
+      json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl)
     ]);
     const [workflow, health, page, release] = await Promise.all([
       json(judge.source.workflow_api_url),
@@ -130,8 +141,14 @@ async function quickCheck() {
       && release.immutable === true
       && release.tag_name === judge.release_envelope.tag
       && releaseAsset?.state === 'uploaded';
-    result.textContent = passed ? 'PASS · public evidence and live health agree.' : 'HOLD · open the full verifier for details.';
-    byId('proof-status').textContent = passed ? 'ALL PUBLIC GATES PASS' : 'HOLD';
+    const guardianPassed = guardian.gate.status === 'PASS'
+      && guardian.real_external_provider === true
+      && guardian.methodology.paired_cases === 36
+      && guardian.arms.continuum.provider_success_rate === 1
+      && guardian.arms.continuum.unsafe_proposals === 0
+      && guardian.arms.continuum.cleanup_residual_count === 0;
+    result.textContent = passed && guardianPassed ? 'PASS · public evidence, real-provider proof, and live health agree.' : 'HOLD · open the full verifier for details.';
+    byId('proof-status').textContent = passed && guardianPassed ? 'ALL PUBLIC GATES PASS' : 'HOLD';
   } catch (error) {
     result.textContent = 'HOLD · public verification is temporarily unavailable.';
     byId('proof-status').textContent = 'HOLD';
@@ -141,11 +158,12 @@ async function quickCheck() {
   }
 }
 
-Promise.all([json(judgeUrl), json(scaleUrl), json(pressureUrl)])
-  .then(([judge, scale, pressure]) => {
+Promise.all([json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl)])
+  .then(([judge, scale, pressure, guardian]) => {
     renderJudge(judge);
     renderScale(scale);
     renderPressure(pressure);
+    renderGuardian(guardian);
   })
   .catch(error => { byId('proof-status').textContent = 'EVIDENCE HOLD'; console.error(error); });
 byId('quick-check').addEventListener('click', quickCheck);

@@ -1,6 +1,6 @@
 # Project status
 
-**Status date:** 2026-08-07
+**Status date:** 2026-08-08
 **Current milestone:** P2C — authenticated managed-cloud slice submitted; iterative hardening open
 **Overall state:** the local promotion-to-retrieval vertical slice and repository
 MCP contract are implemented and tested. A private, cost-bounded AWS Lambda
@@ -23,6 +23,11 @@ zero cross-scope rows, zero unsafe proposals, zero poison exposure, and zero
 false canonical promotions. Crash
 injection proved idempotent reconciliation with zero duplicate effects and an
 explicit non-idempotent `ambiguous` terminal state.
+An external-validity run then executed 36 paired incidents per arm against real
+GitHub Releases drafts. Continuum completed 36/36 verified outcomes with zero
+unsafe proposals, unsafe memory exposures, false promotions, duplicate effects,
+cleanup residuals, or cross-scope rows; raw-RAG completed 31/36 and produced
+five unsafe proposals, 23 unsafe memory exposures, and five false promotions.
 The Devpost entry is submitted to the CockroachDB x AWS hackathon as submission
 `1121568`. The submission remains editable while submissions are open; the
 current deadline is 2026-08-19 06:00 KST.
@@ -45,6 +50,7 @@ evidence, and explicit non-claims.
 | Semantic live-DB evaluation | Live-smoked on participant CockroachDB Cloud | Titan v2 ran 60 adversarial and similar-meaning queries across six variant classes; Recall@1/3/5 = 0.8667/0.9833/1.0, zero forbidden-scope rows, p50 = 248.149 ms, p95 = 279.012 ms |
 | Bedrock episode contract | Implemented, integration-tested, and live-evaluated | Durable runs, frozen citations, allowlisted proposals, verified outcomes, and server-owned scope are coupled to a phased `search -> optional fetch -> proposal` tool contract; rejected runs retain bounded failure codes and progress |
 | Outcome-gated three-arm ablation | 180 identical paired cases per arm completed live | Five isolated replications of 36 stale/poison/conflict-aware cases produced 540 observations. Verified provider outcomes: stateless 80/180, raw-RAG 95/180, Continuum 180/180. Continuum beat raw-RAG by 47.222 points (paired cluster-bootstrap 95% +30.556 to +63.889); Continuum retained zero unsafe proposals, poison exposure, cross-scope rows, false promotions, and ambiguous outcomes |
+| Real-provider release guardian | 36 exact paired incidents per arm completed live | Run `31245814421` produced 72 Bedrock/CockroachDB/GitHub observations. Continuum: 36/36 verified outcomes and zero unsafe proposals, exposure, false promotions, duplicate effects, cleanup residuals, and scope leaks. raw-RAG: 31/36, five unsafe proposals, 23 unsafe exposures, and five false promotions. The +13.889-point lift has paired bootstrap 95% +2.778 to +25.0; exact p = 0.0625 is reported without overclaiming. |
 | Per-episode paired drill-down | Implemented, live-generated, and checksum-bound | The exact-head `2ef2247` rerun projects 540 observations into 180 three-arm incidents. Each arm exposes scoped search results, SHA-256 citation-handle fingerprints, typed proposal, provider outcome evidence, and promotion decision. Projection gates: exact pairing PASS, issued handles only PASS, Continuum unsafe proposals 0, cross-scope rows 0, private identifier keys 0 |
 | Network-visible sign-once | Implemented and publicly verifiable | `hackathon-v10` is durable-draft-first, author-signed, and published in one main-only workflow. It emits exactly one Fulcio/Rekor author bundle, verifies exact workflow/ref/source/runner policy, includes the bundle before immutability, and serves the two-authority network bundle through Pages. The gate separately requires GitHub's one immutable-release countersignature, so platform signing is not misreported as an author replay. |
 | Release transaction coordinator | Implemented, fault-injection tested, and publicly gated | A hash-chained receipt advances through `PREPARED`, `AUTHOR_ATTESTED`, `ASSETS_UPLOADED`, `IMMUTABLE`, and `PAGES_MATERIALIZED`. Reruns adopt the exact draft and existing author attestation; changed target/digest or duplicate signatures become fail-closed `AMBIGUOUS`. The judge path binds the terminal receipt, Pages run, release target, and public attestation-bundle digest. |
@@ -63,12 +69,12 @@ evidence, and explicit non-claims.
 | Live CockroachDB Cloud | Migrated, semantically evaluated, RLS-confined, and egress-restricted | Migration version 31 is current; all visible rows in each protected table matched the caller scope; the allowlist contains only the AWS Elastic IP `/32` |
 | Public MCP endpoint | Deployed and cross-scope-smoked | `https://47-131-98-12.sslip.io/mcp` has valid TLS, health `200`, missing auth `401`, five-minute OIDC, allowed search/fetch PASS, hidden forbidden memory, and cross-scope fetch denial |
 | CockroachDB Managed MCP | Live read-only evidence and guarded v3 rotation complete | Run `30709230016` replaced the AWS secret, waited beyond the five-minute cache bound, passed `list_databases` and `list_tables`, and retained pre-secret write denial; the v2 provider key and temporary GitHub secret were then deleted |
-| AWS service use | Live deployment evidenced | Lambda, EC2, Elastic IP, SSM, Secrets Manager, S3, CloudWatch Logs, CloudFormation, Cognito, Bedrock, IAM OIDC, and AWS Budgets are active; the USD 10 budget retains forecast-at-80% and actual-at-100% email alerts |
+| AWS service use | Live deployment evidenced | Lambda, EC2, Elastic IP, SSM, Secrets Manager, S3, CloudWatch Logs, CloudFormation, Cognito, Bedrock, IAM OIDC, and AWS Budgets are active; the USD 20 judging-window budget retains forecast-at-80% and actual-at-100% email alerts |
 | AWS deployment authority | Keyless dedicated role | GitHub Actions assumes `continuum-hackathon-deployer` through the immutable numeric repository prefix plus the reviewed `continuum-production` environment; that environment admits only `main`. Sessions last at most one hour, explicit denies block self-modification and bootstrap-stack mutation, and negative dispatches fail at role assumption |
 | AWS sandbox provider | Deployed and live-proven | Actual Lambda and encrypted DynamoDB implement an explicit idempotency/receipt-lookup manifest. Two sends with one key produced one logical effect, lookup returned the same receipt, and the staging artifact was removed in run `31112544426` |
 | External-effect crash semantics | Implemented for the bounded adapter contract; universal exactly-once not claimed | The durable outbox reconciles idempotent providers, reuses stored receipts before acknowledgement, and fails non-idempotent after-send uncertainty to `ambiguous` without blind resend |
 | Database connection and plan evidence | Implemented and live-verified | Lazy bounded pools use min 1/max 4 separately for the control-plane and scope SQL identities. Exact 10k/50k synthetic ground truth versus natural ANN proved the four-column prefix, vector-search operator, no full scan, zero foreign rows, and the full `1/32/128/512` Recall/latency curve |
-| Production security and resilience | Partial | Minimum IAM, audited caller-derived SQL identities, RLS, TLS, fixed egress, short-lived JWTs, bounded pools, semantic embeddings, negative-capability tests, worker-crash reconciliation, and an actual non-effecting AWS sandbox adapter are live; a production remediation provider and multi-region failover are not complete |
+| Production security and resilience | Partial | Minimum IAM, audited caller-derived SQL identities, RLS, TLS, fixed egress, short-lived JWTs, bounded pools, semantic embeddings, negative-capability tests, worker-crash reconciliation, a non-effecting AWS sandbox, and bounded real GitHub draft effects are live; a customer remediation provider and multi-region failover are not complete |
 
 ## Evidence
 
@@ -193,8 +199,9 @@ boundary:
     after-send outcomes stop as `ambiguous` without blind resend.
 
 These guarantees apply to the repository code, participant database, synthetic
-evaluation verifier, and non-effecting AWS sandbox provider. They do not
-establish production behavior for a remediation provider.
+evaluation verifier, non-effecting AWS sandbox, and disposable GitHub Releases
+draft provider. They do not establish production behavior for an arbitrary
+customer remediation provider.
 
 ## Immediate participant focus
 
@@ -202,12 +209,12 @@ The AWS, Managed MCP, participant-cluster SQL, least-privilege runtime, fixed
 egress, authenticated remote MCP, and Devpost submission gates are closed. The
 highest-value work before the submission deadline is:
 
-1. **Measure useful latency:** report outcome-weighted p95 and time-to-verified
-   recovery so failed/censored raw-RAG episodes cannot look faster than a system
-   that completes all recoveries.
-2. **Turn the explorer into a judge narrative:** preselect three representative
-   poison/stale/conflict episodes and link them from Devpost without hiding the
-   complete 180-case population.
+1. **Lead with the real-provider differentiator:** keep the 36-pair explorer and
+   exact receipts above the older retrieval-only metrics on the judge page,
+   video, and Devpost description.
+2. **Preserve statistical honesty:** present the 540-observation synthetic
+   ablation as breadth and the 72-observation GitHub run as external validity;
+   do not merge their confidence claims.
 3. **Burn in the signed judge path:** monitor the Pages author bundle, immutable
    release asset, public attestation index, Rekor proof, platform release
    countersignature, and strict verifier through the judging window. Alert on a
@@ -227,11 +234,10 @@ The exact commands and stop conditions are in
   competition evidence but are not a statistically broad production workload.
   “First pass” includes a fresh SQL connection, not a server cache flush.
 - The five-replication agent ablation uses a synthetic non-effecting provider.
-  After server-issued citation handles removed grounding failures and paired
-  stale/poison/conflict pressure was strengthened, Continuum completed 180/180
-  verified outcomes versus raw-RAG 95/180, a +47.222-point lift with paired
-  cluster-bootstrap 95% CI +30.556 to +63.889. This is strong bounded evidence,
-  not a claim about every real provider or incident distribution.
+  The separate GitHub suite now verifies real external effects, but it contains
+  only 36 pairs: +13.889 points, paired bootstrap 95% +2.778 to +25.0, exact
+  p = 0.0625. Together they provide breadth plus external validity, not a claim
+  about every provider or incident distribution.
 - The outbox proof establishes safe reconciliation for a bounded provider
   contract. A production provider must declare idempotency and receipt-lookup
   capabilities before it may use the automatic retry path.

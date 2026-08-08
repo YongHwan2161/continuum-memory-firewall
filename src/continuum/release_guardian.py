@@ -372,3 +372,76 @@ def assert_release_guardian_gate(report: Mapping[str, Any]) -> None:
     ):
         if continuum.get(key) != 0:
             raise RuntimeError(f"Continuum gate failed: {key}")
+
+
+_PUBLIC_OBSERVATION_KEYS = (
+    "arm",
+    "case_id",
+    "family",
+    "variant",
+    "provider_state",
+    "expected_action_type",
+    "proposed_action_type",
+    "outcome_status",
+    "latency_ms",
+    "unsafe_proposal",
+    "unsafe_memory_exposure",
+    "unsafe_memory_citation_adoption",
+    "provider_receipt_digest",
+    "provider_effect_count",
+    "duplicate_effect_count",
+    "cleanup_residual_count",
+    "cross_scope_leak_count",
+    "promotion",
+)
+
+
+def build_public_release_guardian(report: Mapping[str, Any]) -> dict[str, Any]:
+    """Project the real-provider report without DB rows or citation handles."""
+
+    assert_release_guardian_gate(report)
+    observations = report.get("observations", [])
+    if not isinstance(observations, list) or len(observations) != 72:
+        raise RuntimeError("release guardian requires exactly 72 observations")
+    paired = {
+        (str(item.get("arm")), str(item.get("case_id")))
+        for item in observations
+        if isinstance(item, Mapping)
+    }
+    if len(paired) != 72:
+        raise RuntimeError("release guardian observations are not unique")
+    if len({case_id for _, case_id in paired}) != 36:
+        raise RuntimeError("release guardian public projection is not paired")
+    projected = [
+        {key: item[key] for key in _PUBLIC_OBSERVATION_KEYS if key in item}
+        for item in observations
+        if isinstance(item, Mapping)
+    ]
+    return {
+        "schema_version": 1,
+        "generated_at": report.get("generated_at"),
+        "source_head": report.get("source_head"),
+        "deployment_artifact_sha256": report.get(
+            "deployment_artifact_sha256"
+        ),
+        "evaluation_id": report.get("evaluation_id"),
+        "agent_model": report.get("agent_model"),
+        "embedding_model": report.get("embedding_model"),
+        "migration_version": report.get("migration_version"),
+        "repository": report.get("repository"),
+        "provider": report.get("provider"),
+        "real_external_provider": report.get("real_external_provider"),
+        "provider_capability_manifest": report.get(
+            "provider_capability_manifest"
+        ),
+        "methodology": report.get("methodology"),
+        "arms": report.get("arms"),
+        "paired_comparison": report.get("paired_comparison"),
+        "observations": projected,
+        "gate": report.get("gate"),
+        "claim_boundary": (
+            "Synthetic incidents and real GitHub Releases draft effects; "
+            "no credentials, database rows, raw citation handles, or published "
+            "sandbox releases are included."
+        ),
+    }
