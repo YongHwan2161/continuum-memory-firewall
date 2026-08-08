@@ -104,6 +104,15 @@ class ReleaseTransactionCoordinatorTests(unittest.TestCase):
                 "pages_workflow_run_id": 99,
                 "pages_workflow_url": "https://github.com/owner/repository/actions/runs/99",
                 "pages_source_digest": self.source,
+                "coordinator_workflow_run_id": 98,
+                "coordinator_workflow_url": "https://github.com/owner/repository/actions/runs/98",
+                "coordinator_source_digest": "f" * 40,
+                "coordinator_artifact_id": 97,
+                "coordinator_artifact_name": (
+                    "release-transaction-hackathon-v10-" + "f" * 40
+                ),
+                "coordinator_artifact_digest": "sha256:" + "9" * 64,
+                "coordinator_receipt_sha256": "8" * 64,
                 "public_receipt_url": "https://example.test/receipt.json",
                 "release_tag": self.tag,
                 "release_target": self.source,

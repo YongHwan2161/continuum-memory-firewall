@@ -236,6 +236,8 @@ def verify_evidence(
         transaction_receipt_asset: dict[str, Any] = {}
         transaction_pages_evidence: dict[str, Any] = {}
         transaction_pages_workflow: dict[str, Any] = {}
+        transaction_coordinator_workflow: dict[str, Any] = {}
+        transaction_coordinator_artifact: dict[str, Any] = {}
         transaction_receipt_valid = False
         if schema_version >= 7:
             network_reference = evidence["network_sign_once"]
@@ -317,6 +319,20 @@ def verify_evidence(
                         f"/actions/runs/{pages_run_id}"
                     )
                     transaction_pages_workflow = fetch_json(pages_api_url)
+                    coordinator_run_id = int(
+                        transaction_pages_evidence["coordinator_workflow_run_id"]
+                    )
+                    coordinator_artifact_id = int(
+                        transaction_pages_evidence["coordinator_artifact_id"]
+                    )
+                    transaction_coordinator_workflow = fetch_json(
+                        f"https://api.github.com/repos/{source['repository']}"
+                        f"/actions/runs/{coordinator_run_id}"
+                    )
+                    transaction_coordinator_artifact = fetch_json(
+                        f"https://api.github.com/repos/{source['repository']}"
+                        f"/actions/artifacts/{coordinator_artifact_id}"
+                    )
                     transaction_receipt_asset = release_assets.get(
                         transaction_reference["receipt_asset_name"], {}
                     )
@@ -629,6 +645,36 @@ def verify_evidence(
                         == "success"
                         and transaction_pages_workflow.get("head_sha")
                         == transaction_pages_evidence.get("pages_source_digest")
+                        and transaction_coordinator_workflow.get("id")
+                        == transaction_pages_evidence.get(
+                            "coordinator_workflow_run_id"
+                        )
+                        and transaction_coordinator_workflow.get("conclusion")
+                        == "success"
+                        and transaction_coordinator_workflow.get("head_sha")
+                        == transaction_pages_evidence.get(
+                            "coordinator_source_digest"
+                        )
+                        and transaction_coordinator_artifact.get("id")
+                        == transaction_pages_evidence.get(
+                            "coordinator_artifact_id"
+                        )
+                        and transaction_coordinator_artifact.get("name")
+                        == transaction_pages_evidence.get(
+                            "coordinator_artifact_name"
+                        )
+                        and transaction_coordinator_artifact.get("digest")
+                        == transaction_pages_evidence.get(
+                            "coordinator_artifact_digest"
+                        )
+                        and transaction_coordinator_artifact.get("expired")
+                        is False
+                        and transaction_coordinator_artifact.get(
+                            "workflow_run", {}
+                        ).get("id")
+                        == transaction_pages_evidence.get(
+                            "coordinator_workflow_run_id"
+                        )
                         and envelope.get("release_transaction")
                         == transaction_reference
                     )
