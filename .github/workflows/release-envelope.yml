@@ -543,8 +543,15 @@ jobs:
           COORDINATOR_ARTIFACT_ID: ${{ steps.transaction-artifact.outputs.artifact-id }}
           COORDINATOR_ARTIFACT_DIGEST: ${{ steps.transaction-artifact.outputs.artifact-digest }}
         run: |
+          set -euo pipefail
+          coordinator_artifact_digest="$COORDINATOR_ARTIFACT_DIGEST"
+          if [[ "$coordinator_artifact_digest" =~ ^[0-9a-f]{64}$ ]]; then
+            coordinator_artifact_digest="sha256:$coordinator_artifact_digest"
+          fi
+          [[ "$COORDINATOR_ARTIFACT_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$coordinator_artifact_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           gh workflow run pages.yml --ref main \
             -f coordinator_workflow_run_id="$GITHUB_RUN_ID" \
             -f coordinator_source_digest="$GITHUB_SHA" \
             -f coordinator_artifact_id="$COORDINATOR_ARTIFACT_ID" \
-            -f coordinator_artifact_digest="$COORDINATOR_ARTIFACT_DIGEST"
+            -f coordinator_artifact_digest="$coordinator_artifact_digest"
