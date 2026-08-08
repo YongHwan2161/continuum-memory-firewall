@@ -28,8 +28,8 @@ CockroachDB/AWS authority path, and the public one-click PASS.
 - Project: <https://devpost.com/software/continuum-memory-firewall>
 - Project ID: `1362701`
 - Project version returned by the authenticated update: `16`
-- Project updated at after authenticated re-read:
-  `2026-08-08T04:51:45.650-04:00`
+- Project updated at after post-submit authenticated re-read:
+  `2026-08-08T04:51:59.096-04:00`
 - Embedded video after authenticated re-read:
   <https://youtu.be/OEPYF7cVpbs>
 - Hackathon: `cockroachdb-ai`

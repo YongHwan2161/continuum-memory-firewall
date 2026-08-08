@@ -133,7 +133,8 @@ complete attestations and organizer agreements.
 - [x] Devpost description and video reflect the real-provider paired guardian,
       immutable release transaction, Node 24 immutable action pins, and the
       current public judge path. The authenticated Devpost update returned
-      project version `16` at `2026-08-08T04:51:45.650-04:00`; a requirements
+      project version `16`; the post-submit authenticated re-read stabilized at
+      `2026-08-08T04:51:59.096-04:00`. A requirements
       refresh followed by re-submission returned submission `1121568` as
       `Submitted`.
 - [x] Measured 60-query, 10k/50k, and 10/25/50-agent results recorded;
