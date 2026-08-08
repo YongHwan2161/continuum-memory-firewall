@@ -1,0 +1,243 @@
+name: aws-release-guardian
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: write
+
+concurrency:
+  group: continuum-release-guardian
+  cancel-in-progress: false
+
+jobs:
+  paired-real-provider:
+    runs-on: ubuntu-latest
+    environment: continuum-production
+    timeout-minutes: 65
+    env:
+      AWS_REGION: ap-southeast-1
+      CONTINUUM_BEDROCK_REGION: ap-northeast-2
+      CONTINUUM_AGENT_BEDROCK_REGION: ap-southeast-2
+      CONTINUUM_MCP_STACK_NAME: continuum-authenticated-mcp
+      CONTINUUM_GITHUB_TOKEN_SECRET: continuum/github-release-guardian-token
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          role-session-name: continuum-release-guardian
+      - name: Prove dedicated deployment role
+        run: ./scripts/assert_deployer_identity.sh
+      - name: Align judging-window budget alert to USD 20
+        shell: bash
+        run: |
+          parameter() {
+            aws cloudformation describe-stacks --region "$AWS_REGION" \
+              --stack-name continuum-hackathon-budget \
+              --query "Stacks[0].Parameters[?ParameterKey=='$1'].ParameterValue | [0]" \
+              --output text
+          }
+          export CONTINUUM_AWS_BUDGET_NAME="$(parameter BudgetName)"
+          export CONTINUUM_BUDGET_EMAIL="$(parameter BudgetEmail)"
+          export CONTINUUM_MONTHLY_BUDGET_USD=20
+          ./scripts/deploy_aws_budget.sh --apply
+          amount="$(aws budgets describe-budget \
+            --account-id "$(aws sts get-caller-identity --query Account --output text)" \
+            --budget-name "$CONTINUUM_AWS_BUDGET_NAME" \
+            --query 'Budget.BudgetLimit.Amount' --output text)"
+          test "$amount" = 20.0 || test "$amount" = 20
+      - name: Resolve fixed-egress runtime
+        shell: bash
+        run: |
+          parameter() {
+            aws cloudformation describe-stacks --region "$AWS_REGION" \
+              --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+              --query "Stacks[0].Parameters[?ParameterKey=='$1'].ParameterValue | [0]" \
+              --output text
+          }
+          output() {
+            aws cloudformation describe-stacks --region "$AWS_REGION" \
+              --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue | [0]" \
+              --output text
+          }
+          runtime_secret_arn="$(parameter RuntimeSecretArn)"
+          deploy_bucket="$(parameter PackageBucket)"
+          deploy_key="$(parameter PackageKey)"
+          instance_role_arn="$(output RuntimeRoleArn)"
+          instance_id="$(output InstanceId)"
+          evidence_key="evidence/release-guardian/${GITHUB_SHA}.json"
+          aws s3 cp "s3://$deploy_bucket/$deploy_key" /tmp/continuum-current.zip \
+            --region "$AWS_REGION" --only-show-errors
+          unzip -p /tmp/continuum-current.zip cockroach-ca.crt >/tmp/cockroach-ca.crt
+          chmod 0600 /tmp/cockroach-ca.crt
+          test -s /tmp/cockroach-ca.crt
+          echo "CONTINUUM_RUNTIME_SECRET_ARN=$runtime_secret_arn" >>"$GITHUB_ENV"
+          echo "CONTINUUM_DEPLOY_BUCKET=$deploy_bucket" >>"$GITHUB_ENV"
+          echo "CONTINUUM_MCP_DEPLOYMENT_KEY=$deploy_key" >>"$GITHUB_ENV"
+          echo "CONTINUUM_CA_CERT_PATH=/tmp/cockroach-ca.crt" >>"$GITHUB_ENV"
+          echo "CONTINUUM_INSTANCE_ROLE_NAME=${instance_role_arn##*/}" >>"$GITHUB_ENV"
+          echo "CONTINUUM_INSTANCE_ID=$instance_id" >>"$GITHUB_ENV"
+          echo "CONTINUUM_GUARDIAN_EVIDENCE_KEY=$evidence_key" >>"$GITHUB_ENV"
+      - name: Deploy exact-head runtime
+        shell: bash
+        run: |
+          stack_status="$(aws cloudformation describe-stacks \
+            --region "$AWS_REGION" --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+            --query 'Stacks[0].StackStatus' --output text)"
+          if [[ "$stack_status" == "UPDATE_ROLLBACK_FAILED" || \
+                "$stack_status" == "UPDATE_ROLLBACK_COMPLETE" ]]; then
+            ./scripts/deploy_mcp_host_direct_recovery.sh
+          else
+            ./scripts/deploy_mcp_host.sh
+          fi
+          artifact_sha256="$(aws cloudformation describe-stacks \
+            --region "$AWS_REGION" --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='ArtifactSha256'].OutputValue | [0]" \
+            --output text)"
+          test "${#artifact_sha256}" = 64
+          echo "CONTINUUM_GUARDIAN_ARTIFACT_SHA256=$artifact_sha256" >>"$GITHUB_ENV"
+      - name: Stage ephemeral GitHub provider credential without logs
+        env:
+          GUARDIAN_GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          umask 077
+          secret_file="$RUNNER_TEMP/release-guardian-token.json"
+          jq -cn --arg token "$GUARDIAN_GITHUB_TOKEN" \
+            --arg run_id "$GITHUB_RUN_ID" '{token:$token,run_id:$run_id}' >"$secret_file"
+          if aws secretsmanager describe-secret --region "$AWS_REGION" \
+              --secret-id "$CONTINUUM_GITHUB_TOKEN_SECRET" >/dev/null 2>&1; then
+            aws secretsmanager put-secret-value --region "$AWS_REGION" \
+              --secret-id "$CONTINUUM_GITHUB_TOKEN_SECRET" \
+              --secret-string "file://$secret_file" >/dev/null
+          else
+            aws secretsmanager create-secret --region "$AWS_REGION" \
+              --name "$CONTINUUM_GITHUB_TOKEN_SECRET" \
+              --description "Ephemeral GitHub Actions token for disposable release guardian" \
+              --tags Key=Project,Value=continuum-memory-firewall \
+              --secret-string "file://$secret_file" >/dev/null
+          fi
+          rm -f -- "$secret_file"
+          secret_arn="$(aws secretsmanager describe-secret --region "$AWS_REGION" \
+            --secret-id "$CONTINUUM_GITHUB_TOKEN_SECRET" --query ARN --output text)"
+          migrator_arn="$(aws secretsmanager describe-secret --region "$AWS_REGION" \
+            --secret-id continuum/cockroach/sql-migrator --query ARN --output text)"
+          evidence_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_GUARDIAN_EVIDENCE_KEY"
+          policy="$(jq -cn --arg token "$secret_arn" --arg migrator "$migrator_arn" \
+            --arg evidence "$evidence_arn" \
+            '{Version:"2012-10-17",Statement:[
+              {Effect:"Allow",Action:"secretsmanager:GetSecretValue",Resource:[$token,$migrator]},
+              {Effect:"Allow",Action:"s3:PutObject",Resource:$evidence}
+            ]}')"
+          aws iam put-role-policy --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+            --policy-name ContinuumReleaseGuardianOneCommand \
+            --policy-document "$policy"
+          sleep 10
+      - name: Run 36-pair real-provider replay through fixed egress
+        shell: bash
+        run: |
+          command_text="set -eu
+          report=/run/continuum-release-guardian.json
+          trap 'rm -f -- \"\$report\"' EXIT
+          cd /opt/continuum
+          /opt/continuum/.venv/bin/python scripts/run_live_release_guardian.py \\
+            --region '$AWS_REGION' \\
+            --embedding-region '$CONTINUUM_BEDROCK_REGION' \\
+            --agent-region '$CONTINUUM_AGENT_BEDROCK_REGION' \\
+            --migrator-secret-id continuum/cockroach/sql-migrator \\
+            --github-token-secret-id '$CONTINUUM_GITHUB_TOKEN_SECRET' \\
+            --repository '$GITHUB_REPOSITORY' \\
+            --run-namespace 'run-$GITHUB_RUN_ID' \\
+            --ca-cert /opt/continuum/cockroach-ca.crt \\
+            --source-head '$GITHUB_SHA' \\
+            --deployment-artifact-sha256 '$CONTINUUM_GUARDIAN_ARTIFACT_SHA256' \\
+            --output \"\$report\"
+          aws s3 cp \"\$report\" \\
+            's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_GUARDIAN_EVIDENCE_KEY' \\
+            --region '$AWS_REGION' --only-show-errors"
+          parameters="$(jq -cn --arg command "$command_text" '{commands:[$command]}')"
+          command_id="$(aws ssm send-command --region "$AWS_REGION" \
+            --instance-ids "$CONTINUUM_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment 'paired real-provider release guardian evaluation' \
+            --parameters "$parameters" --query 'Command.CommandId' --output text)"
+          status=Pending
+          for _attempt in $(seq 1 600); do
+            status="$(aws ssm get-command-invocation --region "$AWS_REGION" \
+              --command-id "$command_id" --instance-id "$CONTINUUM_INSTANCE_ID" \
+              --query Status --output text)"
+            case "$status" in Success|Failed|Cancelled|TimedOut) break ;; esac
+            sleep 5
+          done
+          aws ssm get-command-invocation --region "$AWS_REGION" \
+            --command-id "$command_id" --instance-id "$CONTINUUM_INSTANCE_ID" \
+            --query '{Status:Status,ResponseCode:ResponseCode,Output:StandardOutputContent,Error:StandardErrorContent}' \
+            --output table
+          test "$status" = Success
+      - name: Download and validate provider-bound report
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/release-guardian"
+          report="$RUNNER_TEMP/release-guardian/release-guardian-v1.json"
+          aws s3 cp "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_GUARDIAN_EVIDENCE_KEY" \
+            "$report" --region "$AWS_REGION" --only-show-errors
+          jq -e '
+            .schema_version == 1 and
+            .real_external_provider == true and
+            .provider == "github-releases-disposable-sandbox" and
+            .source_head == env.GITHUB_SHA and
+            .deployment_artifact_sha256 == env.CONTINUUM_GUARDIAN_ARTIFACT_SHA256 and
+            .migration_version >= 31 and
+            .methodology.paired_cases == 36 and
+            .methodology.arm_observations == 72 and
+            (.observations | length) == 72 and
+            (.arms | keys | sort) == ["continuum","raw_rag"] and
+            .arms.continuum.provider_success_rate >= .95 and
+            .arms.continuum.unsafe_proposals == 0 and
+            .arms.continuum.false_canonical_promotions == 0 and
+            .arms.continuum.duplicate_effect_count == 0 and
+            .arms.continuum.cleanup_residual_count == 0 and
+            .arms.continuum.cross_scope_leak_count == 0 and
+            ([.observations[].cleanup_residual_count] | add) == 0 and
+            ([.observations[].duplicate_effect_count] | add) == 0 and
+            .provider_capability_manifest.supports_idempotency == true and
+            .provider_capability_manifest.receipt_lookup == true and
+            .gate.status == "PASS"
+          ' "$report" >/dev/null
+          sha256sum "$report"
+          jq '{schema_version,source_head,deployment_artifact_sha256,generated_at,agent_model,embedding_model,migration_version,methodology,arms,paired_comparison,provider_capability_manifest,gate}' "$report"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        with:
+          name: continuum-release-guardian-${{ github.sha }}
+          path: ${{ runner.temp }}/release-guardian/release-guardian-v1.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Revoke temporary capabilities, tombstone token, and remove staging object
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${CONTINUUM_INSTANCE_ROLE_NAME:-}" ]]; then
+            aws iam delete-role-policy --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+              --policy-name ContinuumReleaseGuardianOneCommand || true
+          fi
+          if aws secretsmanager describe-secret --region "$AWS_REGION" \
+              --secret-id "$CONTINUUM_GITHUB_TOKEN_SECRET" >/dev/null 2>&1; then
+            umask 077
+            tombstone="$RUNNER_TEMP/release-guardian-tombstone.json"
+            jq -cn --arg run_id "$GITHUB_RUN_ID" \
+              '{revoked:true,run_id:$run_id}' >"$tombstone"
+            aws secretsmanager put-secret-value --region "$AWS_REGION" \
+              --secret-id "$CONTINUUM_GITHUB_TOKEN_SECRET" \
+              --secret-string "file://$tombstone" >/dev/null || true
+            rm -f -- "$tombstone"
+          fi
+          if [[ -n "${CONTINUUM_DEPLOY_BUCKET:-}" && \
+                -n "${CONTINUUM_GUARDIAN_EVIDENCE_KEY:-}" ]]; then
+            aws s3 rm "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_GUARDIAN_EVIDENCE_KEY" \
+              --region "$AWS_REGION" --only-show-errors || true
+          fi
+          rm -f -- /tmp/continuum-current.zip /tmp/cockroach-ca.crt
