@@ -37,6 +37,7 @@ from continuum.release_guardian import (
     RELEASE_ACTION_POLICIES,
     ReleaseGuardianObservation,
     build_release_guardian_cases,
+    release_guardian_population_sha256,
     summarize_release_guardian,
 )
 from continuum.retrieval import BedrockTitanEmbedder, MemoryRetrievalStore
@@ -182,12 +183,26 @@ def main() -> None:
     parser.add_argument("--ca-cert", default="/opt/continuum/cockroach-ca.crt")
     parser.add_argument("--source-head", required=True)
     parser.add_argument("--deployment-artifact-sha256", required=True)
+    parser.add_argument("--replication-set-id", required=True)
+    parser.add_argument("--replication-id", required=True)
+    parser.add_argument("--replication-position", type=int, required=True)
+    parser.add_argument("--workflow-run-id", type=int, required=True)
+    parser.add_argument("--workflow-run-attempt", type=int, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if re.fullmatch(r"[0-9a-f]{40}", args.source_head) is None:
         raise ValueError("source-head must be a full lowercase Git commit SHA")
     if re.fullmatch(r"[0-9a-f]{64}", args.deployment_artifact_sha256) is None:
         raise ValueError("deployment-artifact-sha256 must be lowercase SHA-256")
+    if re.fullmatch(r"[a-z0-9][a-z0-9-]{7,63}", args.replication_set_id) is None:
+        raise ValueError("replication-set-id must be a bounded slug")
+    if re.fullmatch(r"rg-[0-9]{3}", args.replication_id) is None:
+        raise ValueError("replication-id must match rg-NNN")
+    if not 1 <= args.replication_position <= 5:
+        raise ValueError("replication-position must be between 1 and 5")
+    if args.workflow_run_id < 1 or args.workflow_run_attempt < 1:
+        raise ValueError("workflow run receipt must be positive")
+    replication_started_at = datetime.now(timezone.utc)
 
     secret_client = boto3.client("secretsmanager", region_name=args.region)
     github_secret = _secret_json(secret_client, args.github_token_secret_id)
@@ -472,6 +487,8 @@ def main() -> None:
                         "duplicate_effect_count": duplicate_effect_count,
                         "cleanup_residual_count": cleanup_residual_count,
                         "cross_scope_leak_count": int(forbidden_memory_id in cited),
+                        "failure_code": failure_code,
+                        "failure_cause": failure_cause,
                         "issued_citation_handle_sha256": (
                             []
                             if result is None
@@ -506,7 +523,9 @@ def main() -> None:
         github_token = ""
         github_secret = {}
 
+    replication_completed_at = datetime.now(timezone.utc)
     report = dict(summarize_release_guardian(cases, observations))
+    report["schema_version"] = 2
     report.update(
         {
             "agent_model": args.agent_model,
@@ -514,12 +533,22 @@ def main() -> None:
             "embedding_model": embedder.model_id,
             "embedding_region": args.embedding_region,
             "evaluation_id": evaluation_id,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": replication_completed_at.isoformat(),
             "migration_version": migration.current_version,
             "source_head": args.source_head,
             "deployment_artifact_sha256": args.deployment_artifact_sha256,
             "repository": args.repository,
             "provider_capability_manifest": provider.capability_manifest.as_evidence(),
+            "case_population_sha256": release_guardian_population_sha256(cases),
+            "replication": {
+                "set_id": args.replication_set_id,
+                "replication_id": args.replication_id,
+                "position": args.replication_position,
+                "workflow_run_id": args.workflow_run_id,
+                "workflow_run_attempt": args.workflow_run_attempt,
+                "started_at": replication_started_at.isoformat(),
+                "completed_at": replication_completed_at.isoformat(),
+            },
             "observations": episode_traces,
             "gate": {"status": "PASS"},
         }

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import json
 import math
 import random
 from typing import Any, Mapping, Sequence
@@ -211,6 +213,43 @@ def validate_release_guardian_population(
             raise ValueError(f"family {family} sequence must be contiguous")
 
 
+def release_guardian_population_sha256(
+    cases: Sequence[ReleaseGuardianCase],
+) -> str:
+    """Return a stable identity for the exact paired incident population."""
+
+    validate_release_guardian_population(cases)
+    canonical = []
+    for case in cases:
+        canonical.append(
+            {
+                "case_id": case.case_id,
+                "family": case.family,
+                "sequence_no": case.sequence_no,
+                "variant": case.variant,
+                "incident": dict(case.incident),
+                "expected_action_type": case.expected_action_type,
+                "raw_injections": [
+                    {
+                        "injection_id": injection.injection_id,
+                        "text": injection.text,
+                        "proposed_action_type": injection.proposed_action_type,
+                        "provenance": injection.provenance,
+                        "threat_kind": injection.threat_kind,
+                    }
+                    for injection in case.raw_injections
+                ],
+            }
+        )
+    payload = json.dumps(
+        canonical,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
 def _paired_exact_p_value(wins: int, losses: int) -> float:
     discordant = wins + losses
     if discordant == 0:
@@ -392,6 +431,8 @@ _PUBLIC_OBSERVATION_KEYS = (
     "duplicate_effect_count",
     "cleanup_residual_count",
     "cross_scope_leak_count",
+    "failure_code",
+    "failure_cause",
     "promotion",
 )
 

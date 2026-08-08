@@ -2,6 +2,26 @@ name: aws-release-guardian
 
 on:
   workflow_dispatch:
+    inputs:
+      replication_id:
+        description: Exact time-distributed replication identity
+        required: true
+        type: choice
+        options:
+          - rg-101
+          - rg-203
+          - rg-307
+          - rg-409
+          - rg-503
+      replication_position:
+        description: Declared position in the five-batch set
+        required: true
+        type: number
+      replication_set_id:
+        description: Shared identity for all five batches
+        required: true
+        default: release-guardian-time-v1
+        type: string
 
 permissions:
   id-token: write
@@ -22,6 +42,9 @@ jobs:
       CONTINUUM_AGENT_BEDROCK_REGION: ap-southeast-2
       CONTINUUM_MCP_STACK_NAME: continuum-authenticated-mcp
       CONTINUUM_GITHUB_TOKEN_SECRET: continuum/github-release-guardian-token
+      CONTINUUM_REPLICATION_ID: ${{ inputs.replication_id }}
+      CONTINUUM_REPLICATION_POSITION: ${{ inputs.replication_position }}
+      CONTINUUM_REPLICATION_SET_ID: ${{ inputs.replication_set_id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
       - uses: aws-actions/configure-aws-credentials@v4
@@ -69,7 +92,7 @@ jobs:
           deploy_key="$(parameter PackageKey)"
           instance_role_arn="$(output RuntimeRoleArn)"
           instance_id="$(output InstanceId)"
-          evidence_key="evidence/release-guardian/${GITHUB_SHA}.json"
+          evidence_key="evidence/release-guardian/${GITHUB_SHA}/${GITHUB_RUN_ID}-${CONTINUUM_REPLICATION_ID}.json"
           aws s3 cp "s3://$deploy_bucket/$deploy_key" /tmp/continuum-current.zip \
             --region "$AWS_REGION" --only-show-errors
           unzip -p /tmp/continuum-current.zip cockroach-ca.crt >/tmp/cockroach-ca.crt
@@ -137,7 +160,7 @@ jobs:
             --policy-name ContinuumReleaseGuardianOneCommand \
             --policy-document "$policy"
           sleep 10
-      - name: Run 36-pair real-provider replay through fixed egress
+      - name: Run one exact 36-pair time-distributed replay through fixed egress
         shell: bash
         run: |
           command_text="set -eu
@@ -151,10 +174,15 @@ jobs:
             --migrator-secret-id continuum/cockroach/sql-migrator \\
             --github-token-secret-id '$CONTINUUM_GITHUB_TOKEN_SECRET' \\
             --repository '$GITHUB_REPOSITORY' \\
-            --run-namespace 'run-$GITHUB_RUN_ID' \\
+            --run-namespace '$CONTINUUM_REPLICATION_ID-run-$GITHUB_RUN_ID' \\
             --ca-cert /opt/continuum/cockroach-ca.crt \\
             --source-head '$GITHUB_SHA' \\
             --deployment-artifact-sha256 '$CONTINUUM_GUARDIAN_ARTIFACT_SHA256' \\
+            --replication-set-id '$CONTINUUM_REPLICATION_SET_ID' \\
+            --replication-id '$CONTINUUM_REPLICATION_ID' \\
+            --replication-position '$CONTINUUM_REPLICATION_POSITION' \\
+            --workflow-run-id '$GITHUB_RUN_ID' \\
+            --workflow-run-attempt '$GITHUB_RUN_ATTEMPT' \\
             --output \"\$report\"
           aws s3 cp \"\$report\" \\
             's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_GUARDIAN_EVIDENCE_KEY' \\
@@ -186,7 +214,7 @@ jobs:
           aws s3 cp "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_GUARDIAN_EVIDENCE_KEY" \
             "$report" --region "$AWS_REGION" --only-show-errors
           jq -e '
-            .schema_version == 1 and
+            .schema_version == 2 and
             .real_external_provider == true and
             .provider == "github-releases-disposable-sandbox" and
             .source_head == env.GITHUB_SHA and
@@ -194,6 +222,12 @@ jobs:
             .migration_version >= 31 and
             .methodology.paired_cases == 36 and
             .methodology.arm_observations == 72 and
+            .replication.set_id == env.CONTINUUM_REPLICATION_SET_ID and
+            .replication.replication_id == env.CONTINUUM_REPLICATION_ID and
+            (.replication.position | tostring) == env.CONTINUUM_REPLICATION_POSITION and
+            (.replication.workflow_run_id | tostring) == env.GITHUB_RUN_ID and
+            (.replication.workflow_run_attempt | tostring) == env.GITHUB_RUN_ATTEMPT and
+            (.case_population_sha256 | test("^[0-9a-f]{64}$")) and
             (.observations | length) == 72 and
             (.arms | keys | sort) == ["continuum","raw_rag"] and
             .arms.continuum.provider_success_rate >= .95 and
@@ -212,7 +246,7 @@ jobs:
           jq '{schema_version,source_head,deployment_artifact_sha256,generated_at,agent_model,embedding_model,migration_version,methodology,arms,paired_comparison,provider_capability_manifest,gate}' "$report"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
         with:
-          name: continuum-release-guardian-${{ github.sha }}
+          name: continuum-release-guardian-${{ github.sha }}-${{ inputs.replication_id }}
           path: ${{ runner.temp }}/release-guardian/release-guardian-v1.json
           if-no-files-found: error
           retention-days: 90
