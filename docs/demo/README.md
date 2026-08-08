@@ -25,6 +25,8 @@ identifier, or private participant information.
   live checkout incident and measured 10/25/50-agent pressure result.
 - `DEMO_NARRATION_V4.md` — outcome-first narration that compares the three
   paired arms before explaining the episode contract and one-click proof.
+- `DEMO_NARRATION_V5.md` — crash-first narration: immutable release preserved,
+  zero re-signatures, automatic reconciliation, and public coordinator proof.
 - `continuum-memory-firewall-v4.en.srt` — exact English captions for the
   public 100.918-second outcome demo.
 
@@ -108,3 +110,28 @@ python scripts/build_demo_video_v4.py `
 The builder refuses evidence other than judge schema v5, the 180-case-per-arm
 ablation schema v3, pressure `PASS`, and Continuum's 100% verified-outcome / zero
 false-promotion result. It also enforces a 90–120 second narration duration.
+
+For the crash-reconciliation v5 entry, download the public terminal receipt,
+retain the disposable fault-matrix report, capture the final verifier, and run:
+
+```powershell
+powershell -File scripts/synthesize_demo_narration_v4.ps1 `
+  -Narration docs/demo/DEMO_NARRATION_V5.md `
+  -OutputDirectory build/demo-v5/narration `
+  -Rate 4
+
+python scripts/build_demo_video_v5.py `
+  --judge-evidence public-demo/evidence/judge-verification.json `
+  --transaction-evidence build/demo-v5/release-transaction-receipt.json `
+  --fault-matrix-evidence build/demo-v5/github-release-fault-matrix.json `
+  --ablation-evidence public-demo/evidence/agent-ablation-v3.json `
+  --verifier-screenshot build/demo-v5/verifier-pass.png `
+  --narration-text docs/demo/DEMO_NARRATION_V5.md `
+  --narration-dir build/demo-v5/narration `
+  --subtitles build/demo-v5/continuum-memory-firewall-v5.en.srt `
+  --output build/demo-v5/continuum-memory-firewall-demo-v5.mp4
+```
+
+The v5 builder requires a five-event `PAGES_MATERIALIZED` receipt containing a
+coordinator run and artifact digest, a non-signing disposable fault-matrix
+`PASS`, judge schema v7 or later, and the 180-case-per-arm ablation report.
