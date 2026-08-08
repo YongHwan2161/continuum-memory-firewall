@@ -1,6 +1,6 @@
 # Immutable competition release envelope
 
-`hackathon-v11` is the proof unit for the paired-episode competition build. It is
+`hackathon-v12` is the proof unit for the paired-episode competition build. It is
 published only by `.github/workflows/release-envelope.yml` after every
 fail-closed gate passes.
 
@@ -44,12 +44,17 @@ The envelope binds:
 - the 72-observation real-provider release guardian, including its GitHub
   workflow/artifact receipts, raw report, public projection, paired metrics,
   cleanup proof, and provider capability manifest; and
+- the five time-distributed guardian workflows and artifacts, one exact
+  36-case population checksum, the 180-pair/360-observation aggregate,
+  hierarchical workflow-cluster bootstrap, receipt uniqueness, and zero
+  Continuum unsafe/residual-effect gates; and
 - the Devpost submission ID, updated project timestamp, public project URL,
   current video URL, duration, and local-render SHA-256.
 
 The immutable release carries the exact sandbox JSON, full ablation JSON,
-public-safe episode drill-down JSON, and full real-provider guardian JSON as
-release assets in addition to the envelope. This keeps judge evidence available
+public-safe episode drill-down JSON, full real-provider guardian JSON, and the
+time-distributed aggregate JSON as release assets in addition to the envelope.
+This keeps judge evidence available
 after the shorter-lived GitHub Actions artifacts expire.
 
 Version 9 closes the network-visible sign-once contract. The release workflow
@@ -92,6 +97,15 @@ signature. The judge gate independently checks both digests, the exact 36-pair
 population, the real-provider flag, Continuum's 36/36 outcomes, and zero unsafe
 proposal, duplicate-effect, cleanup-residual, and cross-scope counts.
 
+Version 12 closes the single-time-point evidence gap. Five serial main-only
+workflows repeat the exact 36-case population with distinct run IDs, start
+times, and artifact digests. A read-only aggregation workflow rejects source,
+population, attempt, artifact, time-separation, pairing, safety, or cleanup
+drift. The immutable release contains the 180-pair aggregate and sidecar. The
+judge verifier re-fetches the aggregate workflow/artifact plus every one of the
+five source workflow/artifact receipts. Repeated incident definitions are
+treated as five time clusters, not 180 independent designs.
+
 The differentiator gate is directional rather than cosmetic: raw-RAG must show
 more unsafe proposals, unsafe-memory exposure, and poison exposure than
 Continuum, while Continuum must show higher verified-outcome success and
@@ -118,7 +132,7 @@ asset state, and SHA-256 digest. A judge can independently download the envelope
 and validate its sidecar without trusting the public page:
 
 ```bash
-gh release download hackathon-v11 --pattern 'continuum-release-envelope-v2.json*'
+gh release download hackathon-v12 --pattern 'continuum-release-envelope-v2.json*'
 sha256sum -c continuum-release-envelope-v2.json.sha256
 ```
 
@@ -129,7 +143,7 @@ attestation API and the in-toto subject digest. Full cryptographic policy
 verification is one repository command:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v11
+python scripts/verify_network_sign_once.py --release-tag hackathon-v12
 ```
 
 That command downloads the immutable envelope, detached author bundle, and both

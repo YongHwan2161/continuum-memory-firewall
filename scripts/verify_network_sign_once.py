@@ -16,7 +16,7 @@ from urllib.request import Request, urlopen
 
 
 DEFAULT_REPOSITORY = "YongHwan2161/continuum-memory-firewall"
-DEFAULT_RELEASE_TAG = "hackathon-v11"
+DEFAULT_RELEASE_TAG = "hackathon-v12"
 DEFAULT_ASSET_NAME = "continuum-release-envelope-v2.json"
 DEFAULT_AUTHOR_BUNDLE_ASSET_NAME = (
     "continuum-release-envelope-v2.sigstore.jsonl"

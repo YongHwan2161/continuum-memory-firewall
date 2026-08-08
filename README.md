@@ -8,7 +8,8 @@ deterministic, and transactionally durable.
 **Live judge path:** [run the public product proof](https://yonghwan2161.github.io/continuum-memory-firewall/),
 [verify every bound receipt](https://yonghwan2161.github.io/continuum-memory-firewall/verify.html),
 [inspect the same 180 incidents across all three memory policies](https://yonghwan2161.github.io/continuum-memory-firewall/episodes.html),
-or [inspect 36 paired incidents with real GitHub effects](https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian.html).
+or [inspect 36 paired incidents with real GitHub effects](https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian.html),
+then [inspect all five time-distributed real-provider batches](https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian-replication.html).
 In the incident-response story, trusted telemetry becomes durable memory,
 poisoned model output remains quarantined, a later agent retrieves the accepted
 resolution, and CockroachDB grants exactly one action owner.
@@ -165,7 +166,7 @@ receives a token or database credential. The executable database evidence is
 the integration suite and linked exact-head workflows in
 [Project Status](docs/PROJECT_STATUS.md).
 
-The v11 release envelope receives exactly one author-controlled signature in
+The v12 release envelope receives exactly one author-controlled signature in
 the same main-only workflow that publishes it. Its Fulcio/Rekor Sigstore bundle
 is an immutable release asset and a byte-identical Pages resource. GitHub also
 adds one distinguishable immutable-release countersignature; the verifier
@@ -174,12 +175,13 @@ a second author signing operation. Perform strict cryptographic policy
 verification of the author signature with:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v11
+python scripts/verify_network_sign_once.py --release-tag hackathon-v12
 ```
 
-Version 11 preserves the version-10 durable release transaction and additionally
-binds the full real-provider guardian report, its public projection, and exact
-workflow/artifact receipts. The durable draft advances a
+Version 12 preserves the version-11 single-run guardian and version-10 durable
+release transaction, then additionally binds five time-distributed real-provider
+workflows, their five artifact digests, the checksum-fixed 180-pair aggregate,
+and its cluster-aware statistics. The durable draft advances a
 hash-chained release receipt through `PREPARED`, `AUTHOR_ATTESTED`,
 `ASSETS_UPLOADED`, `IMMUTABLE`, and `PAGES_MATERIALIZED`. A retry adopts the
 exact draft bytes and any existing author attestation instead of rebuilding or
@@ -210,6 +212,9 @@ drill-down are recorded in
 The 36-pair real-provider results, capability manifest, cleanup proof, and
 failed-first strong-identity correction are recorded in
 [real-provider release guardian evidence](docs/evidence/2026-08-08-real-provider-release-guardian.md).
+The five time-cluster run receipts, aggregate statistics, and explicit repeated-
+case boundary are recorded in
+[time-distributed real-provider evidence](docs/evidence/2026-08-09-time-distributed-real-provider-replication.md).
 
 ## Safety boundary
 

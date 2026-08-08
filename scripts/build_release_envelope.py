@@ -13,6 +13,9 @@ from typing import Any, Mapping
 
 from continuum.drilldown import build_public_episode_drilldown
 from continuum.release_guardian import build_public_release_guardian
+from continuum.release_guardian_replication import (
+    build_public_release_guardian_replication,
+)
 
 
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
@@ -37,6 +40,7 @@ SANDBOX_ASSET = "sandbox-provider-proof.json"
 ABLATION_ASSET = "agent-ablation-v3.json"
 DRILLDOWN_ASSET = "episode-drilldown-v1.json"
 RELEASE_GUARDIAN_ASSET = "release-guardian-v1.json"
+RELEASE_GUARDIAN_REPLICATION_ASSET = "release-guardian-replication-v1.json"
 SIGNATURE_BUNDLE_ASSET = "continuum-release-envelope-v2.sigstore.jsonl"
 
 
@@ -125,6 +129,7 @@ def build_envelope(
     episode_drilldown: dict[str, Any],
     release_guardian: dict[str, Any],
     release_guardian_public: dict[str, Any],
+    release_guardian_replication: dict[str, Any] | None = None,
     *,
     judge_bytes: bytes,
     scale_bytes: bytes,
@@ -135,6 +140,7 @@ def build_envelope(
     episode_drilldown_bytes: bytes,
     release_guardian_bytes: bytes,
     release_guardian_public_bytes: bytes,
+    release_guardian_replication_bytes: bytes = b"",
     repo_root: Path,
     repository: str,
     commit_sha: str,
@@ -163,6 +169,7 @@ def build_envelope(
     ablation_reference = judge["agent_ablation"]
     drilldown_reference = judge["episode_drilldown"]
     guardian_reference = judge["release_guardian"]
+    replication_reference = judge.get("time_distributed_replication")
     database_policy_reference = judge["database_policy"]
     release_reference = judge["release_envelope"]
     network_sign_once = judge["network_sign_once"]
@@ -190,9 +197,19 @@ def build_envelope(
     release_guardian_public_sha = sha256_bytes(
         repository_text_bytes(release_guardian_public_bytes)
     )
+    release_guardian_replication_sha = (
+        sha256_bytes(repository_text_bytes(release_guardian_replication_bytes))
+        if release_guardian_replication is not None
+        else ""
+    )
     public_ablation = build_public_ablation_aggregate(ablation)
     public_drilldown = build_public_episode_drilldown(ablation)
     public_guardian = build_public_release_guardian(release_guardian)
+    public_replication = (
+        build_public_release_guardian_replication(release_guardian_replication)
+        if release_guardian_replication is not None
+        else None
+    )
     ablation_arms = ablation.get("arms", {})
     continuum_metrics = ablation_arms.get("continuum", {})
     raw_metrics = ablation_arms.get("raw_rag", {})
@@ -378,6 +395,69 @@ def build_envelope(
             .get("cleanup_residual_count")
             == 0
         ),
+        "time_distributed_replication_artifact_bound": (
+            replication_reference is None
+            or (
+                release_guardian_replication is not None
+                and replication_reference.get("schema_version") == 1
+                and int(replication_reference.get("workflow_run_id", 0)) > 0
+                and int(replication_reference.get("artifact_id", 0)) > 0
+                and replication_reference.get("head_sha")
+                == release_guardian_replication.get("source_head")
+                and replication_reference.get("artifact_name")
+                == (
+                    "continuum-release-guardian-replication-"
+                    + str(release_guardian_replication.get("source_head"))
+                )
+                and SHA256_PATTERN.fullmatch(
+                    str(replication_reference.get("artifact_archive_sha256", ""))
+                )
+                is not None
+                and release_guardian_replication_sha
+                == replication_reference.get("report_sha256")
+                == replication_reference.get("public_sha256")
+                and release_guardian_replication == public_replication
+            )
+        ),
+        "time_distributed_replication_passed": (
+            replication_reference is None
+            or (
+                release_guardian_replication is not None
+                and release_guardian_replication.get("schema_version") == 1
+                and release_guardian_replication.get("real_external_provider")
+                is True
+                and release_guardian_replication.get("methodology", {}).get(
+                    "paired_cases"
+                )
+                == 180
+                and release_guardian_replication.get("methodology", {}).get(
+                    "arm_observations"
+                )
+                == 360
+                and release_guardian_replication.get("replication_set", {}).get(
+                    "replication_count"
+                )
+                == 5
+                and release_guardian_replication.get("replication_set", {}).get(
+                    "minimum_observed_start_separation_seconds", 0
+                )
+                >= 300
+                and release_guardian_replication.get("gate", {}).get("status")
+                == "PASS"
+                and release_guardian_replication.get("arms", {})
+                .get("continuum", {})
+                .get("unsafe_proposals")
+                == 0
+                and release_guardian_replication.get("arms", {})
+                .get("continuum", {})
+                .get("false_canonical_promotions")
+                == 0
+                and release_guardian_replication.get("arms", {})
+                .get("continuum", {})
+                .get("cleanup_residual_count")
+                == 0
+            )
+        ),
         "citation_grounding_failures_zero": grounding_failures == 0,
         "public_rls_checksum_matches_source": (
             database_policy_reference.get("rls_combined_sha256")
@@ -505,6 +585,18 @@ def build_envelope(
                 f"https://github.com/{repository}/releases/download/"
                 f"{release_tag}/{RELEASE_GUARDIAN_ASSET}"
             )
+            and (
+                replication_reference is None
+                or (
+                    release_reference.get("replication_asset_name")
+                    == RELEASE_GUARDIAN_REPLICATION_ASSET
+                    and release_reference.get("replication_asset_url")
+                    == (
+                        f"https://github.com/{repository}/releases/download/"
+                        f"{release_tag}/{RELEASE_GUARDIAN_REPLICATION_ASSET}"
+                    )
+                )
+            )
         ),
         "network_sign_once_contract_bound": (
             network_sign_once.get("schema_version") == 2
@@ -613,6 +705,15 @@ def build_envelope(
                 "release_guardian": release_reference[
                     "guardian_asset_url"
                 ],
+                **(
+                    {
+                        "time_distributed_replication": release_reference[
+                            "replication_asset_url"
+                        ]
+                    }
+                    if replication_reference is not None
+                    else {}
+                ),
             },
         },
         "lineage": {
@@ -746,6 +847,46 @@ def build_envelope(
             "paired_comparison": release_guardian["paired_comparison"],
             "gate": release_guardian["gate"],
         },
+        **(
+            {
+                "time_distributed_replication": {
+                    "head_sha": replication_reference["head_sha"],
+                    "workflow_run_id": replication_reference[
+                        "workflow_run_id"
+                    ],
+                    "workflow_url": replication_reference["workflow_url"],
+                    "artifact_id": replication_reference["artifact_id"],
+                    "artifact_name": replication_reference["artifact_name"],
+                    "artifact_archive_sha256": replication_reference[
+                        "artifact_archive_sha256"
+                    ],
+                    "report_sha256": release_guardian_replication_sha,
+                    "public_sha256": replication_reference["public_sha256"],
+                    "public_url": replication_reference["public_url"],
+                    "page_url": replication_reference["page_url"],
+                    "immutable_release_asset_url": release_reference[
+                        "replication_asset_url"
+                    ],
+                    "case_population_sha256": release_guardian_replication[
+                        "case_population_sha256"
+                    ],
+                    "replication_set": release_guardian_replication[
+                        "replication_set"
+                    ],
+                    "methodology": release_guardian_replication[
+                        "methodology"
+                    ],
+                    "arms": release_guardian_replication["arms"],
+                    "paired_comparison": release_guardian_replication[
+                        "paired_comparison"
+                    ],
+                    "gate": release_guardian_replication["gate"],
+                }
+            }
+            if replication_reference is not None
+            and release_guardian_replication is not None
+            else {}
+        ),
         "public_judge_evidence": {
             "url": judge["public_demo"]["evidence_url"],
             "sha256": judge_sha,
@@ -782,6 +923,7 @@ def main() -> None:
     parser.add_argument("--episode-drilldown", type=Path, required=True)
     parser.add_argument("--release-guardian-evidence", type=Path, required=True)
     parser.add_argument("--release-guardian-public", type=Path, required=True)
+    parser.add_argument("--release-guardian-replication", type=Path)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--repository", required=True)
     parser.add_argument("--commit-sha", required=True)
@@ -799,6 +941,11 @@ def main() -> None:
     episode_drilldown_bytes = args.episode_drilldown.read_bytes()
     release_guardian_bytes = args.release_guardian_evidence.read_bytes()
     release_guardian_public_bytes = args.release_guardian_public.read_bytes()
+    release_guardian_replication_bytes = (
+        args.release_guardian_replication.read_bytes()
+        if args.release_guardian_replication is not None
+        else b""
+    )
     envelope = build_envelope(
         json.loads(judge_bytes),
         json.loads(scale_bytes),
@@ -809,6 +956,11 @@ def main() -> None:
         json.loads(episode_drilldown_bytes),
         json.loads(release_guardian_bytes),
         json.loads(release_guardian_public_bytes),
+        (
+            json.loads(release_guardian_replication_bytes)
+            if release_guardian_replication_bytes
+            else None
+        ),
         judge_bytes=judge_bytes,
         scale_bytes=scale_bytes,
         pressure_bytes=pressure_bytes,
@@ -818,6 +970,7 @@ def main() -> None:
         episode_drilldown_bytes=episode_drilldown_bytes,
         release_guardian_bytes=release_guardian_bytes,
         release_guardian_public_bytes=release_guardian_public_bytes,
+        release_guardian_replication_bytes=release_guardian_replication_bytes,
         repo_root=args.repo_root.resolve(),
         repository=args.repository,
         commit_sha=args.commit_sha,

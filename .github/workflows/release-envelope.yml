@@ -6,7 +6,7 @@ on:
       release_tag:
         description: New or resumable immutable GitHub Release tag
         required: true
-        default: hackathon-v11
+        default: hackathon-v12
       release_target:
         description: Exact existing release target to reconcile; blank uses the workflow SHA
         required: false
@@ -74,7 +74,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           judge=public-demo/evidence/judge-verification.json
-          for plane in source vector_scale agent_pressure managed_mcp sandbox_provider agent_ablation release_guardian; do
+          for plane in source vector_scale agent_pressure managed_mcp sandbox_provider agent_ablation release_guardian time_distributed_replication; do
             case "$plane" in
               source)
                 run_id="$(jq -r '.source.workflow_run_id' "$judge")"
@@ -104,6 +104,10 @@ jobs:
                 run_id="$(jq -r '.release_guardian.workflow_run_id' "$judge")"
                 expected_head="$(jq -r '.release_guardian.head_sha' "$judge")"
                 ;;
+              time_distributed_replication)
+                run_id="$(jq -r '.time_distributed_replication.workflow_run_id' "$judge")"
+                expected_head="$(jq -r '.time_distributed_replication.head_sha' "$judge")"
+                ;;
             esac
             provider_receipt="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
             test "$(jq -r '.conclusion' <<<"$provider_receipt")" = success
@@ -112,7 +116,7 @@ jobs:
             fi
           done
 
-      - name: Download and bind exact sandbox, ablation, and guardian artifacts
+      - name: Download and bind exact sandbox, ablation, guardian, and replication artifacts
         if: steps.transaction.outputs.mode == 'new'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -120,8 +124,8 @@ jobs:
         run: |
           set -euo pipefail
           judge=public-demo/evidence/judge-verification.json
-          mkdir -p build/evidence/sandbox build/evidence/ablation build/evidence/guardian
-          for plane in sandbox_provider agent_ablation release_guardian; do
+          mkdir -p build/evidence/sandbox build/evidence/ablation build/evidence/guardian build/evidence/replication
+          for plane in sandbox_provider agent_ablation release_guardian time_distributed_replication; do
             artifact_id="$(jq -r ".$plane.artifact_id" "$judge")"
             artifact_name="$(jq -r ".$plane.artifact_name" "$judge")"
             expected_archive="sha256:$(jq -r ".$plane.artifact_archive_sha256" "$judge")"
@@ -132,6 +136,7 @@ jobs:
             target=build/evidence/sandbox
             if [ "$plane" = agent_ablation ]; then target=build/evidence/ablation; fi
             if [ "$plane" = release_guardian ]; then target=build/evidence/guardian; fi
+            if [ "$plane" = time_distributed_replication ]; then target=build/evidence/replication; fi
             gh run download \
               "$(jq -r ".$plane.workflow_run_id" "$judge")" \
               --name "$artifact_name" \
@@ -147,14 +152,25 @@ jobs:
             public-demo/evidence/episode-drilldown-v1.json
           test "$(sha256sum build/evidence/guardian/release-guardian-v1.json | cut -d' ' -f1)" = \
             "$(jq -r '.release_guardian.report_sha256' "$judge")"
+          test "$(sha256sum build/evidence/replication/release-guardian-replication-v1.json | cut -d' ' -f1)" = \
+            "$(jq -r '.time_distributed_replication.report_sha256' "$judge")"
+          test "$(sha256sum build/evidence/replication/release-guardian-replication-public-v1.json | cut -d' ' -f1)" = \
+            "$(jq -r '.time_distributed_replication.public_sha256' "$judge")"
+          cmp build/evidence/replication/release-guardian-replication-public-v1.json \
+            public-demo/evidence/release-guardian-replication-v1.json
           PYTHONPATH=src python - <<'PY'
           import json
           from pathlib import Path
           from continuum.release_guardian import build_public_release_guardian
+          from continuum.release_guardian_replication import build_public_release_guardian_replication
           raw = json.loads(Path("build/evidence/guardian/release-guardian-v1.json").read_text())
           public = json.loads(Path("public-demo/evidence/release-guardian-v1.json").read_text())
           if public != build_public_release_guardian(raw):
               raise SystemExit("public guardian projection does not match raw report")
+          replication = json.loads(Path("build/evidence/replication/release-guardian-replication-v1.json").read_text())
+          replication_public = json.loads(Path("public-demo/evidence/release-guardian-replication-v1.json").read_text())
+          if replication_public != build_public_release_guardian_replication(replication):
+              raise SystemExit("public replication projection does not match raw report")
           PY
 
       - name: Build the exact release payload once
@@ -173,6 +189,7 @@ jobs:
             --episode-drilldown public-demo/evidence/episode-drilldown-v1.json \
             --release-guardian-evidence build/evidence/guardian/release-guardian-v1.json \
             --release-guardian-public public-demo/evidence/release-guardian-v1.json \
+            --release-guardian-replication build/evidence/replication/release-guardian-replication-v1.json \
             --repo-root . \
             --repository "$GITHUB_REPOSITORY" \
             --commit-sha "$RELEASE_TARGET" \
@@ -188,12 +205,15 @@ jobs:
             build/release/episode-drilldown-v1.json
           cp build/evidence/guardian/release-guardian-v1.json \
             build/release/release-guardian-v1.json
+          cp build/evidence/replication/release-guardian-replication-v1.json \
+            build/release/release-guardian-replication-v1.json
           (
             cd build/release
             sha256sum sandbox-provider-proof.json >sandbox-provider-proof.json.sha256
             sha256sum agent-ablation-v3.json >agent-ablation-v3.json.sha256
             sha256sum episode-drilldown-v1.json >episode-drilldown-v1.json.sha256
             sha256sum release-guardian-v1.json >release-guardian-v1.json.sha256
+            sha256sum release-guardian-replication-v1.json >release-guardian-replication-v1.json.sha256
           )
 
       - name: Create the durable draft before author signing
@@ -215,6 +235,8 @@ jobs:
             build/release/episode-drilldown-v1.json.sha256 \
             build/release/release-guardian-v1.json \
             build/release/release-guardian-v1.json.sha256 \
+            build/release/release-guardian-replication-v1.json \
+            build/release/release-guardian-replication-v1.json.sha256 \
             --target "$RELEASE_TARGET" \
             --draft \
             --title "Continuum Memory Firewall evidence envelope" \
@@ -286,6 +308,8 @@ jobs:
               "episode-drilldown-v1.json.sha256",
               "release-guardian-v1.json",
               "release-guardian-v1.json.sha256",
+              "release-guardian-replication-v1.json",
+              "release-guardian-replication-v1.json.sha256",
           )
           root = Path("build/release")
           print(json.dumps({name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}, sort_keys=True))
@@ -475,6 +499,8 @@ jobs:
               "episode-drilldown-v1.json.sha256",
               "release-guardian-v1.json",
               "release-guardian-v1.json.sha256",
+              "release-guardian-replication-v1.json",
+              "release-guardian-replication-v1.json.sha256",
           )
           root = Path("build/release")
           print(json.dumps({name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}, sort_keys=True))

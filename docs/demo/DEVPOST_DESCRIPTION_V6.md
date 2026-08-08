@@ -12,27 +12,36 @@ Continuum makes memory promotion an outcome transaction:
 4. Bedrock may call only action-specific, parameter-free proposal tools; and
 5. only a verified external-provider receipt can become canonical memory.
 
-## New: real external effects, paired end to end
+## New: real effects replicated across time
 
-We ran the same 36 synthetic release incidents through raw-RAG and Continuum,
-72 observations total. The inputs are non-sensitive, but the external effects
-are real: GitHub draft releases and assets are created, inspected, reconciled,
-quarantined, or deleted through the production GitHub Releases API.
+We ran the same 36 synthetic release incidents through raw-RAG and Continuum in
+five separate, serial, main-only OIDC workflows: 180 pairs and 360 observations.
+The inputs are non-sensitive, but the external effects are real: Bedrock creates
+typed proposals, CockroachDB stores outcomes and canonical promotions, and
+GitHub draft releases and assets are created, inspected, reconciled, or deleted
+through the production API.
 
-- **Continuum:** 36/36 verified outcomes, 0 unsafe proposals, 0 unsafe memory
-  exposures, 0 false promotions, 0 duplicate effects, and 0 cleanup residuals.
-- **raw-RAG:** 31/36 verified outcomes, 5 unsafe proposals, 23 unsafe memory
-  exposures, and 5 failed outcomes promoted as memory.
-- **Paired lift:** +13.89 percentage points; bootstrap 95% interval +2.78 to
-  +25.0 points. The 36-pair exact p-value is 0.0625, so we present this as
-  high-value real-provider validation, not as an overstated standalone p < .05
-  result.
+- **Continuum:** 180/180 verified outcomes, 0 unsafe proposals, 0 unsafe memory
+  exposures, 0 unsafe citation adoptions, 0 false promotions, 0 duplicate
+  effects, 0 cleanup residuals, and 0 cross-scope leaks.
+- **raw-RAG:** 150/180 verified outcomes, 30 unsafe proposals, 112 unsafe memory
+  exposures, 37 unsafe citation adoptions, and 30 failed outcomes promoted as
+  memory.
+- **Temporal consistency:** Continuum beat raw-RAG in 5/5 batches. Aggregate
+  lift was +16.67 percentage points; hierarchical workflow-cluster bootstrap
+  95% interval +10.0 to +24.44 points.
+- **Receipt integrity:** all 330 successful outcomes had non-null, unique
+  provider receipt fingerprints; all disposable effects were removed.
 
-The one-click judge page checks the successful workflow and artifact APIs, raw
-report and public-projection digests, immutable release asset, exact population,
-provider capability manifest, and zero-residual cleanup. A paired drill-down
-shows the proposal, provider receipt fingerprint, promotion decision, and
-latency for both arms.
+The same 36 incident definitions recur in five time clusters, so we do not
+pretend these are 180 independent designs. The 180-execution exact p-value is
+descriptive only; the cluster-aware interval and five-batch direction
+consistency are the primary evidence.
+
+The one-click judge page fetches the aggregate workflow/artifact and all five
+source workflow/artifact receipts, then checks source SHA, population checksum,
+run attempts, digests, time spacing, safety, cleanup, and immutable release
+asset. No judge credential is required.
 
 ## Why CockroachDB and AWS are essential
 
@@ -53,10 +62,11 @@ Budget alert.
 
 ## One immutable proof unit
 
-`hackathon-v11` binds the application evidence, 50k vector benchmark, 50-agent
+`hackathon-v12` binds the application evidence, 50k vector benchmark, 50-agent
 pressure report, 540-observation three-arm ablation, 180-case episode explorer,
-real-provider guardian raw report, RLS checksum, key-rotation receipt, Devpost
-receipt, workflow artifact digests, and public judge evidence. The release
+single-run guardian, five time-distributed guardian receipts, their 180-pair
+aggregate, RLS checksum, key-rotation receipt, Devpost receipt, workflow
+artifact digests, and public judge evidence. The release
 transaction is durable-draft-first, author-signed once through Sigstore, made
 immutable, automatically reconciled after crashes, and materialized through
 Pages.
@@ -67,4 +77,5 @@ Pages.
 - Product proof: https://yonghwan2161.github.io/continuum-memory-firewall/
 - One-click verifier: https://yonghwan2161.github.io/continuum-memory-firewall/verify.html
 - Real-provider paired explorer: https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian.html
+- Five-batch time explorer: https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian-replication.html
 - Source: https://github.com/YongHwan2161/continuum-memory-firewall

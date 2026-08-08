@@ -13,6 +13,10 @@ from urllib.request import Request, urlopen
 
 from scripts.release_transaction_coordinator import verify_receipt
 from continuum.release_guardian import build_public_release_guardian
+from continuum.release_guardian_replication import (
+    EXPECTED_REPLICATION_IDS,
+    build_public_release_guardian_replication,
+)
 
 
 DEFAULT_EVIDENCE_URL = (
@@ -57,6 +61,92 @@ def get_json(url: str) -> dict[str, Any]:
 
 def get_text(url: str) -> str:
     return _get_bytes(url).decode("utf-8", errors="strict")
+
+
+def verify_time_distributed_replication(
+    evidence: dict[str, Any],
+    *,
+    fetch_json: Callable[[str], dict[str, Any]],
+    fetch_bytes: Callable[[str], bytes],
+) -> bool:
+    """Verify the public aggregate and all five provider receipts."""
+
+    reference = evidence.get("time_distributed_replication")
+    if reference is None:
+        return True
+    repository = str(evidence.get("source", {}).get("repository", ""))
+    if not repository:
+        return False
+    try:
+        workflow = fetch_json(reference["workflow_api_url"])
+        artifact = fetch_json(reference["artifact_api_url"])
+        public_bytes = fetch_bytes(reference["public_url"])
+        public_sha = hashlib.sha256(public_bytes.replace(b"\r\n", b"\n")).hexdigest()
+        report = json.loads(public_bytes.decode("utf-8"))
+        if not isinstance(report, dict):
+            return False
+        build_public_release_guardian_replication(report)
+        source_head = str(reference["head_sha"])
+        replication_set = report["replication_set"]
+        receipts = replication_set["batch_receipts"]
+        if not isinstance(receipts, list) or len(receipts) != 5:
+            return False
+        batch_workflows = [
+            fetch_json(
+                f"https://api.github.com/repos/{repository}/actions/runs/"
+                f"{int(receipt['workflow_run_id'])}"
+            )
+            for receipt in receipts
+        ]
+        batch_artifacts = [
+            fetch_json(str(receipt["artifact_api_url"])) for receipt in receipts
+        ]
+    except (KeyError, RuntimeError, TypeError, ValueError, json.JSONDecodeError):
+        return False
+    receipt_ids = [str(receipt.get("replication_id", "")) for receipt in receipts]
+    run_ids = [int(receipt.get("workflow_run_id", 0)) for receipt in receipts]
+    return (
+        workflow.get("id") == reference.get("workflow_run_id")
+        and workflow.get("run_attempt") == reference.get("workflow_run_attempt")
+        and workflow.get("conclusion") == "success"
+        and workflow.get("head_sha") == source_head
+        and artifact.get("id") == reference.get("artifact_id")
+        and artifact.get("name") == reference.get("artifact_name")
+        and artifact.get("digest")
+        == "sha256:" + str(reference.get("artifact_archive_sha256", ""))
+        and artifact.get("expired") is False
+        and artifact.get("workflow_run", {}).get("id")
+        == reference.get("workflow_run_id")
+        and public_sha == reference.get("public_sha256")
+        and report.get("source_head") == source_head
+        and report.get("case_population_sha256")
+        == reference.get("case_population_sha256")
+        and report.get("aggregation_workflow", {}).get("workflow_run_id")
+        == reference.get("workflow_run_id")
+        and report.get("aggregation_workflow", {}).get("workflow_run_attempt")
+        == reference.get("workflow_run_attempt")
+        and receipt_ids == list(EXPECTED_REPLICATION_IDS)
+        and len(set(run_ids)) == 5
+        and all(
+            batch_workflow.get("id") == run_id
+            and batch_workflow.get("run_attempt")
+            == receipt.get("workflow_run_attempt")
+            and batch_workflow.get("conclusion") == "success"
+            and batch_workflow.get("head_sha") == source_head
+            and batch_artifact.get("id") == receipt.get("artifact_id")
+            and batch_artifact.get("name") == receipt.get("artifact_name")
+            and batch_artifact.get("digest") == receipt.get("artifact_digest")
+            and batch_artifact.get("expired") is False
+            and batch_artifact.get("workflow_run", {}).get("id") == run_id
+            for receipt, run_id, batch_workflow, batch_artifact in zip(
+                receipts,
+                run_ids,
+                batch_workflows,
+                batch_artifacts,
+                strict=True,
+            )
+        )
+    )
 
 
 def verify_evidence(
@@ -177,6 +267,14 @@ def verify_evidence(
             and pressure_report.get("gate", {}).get("synthetic_rows_cleaned") is True
         ),
     }
+    if "time_distributed_replication" in evidence:
+        checks["time_distributed_real_provider_replication"] = (
+            verify_time_distributed_replication(
+                evidence,
+                fetch_json=fetch_json,
+                fetch_bytes=fetch_bytes,
+            )
+        )
     if schema_version >= 5:
         lineage = evidence["lineage"]
         sandbox_reference = evidence["sandbox_provider"]
@@ -231,6 +329,7 @@ def verify_evidence(
         guardian_public_sha = ""
         guardian_raw_sha = ""
         guardian_asset: dict[str, Any] = {}
+        replication_asset: dict[str, Any] = {}
         if schema_version >= 8:
             guardian_reference = evidence["release_guardian"]
             guardian_workflow = fetch_json(
@@ -263,6 +362,11 @@ def verify_evidence(
                 release_reference["guardian_asset_name"],
                 {},
             )
+            if "time_distributed_replication" in evidence:
+                replication_asset = release_assets.get(
+                    release_reference["replication_asset_name"],
+                    {},
+                )
         network_reference: dict[str, Any] = {}
         signature_bundle_asset: dict[str, Any] = {}
         signature_bundle_sha = ""
@@ -555,6 +659,14 @@ def verify_evidence(
                         or guardian_asset.get("digest")
                         == "sha256:" + guardian_reference["report_sha256"]
                     )
+                    and (
+                        "time_distributed_replication" not in evidence
+                        or replication_asset.get("digest")
+                        == "sha256:"
+                        + evidence["time_distributed_replication"][
+                            "report_sha256"
+                        ]
+                    )
                 ),
                 "release_envelope_gate": (
                     envelope.get("schema_version") == 2
@@ -573,6 +685,15 @@ def verify_evidence(
                             "report_sha256"
                         )
                         == guardian_reference.get("report_sha256")
+                    )
+                    and (
+                        "time_distributed_replication" not in evidence
+                        or envelope.get(
+                            "time_distributed_replication", {}
+                        ).get("report_sha256")
+                        == evidence["time_distributed_replication"].get(
+                            "report_sha256"
+                        )
                     )
                 ),
                 "rls_checksum_bound": (

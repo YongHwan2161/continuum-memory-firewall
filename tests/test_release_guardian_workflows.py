@@ -35,6 +35,23 @@ class ReleaseGuardianWorkflowTests(unittest.TestCase):
         self.assertIn(".methodology.paired_cases == 180", workflow)
         self.assertIn(".methodology.arm_observations == 360", workflow)
 
+    def test_every_aws_workflow_pins_the_reviewed_node24_credential_action(self) -> None:
+        expected = (
+            "aws-actions/configure-aws-credentials@"
+            "e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3, Node 24"
+        )
+        workflows = list((ROOT / ".github/workflows").glob("aws-*.yml"))
+        credential_workflows = [
+            path
+            for path in workflows
+            if "configure-aws-credentials@" in path.read_text(encoding="utf-8")
+        ]
+        self.assertEqual(len(credential_workflows), 10)
+        for path in credential_workflows:
+            source = path.read_text(encoding="utf-8")
+            self.assertIn(expected, source, path.name)
+            self.assertNotIn("configure-aws-credentials@v4", source, path.name)
+
 
 if __name__ == "__main__":
     unittest.main()
