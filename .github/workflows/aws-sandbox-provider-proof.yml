@@ -21,7 +21,7 @@ jobs:
       CONTINUUM_MCP_STACK_NAME: continuum-authenticated-mcp
       CONTINUUM_SANDBOX_STACK_NAME: continuum-sandbox-provider
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
       - name: Require reviewed main lineage
         run: test "$GITHUB_REF" = "refs/heads/main"
       - uses: aws-actions/configure-aws-credentials@v4
@@ -31,7 +31,7 @@ jobs:
           role-session-name: continuum-sandbox-provider-proof
       - name: Prove dedicated deployment role
         run: ./scripts/assert_deployer_identity.sh
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0, Node 24
         with:
           python-version: "3.12"
       - name: Build and stage bounded sandbox provider
@@ -125,7 +125,7 @@ jobs:
           ' sandbox-provider-proof.json >/dev/null
           sha256sum sandbox-provider-proof.json | tee sandbox-provider-proof.sha256
           jq '{schema_version,source_head,provider,provider_capabilities,send_count,logical_effect_count,receipt_lookup_matched,gate}' sandbox-provider-proof.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0 # v7.0.1, Node 24
         with:
           name: aws-sandbox-provider-proof-${{ github.sha }}
           path: |

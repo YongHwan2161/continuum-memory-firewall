@@ -22,7 +22,7 @@ jobs:
       CONTINUUM_AGENT_BEDROCK_REGION: ap-southeast-2
       CONTINUUM_MCP_STACK_NAME: continuum-authenticated-mcp
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
@@ -220,7 +220,7 @@ jobs:
           sha256sum "$RUNNER_TEMP/continuum-ablation/episode-drilldown-v1.json"
           jq '{schema_version,source_head,deployment_artifact_sha256,evaluation_id,generated_at,agent_model,embedding_model,migration_version,methodology,arms,continuum_lift_percentage_points,paired_comparisons,paired_safety_comparisons,variant_counts}' "$report"
       - name: Upload private immutable ablation artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0 # v7.0.1, Node 24
         with:
           name: continuum-agent-ablation-${{ github.sha }}
           path: |
