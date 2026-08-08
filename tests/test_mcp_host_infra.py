@@ -116,6 +116,7 @@ class McpHostInfrastructureTests(unittest.TestCase):
             "cutover_scope_identity.py",
             "live_semantic_eval.py",
             "run_live_agent_ablation.py",
+            "run_live_release_guardian.py",
             "run_live_outbox_faults.py",
             "seed_judge_story.py",
             "remote_oidc_smoke.py",
@@ -140,6 +141,24 @@ class McpHostInfrastructureTests(unittest.TestCase):
         self.assertIn("resamples] | all(. == 10000)", workflow)
         self.assertIn("deploy_mcp_host_direct_recovery.sh", workflow)
         self.assertIn("UPDATE_ROLLBACK_FAILED", workflow)
+
+    def test_release_guardian_uses_ephemeral_provider_token_and_self_revokes(self):
+        workflow = (
+            ROOT / ".github" / "workflows" / "aws-release-guardian.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("environment: continuum-production", workflow)
+        self.assertIn("id-token: write", workflow)
+        self.assertIn("contents: write", workflow)
+        self.assertIn("ContinuumReleaseGuardianOneCommand", workflow)
+        self.assertIn("aws iam delete-role-policy", workflow)
+        self.assertIn("release-guardian-tombstone.json", workflow)
+        self.assertIn("--secret-string \"file://$secret_file\"", workflow)
+        self.assertIn("--secret-string \"file://$tombstone\"", workflow)
+        self.assertNotIn("--github-token '$GUARDIAN_GITHUB_TOKEN'", workflow)
+        self.assertIn(".methodology.paired_cases == 36", workflow)
+        self.assertIn(".arms.continuum.provider_success_rate >= .95", workflow)
+        self.assertIn(".arms.continuum.cleanup_residual_count == 0", workflow)
+        self.assertIn("CONTINUUM_MONTHLY_BUDGET_USD=20", workflow)
 
     def test_outbox_fault_workflow_is_keyless_bounded_and_self_revoking(self):
         workflow = (
