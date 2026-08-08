@@ -122,17 +122,20 @@ complete attestations and organizer agreements.
       incident, verifier, 10k/50k ANN, and 10/25/50-agent pressure evidence
 - [x] Secret-free screenshots captured for the live overview, policy rejection,
       and one-owner failover in [docs/demo/](demo/)
-- [x] Crash-reconciliation demo uploaded publicly to YouTube and embedded on
-      Devpost: <https://youtu.be/NOkD8YaTyAo>; 101.674 seconds; SHA-256
-      `d273d0ff8d6885a7172299ff60987a69af32b798e7c7b1031efab755bf471252`.
-      It leads with failure, immutable-release preservation, zero recovery
-      re-signatures, automatic reconciliation, and public PASS. Burned-in
-      English captions, public visibility, AI disclosure, and a no-issues
-      copyright check were confirmed on 2026-08-08.
-- [x] Devpost project version 15 reflects the crash-safe release transaction,
-      property-based and disposable-provider fault evidence, Node 24 immutable
-      action pins, and the new public video; project timestamp
-      `2026-08-08T01:26:33.680-04:00`
+- [x] Real-provider demo uploaded publicly to YouTube and embedded on Devpost:
+      <https://youtu.be/OEPYF7cVpbs>; 99.53 seconds; SHA-256
+      `d5d7cc82bcce93e5db736cfef7331f64ce667eb4ff9055315c8b697717f09f8f`.
+      It leads with the failed-action memory problem, compares 36/36 Continuum
+      outcomes with 31/36 raw-RAG outcomes against real GitHub effects, shows
+      the provider-issued identity repair, and ends at public PASS. English
+      (US) SRT publication, public visibility, and a no-issues copyright check
+      were confirmed on 2026-08-08.
+- [x] Devpost description and video reflect the real-provider paired guardian,
+      immutable release transaction, Node 24 immutable action pins, and the
+      current public judge path. The authenticated Devpost update returned
+      project version `16` at `2026-08-08T04:51:45.650-04:00`; a requirements
+      refresh followed by re-submission returned submission `1121568` as
+      `Submitted`.
 - [x] Measured 60-query, 10k/50k, and 10/25/50-agent results recorded;
       production-quality generalization remains an explicit non-claim
 - [x] Final technology inventory limited to deployed/tested components in

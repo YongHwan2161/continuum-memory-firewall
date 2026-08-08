@@ -98,15 +98,14 @@ Exit criteria:
 with paired stale/poison/conflict pressure. Continuum produced 180/180 verified
 outcomes versus raw-RAG 95/180 (+47.222 points; paired cluster-bootstrap 95% CI
 +30.556 to +63.889), zero unsafe proposals, zero poison exposure, zero leakage,
-and zero false promotion. The outcome-first 100.918-second public video and
-Devpost version 14, release-envelope v10 with one author Sigstore provenance,
-one explicitly classified GitHub immutable-release countersignature, and a
-five-state crash-reconciled release receipt, plus the exact-head 180-case
-per-episode paired judge drill-down are complete. The drill-down is generated
-from the same 540-observation live artifact and binds every search, issued
-handle fingerprint, typed proposal, provider outcome, and promotion decision.
-The remaining evidence priority is outcome-weighted recovery latency and
-signed judge-path burn-in through the evaluation window.
+and zero false promotion. The 99.53-second real-provider public video, updated
+Devpost submission, release-envelope v11 with one author Sigstore provenance,
+one explicitly classified GitHub immutable-release countersignature, a
+five-state crash-reconciled release receipt, the exact-head 180-case episode
+drill-down, and the 36-pair real GitHub Releases guardian are complete. The
+guardian adds external-validity evidence without pooling it into the 540-case
+synthetic ablation. The remaining evidence priority is signed judge-path burn-in
+through the submission and judging windows.
 
 Implement:
 

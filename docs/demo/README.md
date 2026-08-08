@@ -27,11 +27,17 @@ identifier, or private participant information.
   paired arms before explaining the episode contract and one-click proof.
 - `DEMO_NARRATION_V5.md` — crash-first narration: immutable release preserved,
   zero re-signatures, automatic reconciliation, and public coordinator proof.
+- `DEMO_NARRATION_V6.md` — real-provider narration: failed-action memory
+  problem, 36 paired GitHub incidents, outcome-gated promotion, failed-first
+  identity repair, immutable release, and one-click proof.
 - `continuum-memory-firewall-v4.en.srt` — exact English captions for the
   public 100.918-second outcome demo.
 - `continuum-memory-firewall-v5.en.srt` — exact English caption source for the
   public 101.674-second crash-reconciliation demo. The rendered video includes
   the captions directly; its public URL is <https://youtu.be/NOkD8YaTyAo>.
+- `build/demo-v6/continuum-memory-firewall-v6.en.srt` — generated English (US)
+  captions published with the 99.53-second real-provider video at
+  <https://youtu.be/OEPYF7cVpbs>.
 
 The browser console is an executable simulation of the policy and concurrency
 contract. The OIDC, RLS, Titan, Recall@3, and leakage statements shown in its
@@ -138,3 +144,27 @@ python scripts/build_demo_video_v5.py `
 The v5 builder requires a five-event `PAGES_MATERIALIZED` receipt containing a
 coordinator run and artifact digest, a non-signing disposable fault-matrix
 `PASS`, judge schema v7 or later, and the 180-case-per-arm ablation report.
+
+For the real-provider v6 entry, download the public terminal receipt, capture
+the completed verifier, synthesize nine disposable narration segments, and run:
+
+```powershell
+powershell -File scripts/synthesize_demo_narration_v4.ps1 `
+  -Narration docs/demo/DEMO_NARRATION_V6.md `
+  -OutputDirectory build/demo-v6/narration `
+  -Rate 4
+
+python scripts/build_demo_video_v6.py `
+  --judge-evidence public-demo/evidence/judge-verification.json `
+  --guardian-evidence public-demo/evidence/release-guardian-v1.json `
+  --transaction-evidence build/demo-v6/release-transaction-receipt.json `
+  --verifier-screenshot build/demo-v6/verifier-pass.png `
+  --narration-text docs/demo/DEMO_NARRATION_V6.md `
+  --narration-dir build/demo-v6/narration `
+  --subtitles build/demo-v6/continuum-memory-firewall-v6.en.srt `
+  --output build/demo-v6/continuum-memory-firewall-demo-v6.mp4
+```
+
+The v6 builder requires judge schema v8, a 36-pair/72-observation real-provider
+guardian `PASS`, and a five-event `PAGES_MATERIALIZED` transaction receipt. It
+also enforces the 90–120 second competition duration.
