@@ -529,7 +529,8 @@ jobs:
             --input "$receipt" --expected-state IMMUTABLE
           jq '{id,tag_name,target_commitish,immutable,assets:[.assets[]|{name,state,digest}]}' <<<"$release"
 
-      - uses: actions/upload-artifact@v4
+      - id: transaction-artifact
+        uses: actions/upload-artifact@v4
         with:
           name: release-transaction-${{ inputs.release_tag }}-${{ github.sha }}
           path: build/release/*
@@ -539,4 +540,11 @@ jobs:
       - name: Materialize the final receipt through Pages
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run pages.yml --ref main
+          COORDINATOR_ARTIFACT_ID: ${{ steps.transaction-artifact.outputs.artifact-id }}
+          COORDINATOR_ARTIFACT_DIGEST: ${{ steps.transaction-artifact.outputs.artifact-digest }}
+        run: |
+          gh workflow run pages.yml --ref main \
+            -f coordinator_workflow_run_id="$GITHUB_RUN_ID" \
+            -f coordinator_source_digest="$GITHUB_SHA" \
+            -f coordinator_artifact_id="$COORDINATOR_ARTIFACT_ID" \
+            -f coordinator_artifact_digest="$COORDINATOR_ARTIFACT_DIGEST"

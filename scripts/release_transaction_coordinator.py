@@ -168,6 +168,32 @@ def _validate_evidence(
             raise RuntimeError("PAGES_MATERIALIZED requires a workflow run")
         if not SHA_PATTERN.fullmatch(str(evidence.get("pages_source_digest", ""))):
             raise RuntimeError("PAGES_MATERIALIZED materializer digest is invalid")
+        coordinator_run_id = int(evidence.get("coordinator_workflow_run_id", 0))
+        coordinator_artifact_id = int(evidence.get("coordinator_artifact_id", 0))
+        coordinator_source = str(evidence.get("coordinator_source_digest", ""))
+        expected_artifact_name = (
+            f"release-transaction-{release_tag}-{coordinator_source}"
+        )
+        if coordinator_run_id < 1 or coordinator_artifact_id < 1:
+            raise RuntimeError("PAGES_MATERIALIZED coordinator identity is invalid")
+        if not SHA_PATTERN.fullmatch(coordinator_source):
+            raise RuntimeError("PAGES_MATERIALIZED coordinator digest is invalid")
+        if evidence.get("coordinator_artifact_name") != expected_artifact_name:
+            raise RuntimeError("PAGES_MATERIALIZED coordinator artifact name is invalid")
+        if not str(evidence.get("coordinator_artifact_digest", "")).startswith(
+            "sha256:"
+        ) or not SHA256_PATTERN.fullmatch(
+            str(evidence.get("coordinator_artifact_digest", ""))[7:]
+        ):
+            raise RuntimeError("PAGES_MATERIALIZED coordinator artifact digest is invalid")
+        if not SHA256_PATTERN.fullmatch(
+            str(evidence.get("coordinator_receipt_sha256", ""))
+        ):
+            raise RuntimeError("PAGES_MATERIALIZED coordinator receipt is invalid")
+        if not str(evidence.get("coordinator_workflow_url", "")).startswith(
+            "https://github.com/"
+        ):
+            raise RuntimeError("PAGES_MATERIALIZED coordinator URL is invalid")
         if not str(evidence.get("pages_workflow_url", "")).startswith(
             "https://github.com/"
         ):

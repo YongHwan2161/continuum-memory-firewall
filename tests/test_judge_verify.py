@@ -391,6 +391,17 @@ class JudgeVerificationTests(unittest.TestCase):
                     "https://github.com/o/r/actions/runs/12"
                 ),
                 "pages_source_digest": candidate,
+                "coordinator_workflow_run_id": 11,
+                "coordinator_workflow_url": (
+                    "https://github.com/o/r/actions/runs/11"
+                ),
+                "coordinator_source_digest": "b" * 40,
+                "coordinator_artifact_id": 10,
+                "coordinator_artifact_name": (
+                    "release-transaction-hackathon-v5-" + "b" * 40
+                ),
+                "coordinator_artifact_digest": "sha256:" + "7" * 64,
+                "coordinator_receipt_sha256": "6" * 64,
                 "public_receipt_url": transaction_url,
                 "release_tag": "hackathon-v5",
                 "release_target": candidate,
@@ -517,6 +528,18 @@ class JudgeVerificationTests(unittest.TestCase):
             "https://api.github.com/repos/o/r/actions/runs/12": {
                 "conclusion": "success",
                 "head_sha": candidate,
+            },
+            "https://api.github.com/repos/o/r/actions/runs/11": {
+                "id": 11,
+                "conclusion": "success",
+                "head_sha": "b" * 40,
+            },
+            "https://api.github.com/repos/o/r/actions/artifacts/10": {
+                "id": 10,
+                "name": "release-transaction-hackathon-v5-" + "b" * 40,
+                "digest": "sha256:" + "7" * 64,
+                "expired": False,
+                "workflow_run": {"id": 11},
             },
         }
 

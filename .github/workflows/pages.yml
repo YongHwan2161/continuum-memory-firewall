@@ -11,6 +11,23 @@ on:
     types:
       - published
   workflow_dispatch:
+    inputs:
+      coordinator_workflow_run_id:
+        description: Exact release transaction coordinator run
+        required: false
+        default: ""
+      coordinator_source_digest:
+        description: Exact coordinator workflow source SHA
+        required: false
+        default: ""
+      coordinator_artifact_id:
+        description: Exact coordinator artifact ID
+        required: false
+        default: ""
+      coordinator_artifact_digest:
+        description: Exact coordinator artifact digest
+        required: false
+        default: ""
 
 permissions:
   actions: read
@@ -39,6 +56,10 @@ jobs:
       - name: Materialize the signed envelope bundle
         env:
           GH_TOKEN: ${{ github.token }}
+          COORDINATOR_RUN_ID_INPUT: ${{ inputs.coordinator_workflow_run_id }}
+          COORDINATOR_SOURCE_INPUT: ${{ inputs.coordinator_source_digest }}
+          COORDINATOR_ARTIFACT_ID_INPUT: ${{ inputs.coordinator_artifact_id }}
+          COORDINATOR_ARTIFACT_DIGEST_INPUT: ${{ inputs.coordinator_artifact_digest }}
         shell: bash
         run: |
           set -euo pipefail
@@ -68,6 +89,65 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --pattern release-transaction-receipt.json \
               --dir "$RUNNER_TEMP/network-sign-once"
+
+            coordinator_run_id="$COORDINATOR_RUN_ID_INPUT"
+            coordinator_source_digest="$COORDINATOR_SOURCE_INPUT"
+            coordinator_artifact_id="$COORDINATOR_ARTIFACT_ID_INPUT"
+            coordinator_artifact_digest="$COORDINATOR_ARTIFACT_DIGEST_INPUT"
+            if [ -z "$coordinator_run_id" ]; then
+              coordinator_run="$(gh run list \
+                --workflow release-envelope.yml \
+                --status success \
+                --limit 1 \
+                --json databaseId,headSha,url \
+                --jq '.[0]')"
+              coordinator_run_id="$(jq -r '.databaseId' <<<"$coordinator_run")"
+              coordinator_source_digest="$(jq -r '.headSha' <<<"$coordinator_run")"
+              coordinator_artifacts="$(gh api \
+                "repos/$GITHUB_REPOSITORY/actions/runs/$coordinator_run_id/artifacts")"
+              coordinator_artifact="$(jq -c \
+                --arg name "release-transaction-$tag-$coordinator_source_digest" \
+                '.artifacts | map(select(.name == $name)) | if length == 1 then .[0] else error("coordinator artifact not unique") end' \
+                <<<"$coordinator_artifacts")"
+              coordinator_artifact_id="$(jq -r '.id' <<<"$coordinator_artifact")"
+              coordinator_artifact_digest="$(jq -r '.digest' <<<"$coordinator_artifact")"
+            fi
+            [[ "$coordinator_run_id" =~ ^[1-9][0-9]*$ ]]
+            [[ "$coordinator_source_digest" =~ ^[0-9a-f]{40}$ ]]
+            [[ "$coordinator_artifact_id" =~ ^[1-9][0-9]*$ ]]
+            [[ "$coordinator_artifact_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+
+            for attempt in $(seq 1 12); do
+              coordinator_run="$(gh api \
+                "repos/$GITHUB_REPOSITORY/actions/runs/$coordinator_run_id")"
+              if [ "$(jq -r '.conclusion' <<<"$coordinator_run")" = success ]; then
+                break
+              fi
+              sleep 5
+            done
+            test "$(jq -r '.conclusion' <<<"$coordinator_run")" = success
+            test "$(jq -r '.head_sha' <<<"$coordinator_run")" = "$coordinator_source_digest"
+            coordinator_artifact="$(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/artifacts/$coordinator_artifact_id")"
+            coordinator_artifact_name="release-transaction-$tag-$coordinator_source_digest"
+            test "$(jq -r '.name' <<<"$coordinator_artifact")" = "$coordinator_artifact_name"
+            test "$(jq -r '.digest' <<<"$coordinator_artifact")" = "$coordinator_artifact_digest"
+            test "$(jq -r '.expired' <<<"$coordinator_artifact")" = false
+            test "$(jq -r '.workflow_run.id' <<<"$coordinator_artifact")" = "$coordinator_run_id"
+            mkdir -p "$RUNNER_TEMP/release-coordinator"
+            gh run download "$coordinator_run_id" \
+              --name "$coordinator_artifact_name" \
+              --dir "$RUNNER_TEMP/release-coordinator"
+            coordinator_receipt="$RUNNER_TEMP/release-coordinator/release-transaction-receipt.json"
+            python scripts/release_transaction_coordinator.py verify \
+              --input "$coordinator_receipt" \
+              --expected-state IMMUTABLE
+            test "$(jq -r '.release_tag' "$coordinator_receipt")" = "$tag"
+            test "$(jq -r '.source_digest' "$coordinator_receipt")" = \
+              "$(jq -r '.target_commitish' <<<"$receipt")"
+            test "$(jq -r '.transaction_id' "$coordinator_receipt")" = \
+              "$(jq -r '.transaction_id' "$RUNNER_TEMP/network-sign-once/release-transaction-receipt.json")"
+            coordinator_receipt_sha256="$(jq -r '.receipt_sha256' "$coordinator_receipt")"
             (
               cd "$RUNNER_TEMP/network-sign-once"
               gh attestation download continuum-release-envelope-v2.json \
@@ -107,11 +187,18 @@ jobs:
               --argjson pages_workflow_run_id "$GITHUB_RUN_ID" \
               --arg pages_workflow_url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
               --arg pages_source_digest "$GITHUB_SHA" \
+              --argjson coordinator_workflow_run_id "$coordinator_run_id" \
+              --arg coordinator_workflow_url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$coordinator_run_id" \
+              --arg coordinator_source_digest "$coordinator_source_digest" \
+              --argjson coordinator_artifact_id "$coordinator_artifact_id" \
+              --arg coordinator_artifact_name "$coordinator_artifact_name" \
+              --arg coordinator_artifact_digest "$coordinator_artifact_digest" \
+              --arg coordinator_receipt_sha256 "$coordinator_receipt_sha256" \
               --arg public_receipt_url "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/release-transaction-receipt.json" \
               --arg release_tag "$tag" \
               --arg release_target "$(jq -r '.target_commitish' <<<"$receipt")" \
               --arg public_bundle_sha256 "$network_sha" \
-              '{status:"success",pages_workflow_run_id:$pages_workflow_run_id,pages_workflow_url:$pages_workflow_url,pages_source_digest:$pages_source_digest,public_receipt_url:$public_receipt_url,release_tag:$release_tag,release_target:$release_target,public_bundle_sha256:$public_bundle_sha256}' \
+              '{status:"success",pages_workflow_run_id:$pages_workflow_run_id,pages_workflow_url:$pages_workflow_url,pages_source_digest:$pages_source_digest,coordinator_workflow_run_id:$coordinator_workflow_run_id,coordinator_workflow_url:$coordinator_workflow_url,coordinator_source_digest:$coordinator_source_digest,coordinator_artifact_id:$coordinator_artifact_id,coordinator_artifact_name:$coordinator_artifact_name,coordinator_artifact_digest:$coordinator_artifact_digest,coordinator_receipt_sha256:$coordinator_receipt_sha256,public_receipt_url:$public_receipt_url,release_tag:$release_tag,release_target:$release_target,public_bundle_sha256:$public_bundle_sha256}' \
               >"$RUNNER_TEMP/network-sign-once/pages.json"
             python scripts/release_transaction_coordinator.py advance \
               --input "$RUNNER_TEMP/network-sign-once/immutable-receipt.json" \

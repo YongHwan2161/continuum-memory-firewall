@@ -335,6 +335,10 @@ class NetworkSignOnceTests(unittest.TestCase):
         self.assertIn("--method GET", pages_workflow)
         self.assertIn("predicate_type=https://slsa.dev/provenance/v1", pages_workflow)
         self.assertNotIn("predicate_type=https%3A%2F%2F", pages_workflow)
+        self.assertIn("coordinator_workflow_run_id", pages_workflow)
+        self.assertIn("coordinator_artifact_digest", pages_workflow)
+        self.assertIn("--expected-state IMMUTABLE", pages_workflow)
+        self.assertIn("steps.transaction-artifact.outputs.artifact-digest", release_workflow)
         self.assertIn("Verify the materialized transaction receipt", pages_workflow)
 
 
