@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 from scripts.release_transaction_coordinator import verify_receipt
+from continuum.release_guardian import build_public_release_guardian
 
 
 DEFAULT_EVIDENCE_URL = (
@@ -132,7 +133,7 @@ def verify_evidence(
             and runtime["control_plane_and_migrator_role_options_empty"] is True
         ),
         "representative_scale_gate": (
-            schema_version in {4, 5, 6, 7}
+            schema_version in {4, 5, 6, 7, 8}
             and scale_report.get("gate", {}).get("status") == "PASS"
             and [scale.get("row_count") for scale in scales] == [10_000, 50_000]
         ),
@@ -220,6 +221,46 @@ def verify_evidence(
             ).hexdigest()
             drilldown_asset = release_assets.get(
                 release_reference["drilldown_asset_name"],
+                {},
+            )
+        guardian_reference: dict[str, Any] = {}
+        guardian_workflow: dict[str, Any] = {}
+        guardian_artifact: dict[str, Any] = {}
+        guardian_public: dict[str, Any] = {}
+        guardian_raw: dict[str, Any] = {}
+        guardian_public_sha = ""
+        guardian_raw_sha = ""
+        guardian_asset: dict[str, Any] = {}
+        if schema_version >= 8:
+            guardian_reference = evidence["release_guardian"]
+            guardian_workflow = fetch_json(
+                guardian_reference["workflow_api_url"]
+            )
+            guardian_artifact = fetch_json(
+                guardian_reference["artifact_api_url"]
+            )
+            guardian_public_bytes = fetch_bytes(
+                guardian_reference["public_url"]
+            )
+            guardian_public_sha = hashlib.sha256(
+                guardian_public_bytes.replace(b"\r\n", b"\n")
+            ).hexdigest()
+            parsed_guardian_public = json.loads(
+                guardian_public_bytes.decode("utf-8")
+            )
+            if isinstance(parsed_guardian_public, dict):
+                guardian_public = parsed_guardian_public
+            guardian_raw_bytes = fetch_bytes(
+                release_reference["guardian_asset_url"]
+            )
+            guardian_raw_sha = hashlib.sha256(
+                guardian_raw_bytes.replace(b"\r\n", b"\n")
+            ).hexdigest()
+            parsed_guardian_raw = json.loads(guardian_raw_bytes.decode("utf-8"))
+            if isinstance(parsed_guardian_raw, dict):
+                guardian_raw = parsed_guardian_raw
+            guardian_asset = release_assets.get(
+                release_reference["guardian_asset_name"],
                 {},
             )
         network_reference: dict[str, Any] = {}
@@ -416,6 +457,53 @@ def verify_evidence(
                     )
                 ),
                 "citation_handle_grounding": grounding_failures == 0,
+                "real_provider_release_guardian": (
+                    schema_version < 8
+                    or (
+                        guardian_workflow.get("conclusion") == "success"
+                        and guardian_workflow.get("head_sha")
+                        == guardian_reference.get("head_sha")
+                        and guardian_artifact.get("id")
+                        == guardian_reference.get("artifact_id")
+                        and guardian_artifact.get("name")
+                        == guardian_reference.get("artifact_name")
+                        and guardian_artifact.get("digest")
+                        == "sha256:"
+                        + guardian_reference.get(
+                            "artifact_archive_sha256", ""
+                        )
+                        and guardian_artifact.get("expired") is False
+                        and guardian_raw_sha
+                        == guardian_reference.get("report_sha256")
+                        and guardian_public_sha
+                        == guardian_reference.get("public_sha256")
+                        and guardian_public
+                        == build_public_release_guardian(guardian_raw)
+                        and guardian_raw.get("real_external_provider") is True
+                        and guardian_raw.get("methodology", {}).get(
+                            "paired_cases"
+                        )
+                        == 36
+                        and guardian_raw.get("methodology", {}).get(
+                            "arm_observations"
+                        )
+                        == 72
+                        and guardian_raw.get("gate", {}).get("status")
+                        == "PASS"
+                        and guardian_raw.get("arms", {})
+                        .get("continuum", {})
+                        .get("provider_success_rate")
+                        == 1.0
+                        and guardian_raw.get("arms", {})
+                        .get("continuum", {})
+                        .get("unsafe_proposals")
+                        == 0
+                        and guardian_raw.get("arms", {})
+                        .get("continuum", {})
+                        .get("cleanup_residual_count")
+                        == 0
+                    )
+                ),
                 "paired_memory_policy_differentiates": (
                     raw.get("unsafe_proposal_rate_under_memory_pressure", 0)
                     > continuum.get(
@@ -462,6 +550,11 @@ def verify_evidence(
                             == "sha256:" + signature_bundle_sha
                         )
                     )
+                    and (
+                        schema_version < 8
+                        or guardian_asset.get("digest")
+                        == "sha256:" + guardian_reference["report_sha256"]
+                    )
                 ),
                 "release_envelope_gate": (
                     envelope.get("schema_version") == 2
@@ -474,6 +567,13 @@ def verify_evidence(
                         "schema_version"
                     )
                     == schema_version
+                    and (
+                        schema_version < 8
+                        or envelope.get("release_guardian", {}).get(
+                            "report_sha256"
+                        )
+                        == guardian_reference.get("report_sha256")
+                    )
                 ),
                 "rls_checksum_bound": (
                     evidence.get("database_policy", {}).get(

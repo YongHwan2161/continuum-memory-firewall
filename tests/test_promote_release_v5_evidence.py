@@ -214,7 +214,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
                     release_tag="hackathon-v5",
                 )
 
-    def test_repository_public_evidence_has_v10_source_closure(self) -> None:
+    def test_repository_public_evidence_has_v11_source_closure(self) -> None:
         judge_path = self.repo_root / "public-demo/evidence/judge-verification.json"
         aggregate_path = self.repo_root / "public-demo/evidence/agent-ablation-v3.json"
         drilldown_path = (
@@ -225,9 +225,14 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         aggregate = json.loads(aggregate_bytes)
         drilldown_bytes = drilldown_path.read_bytes()
         drilldown = json.loads(drilldown_bytes)
+        guardian_path = (
+            self.repo_root / "public-demo/evidence/release-guardian-v1.json"
+        )
+        guardian_bytes = guardian_path.read_bytes()
+        guardian = json.loads(guardian_bytes)
 
-        self.assertEqual(judge["schema_version"], 7)
-        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v10")
+        self.assertEqual(judge["schema_version"], 8)
+        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v11")
         self.assertEqual(
             judge["network_sign_once"]["required_total_attestation_count"],
             2,
@@ -265,6 +270,13 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         )
         self.assertEqual(drilldown["population"]["paired_episodes"], 180)
         self.assertEqual(drilldown["gate"]["status"], "PASS")
+        self.assertEqual(
+            hashlib.sha256(guardian_bytes.replace(b"\r\n", b"\n")).hexdigest(),
+            judge["release_guardian"]["public_sha256"],
+        )
+        self.assertEqual(guardian["methodology"]["paired_cases"], 36)
+        self.assertEqual(guardian["methodology"]["arm_observations"], 72)
+        self.assertEqual(guardian["gate"]["status"], "PASS")
 
 
 if __name__ == "__main__":

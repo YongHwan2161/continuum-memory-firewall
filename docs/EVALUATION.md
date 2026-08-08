@@ -145,3 +145,22 @@ if Continuum has an unsafe proposal, or if any arm leaks a cross-scope row.
 The resulting 180-case projection is checksum-bound by the judge evidence and
 published as an immutable release asset. It is a drill-down of the same live
 evaluation, not a hand-selected or separately simulated example set.
+## Real-provider release guardian
+
+The 540-observation ablation deliberately uses a synthetic, non-effecting
+provider so five replications remain deterministic and affordable. A separate
+external-validity suite closes that boundary with real GitHub Releases draft
+effects.
+
+Six provider-state families by six variants produce 36 exact paired incidents
+per arm. raw-RAG and Continuum receive the same incident definitions, model,
+provider pre-state, tool contracts, and retrieval budget. The six proposal tools
+have discriminated, parameter-free schemas; provider identities are supplied by
+the server. The run records provider receipt digests, effect counts, duplicate
+effects, cleanup residuals, cross-scope rows, promotion decisions, and latency.
+
+The 2026-08-08 live run produced 36/36 verified Continuum outcomes versus 31/36
+for raw-RAG (+13.8889 points), with zero Continuum unsafe proposals, unsafe
+memory exposures, false canonical promotions, duplicate effects, cleanup
+residuals, and cross-scope rows. See
+[the exact receipt](evidence/2026-08-08-real-provider-release-guardian.md).

@@ -64,6 +64,12 @@ complete attestations and organizer agreements.
       stateless, raw-RAG, and Continuum, with scoped search, handle fingerprints,
       typed proposal, provider outcome evidence, and promotion decision:
       <https://yonghwan2161.github.io/continuum-memory-firewall/episodes.html>
+- [x] Real-provider guardian completed 36 exact paired incidents per arm through
+      Bedrock, CockroachDB, and disposable GitHub Releases drafts. Continuum
+      completed 36/36 with zero unsafe proposals, exposure, false promotion,
+      duplicate effect, cleanup residual, or scope leak; the public paired page
+      is checksum-bound at
+      <https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian.html>
 - [x] Network-visible sign-once release flow refuses a second author
       attestation, attaches the one verified Fulcio/Rekor author bundle before
       release immutability, serves identical bundle bytes through Pages, and
@@ -90,7 +96,7 @@ complete attestations and organizer agreements.
       AWS Budgets
 - [x] AWS Root console session ended; exact-head deployment uses the one-hour,
       repository/branch-bound `continuum-hackathon-deployer` role
-- [x] AWS monthly alert budget raised to USD 10 with forecast-at-80% and
+- [x] AWS monthly alert budget raised to USD 20 with forecast-at-80% and
       actual-at-100% notifications
 - [x] Managed MCP API key rotation completed; new key passed `list_databases`
       and `list_tables`, old key was revoked, and the temporary GitHub secret

@@ -1,6 +1,6 @@
 # Immutable competition release envelope
 
-`hackathon-v10` is the proof unit for the paired-episode competition build. It is
+`hackathon-v11` is the proof unit for the paired-episode competition build. It is
 published only by `.github/workflows/release-envelope.yml` after every
 fail-closed gate passes.
 
@@ -41,13 +41,16 @@ The envelope binds:
 - the exact 180-episode three-arm drill-down, including its source evaluation,
   checksum, privacy gate, handle-grounding gate, public page, and immutable
   release asset; and
+- the 72-observation real-provider release guardian, including its GitHub
+  workflow/artifact receipts, raw report, public projection, paired metrics,
+  cleanup proof, and provider capability manifest; and
 - the Devpost submission ID, updated project timestamp, public project URL,
   current video URL, duration, and local-render SHA-256.
 
-The immutable release carries the exact sandbox JSON, full ablation JSON, and
-public-safe episode drill-down JSON as release assets in addition to the
-envelope. This keeps judge evidence available after the shorter-lived GitHub
-Actions artifacts expire.
+The immutable release carries the exact sandbox JSON, full ablation JSON,
+public-safe episode drill-down JSON, and full real-provider guardian JSON as
+release assets in addition to the envelope. This keeps judge evidence available
+after the shorter-lived GitHub Actions artifacts expire.
 
 Version 9 closes the network-visible sign-once contract. The release workflow
 refuses to proceed if the newly built envelope digest already has author SLSA
@@ -81,6 +84,14 @@ reconciled from the immutable provider receipt without changing release assets.
 Pages publishes the terminal receipt and verifies the public bytes before its
 workflow succeeds. Sensitive evidence keys are rejected by the coordinator.
 
+Version 11 closes the external-effect evidence gap. The release workflow
+revalidates the real-provider guardian workflow and artifact receipts, downloads
+the full 72-observation report, regenerates and compares the public projection,
+and includes the raw report plus checksum sidecar before the single author
+signature. The judge gate independently checks both digests, the exact 36-pair
+population, the real-provider flag, Continuum's 36/36 outcomes, and zero unsafe
+proposal, duplicate-effect, cleanup-residual, and cross-scope counts.
+
 The differentiator gate is directional rather than cosmetic: raw-RAG must show
 more unsafe proposals, unsafe-memory exposure, and poison exposure than
 Continuum, while Continuum must show higher verified-outcome success and
@@ -107,7 +118,7 @@ asset state, and SHA-256 digest. A judge can independently download the envelope
 and validate its sidecar without trusting the public page:
 
 ```bash
-gh release download hackathon-v10 --pattern 'continuum-release-envelope-v2.json*'
+gh release download hackathon-v11 --pattern 'continuum-release-envelope-v2.json*'
 sha256sum -c continuum-release-envelope-v2.json.sha256
 ```
 
@@ -118,7 +129,7 @@ attestation API and the in-toto subject digest. Full cryptographic policy
 verification is one repository command:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v10
+python scripts/verify_network_sign_once.py --release-tag hackathon-v11
 ```
 
 That command downloads the immutable envelope, detached author bundle, and both

@@ -13,6 +13,7 @@ from scripts.build_release_envelope import (
     repository_text_bytes,
 )
 from continuum.drilldown import build_public_episode_drilldown
+from continuum.release_guardian import build_public_release_guardian
 from tests.test_drilldown import EpisodeDrilldownTests
 
 
@@ -184,10 +185,83 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         self.episode_drilldown_bytes = (
             json.dumps(self.episode_drilldown, sort_keys=True) + "\n"
         ).encode()
+        guardian_arms = {
+            "raw_rag": {
+                "cases": 36,
+                "provider_success_rate": 0.86,
+                "unsafe_proposals": 5,
+                "unsafe_memory_exposures": 23,
+                "unsafe_memory_citation_adoptions": 5,
+                "false_canonical_promotions": 5,
+                "duplicate_effect_count": 0,
+                "cleanup_residual_count": 0,
+                "cross_scope_leak_count": 0,
+            },
+            "continuum": {
+                "cases": 36,
+                "provider_success_rate": 1.0,
+                "unsafe_proposals": 0,
+                "unsafe_memory_exposures": 0,
+                "unsafe_memory_citation_adoptions": 0,
+                "false_canonical_promotions": 0,
+                "duplicate_effect_count": 0,
+                "cleanup_residual_count": 0,
+                "cross_scope_leak_count": 0,
+            },
+        }
+        self.release_guardian = {
+            "schema_version": 1,
+            "generated_at": "2026-08-08T00:00:00Z",
+            "source_head": "6" * 40,
+            "deployment_artifact_sha256": "5" * 64,
+            "evaluation_id": "guardian-evaluation",
+            "agent_model": "amazon.nova-micro-v1:0",
+            "embedding_model": "amazon.titan-embed-text-v2:0/512",
+            "migration_version": 31,
+            "repository": "o/r",
+            "provider": "github-releases-disposable-sandbox",
+            "real_external_provider": True,
+            "provider_capability_manifest": {
+                "supports_idempotency": True,
+                "receipt_lookup": True,
+                "reconciliation_timeout_seconds": 30,
+            },
+            "methodology": {
+                "paired_cases": 36,
+                "arm_observations": 72,
+                "arms": ["raw_rag", "continuum"],
+                "provider_state_families": 6,
+                "bootstrap_resamples": 10_000,
+            },
+            "arms": guardian_arms,
+            "paired_comparison": {"pairs": 36, "continuum_wins": 5},
+            "observations": [
+                {
+                    "arm": arm,
+                    "case_id": f"case-{case_no:02d}",
+                    "family": "release-state",
+                    "variant": "paired",
+                    "outcome_status": "succeeded",
+                    "promotion": {"promoted": True},
+                }
+                for arm in ("raw_rag", "continuum")
+                for case_no in range(36)
+            ],
+            "gate": {"status": "PASS"},
+        }
+        self.release_guardian_bytes = (
+            json.dumps(self.release_guardian, sort_keys=True) + "\n"
+        ).encode()
+        self.release_guardian_public = build_public_release_guardian(
+            self.release_guardian
+        )
+        self.release_guardian_public_bytes = (
+            json.dumps(self.release_guardian_public, sort_keys=True) + "\n"
+        ).encode()
         from scripts.build_release_envelope import sha256_bytes
 
         self.judge = {
-            "schema_version": 7,
+            "schema_version": 8,
             "source": {
                 "workflow_run_id": 10,
                 "workflow_attempt": 1,
@@ -268,6 +342,23 @@ class ReleaseEnvelopeTests(unittest.TestCase):
                 "arm_observations": 540,
                 "continuum_advantage_episodes": 180,
             },
+            "release_guardian": {
+                "schema_version": 1,
+                "workflow_run_id": 17,
+                "workflow_attempt": 1,
+                "workflow_url": "https://github.com/o/r/actions/runs/17",
+                "workflow_api_url": "https://api.github.com/repos/o/r/actions/runs/17",
+                "head_sha": "6" * 40,
+                "artifact_id": 170,
+                "artifact_name": "continuum-release-guardian-" + "6" * 40,
+                "artifact_archive_sha256": "4" * 64,
+                "report_sha256": sha256_bytes(self.release_guardian_bytes),
+                "public_sha256": sha256_bytes(
+                    self.release_guardian_public_bytes
+                ),
+                "public_url": "https://demo.example.test/evidence/release-guardian-v1.json",
+                "page_url": "https://demo.example.test/release-guardian.html",
+            },
             "database_policy": {
                 "rls_combined_sha256": _migration_receipt(
                     Path(__file__).parents[1],
@@ -295,6 +386,8 @@ class ReleaseEnvelopeTests(unittest.TestCase):
                 "ablation_asset_name": "agent-ablation-v3.json",
                 "drilldown_asset_url": "https://github.com/o/r/releases/download/hackathon-v1/episode-drilldown-v1.json",
                 "drilldown_asset_name": "episode-drilldown-v1.json",
+                "guardian_asset_url": "https://github.com/o/r/releases/download/hackathon-v1/release-guardian-v1.json",
+                "guardian_asset_name": "release-guardian-v1.json",
             },
             "network_sign_once": {
                 "schema_version": 2,
@@ -373,6 +466,8 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             self.ablation,
             self.ablation_aggregate,
             self.episode_drilldown,
+            self.release_guardian,
+            self.release_guardian_public,
             judge_bytes=self.judge_bytes,
             scale_bytes=self.scale_bytes,
             pressure_bytes=self.pressure_bytes,
@@ -380,6 +475,8 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             ablation_bytes=self.ablation_bytes,
             ablation_aggregate_bytes=self.ablation_aggregate_bytes,
             episode_drilldown_bytes=self.episode_drilldown_bytes,
+            release_guardian_bytes=self.release_guardian_bytes,
+            release_guardian_public_bytes=self.release_guardian_public_bytes,
             repo_root=Path(__file__).parents[1],
             repository="o/r",
             commit_sha="d" * 40,
@@ -408,6 +505,10 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         )
         self.assertEqual(envelope["agent_ablation"]["arms"]["continuum"]["cases"], 180)
         self.assertEqual(envelope["episode_drilldown"]["population"]["paired_episodes"], 180)
+        self.assertEqual(
+            envelope["release_guardian"]["methodology"]["paired_cases"],
+            36,
+        )
         self.assertEqual(
             envelope["network_sign_once"]["required_author_attestation_count"],
             1,

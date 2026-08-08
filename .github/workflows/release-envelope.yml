@@ -6,7 +6,7 @@ on:
       release_tag:
         description: New or resumable immutable GitHub Release tag
         required: true
-        default: hackathon-v10
+        default: hackathon-v11
       release_target:
         description: Exact existing release target to reconcile; blank uses the workflow SHA
         required: false
@@ -74,7 +74,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           judge=public-demo/evidence/judge-verification.json
-          for plane in source vector_scale agent_pressure managed_mcp sandbox_provider agent_ablation; do
+          for plane in source vector_scale agent_pressure managed_mcp sandbox_provider agent_ablation release_guardian; do
             case "$plane" in
               source)
                 run_id="$(jq -r '.source.workflow_run_id' "$judge")"
@@ -100,6 +100,10 @@ jobs:
                 run_id="$(jq -r '.agent_ablation.workflow_run_id' "$judge")"
                 expected_head="$(jq -r '.agent_ablation.head_sha' "$judge")"
                 ;;
+              release_guardian)
+                run_id="$(jq -r '.release_guardian.workflow_run_id' "$judge")"
+                expected_head="$(jq -r '.release_guardian.head_sha' "$judge")"
+                ;;
             esac
             provider_receipt="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
             test "$(jq -r '.conclusion' <<<"$provider_receipt")" = success
@@ -108,7 +112,7 @@ jobs:
             fi
           done
 
-      - name: Download and bind exact sandbox and ablation artifacts
+      - name: Download and bind exact sandbox, ablation, and guardian artifacts
         if: steps.transaction.outputs.mode == 'new'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -116,8 +120,8 @@ jobs:
         run: |
           set -euo pipefail
           judge=public-demo/evidence/judge-verification.json
-          mkdir -p build/evidence/sandbox build/evidence/ablation
-          for plane in sandbox_provider agent_ablation; do
+          mkdir -p build/evidence/sandbox build/evidence/ablation build/evidence/guardian
+          for plane in sandbox_provider agent_ablation release_guardian; do
             artifact_id="$(jq -r ".$plane.artifact_id" "$judge")"
             artifact_name="$(jq -r ".$plane.artifact_name" "$judge")"
             expected_archive="sha256:$(jq -r ".$plane.artifact_archive_sha256" "$judge")"
@@ -127,6 +131,7 @@ jobs:
             test "$(jq -r '.digest' <<<"$provider_receipt")" = "$expected_archive"
             target=build/evidence/sandbox
             if [ "$plane" = agent_ablation ]; then target=build/evidence/ablation; fi
+            if [ "$plane" = release_guardian ]; then target=build/evidence/guardian; fi
             gh run download \
               "$(jq -r ".$plane.workflow_run_id" "$judge")" \
               --name "$artifact_name" \
@@ -140,6 +145,17 @@ jobs:
             "$(jq -r '.episode_drilldown.sha256' "$judge")"
           cmp build/evidence/ablation/episode-drilldown-v1.json \
             public-demo/evidence/episode-drilldown-v1.json
+          test "$(sha256sum build/evidence/guardian/release-guardian-v1.json | cut -d' ' -f1)" = \
+            "$(jq -r '.release_guardian.report_sha256' "$judge")"
+          PYTHONPATH=src python - <<'PY'
+          import json
+          from pathlib import Path
+          from continuum.release_guardian import build_public_release_guardian
+          raw = json.loads(Path("build/evidence/guardian/release-guardian-v1.json").read_text())
+          public = json.loads(Path("public-demo/evidence/release-guardian-v1.json").read_text())
+          if public != build_public_release_guardian(raw):
+              raise SystemExit("public guardian projection does not match raw report")
+          PY
 
       - name: Build the exact release payload once
         if: steps.transaction.outputs.mode == 'new'
@@ -155,6 +171,8 @@ jobs:
             --ablation-evidence build/evidence/ablation/agent-ablation.json \
             --ablation-aggregate public-demo/evidence/agent-ablation-v3.json \
             --episode-drilldown public-demo/evidence/episode-drilldown-v1.json \
+            --release-guardian-evidence build/evidence/guardian/release-guardian-v1.json \
+            --release-guardian-public public-demo/evidence/release-guardian-v1.json \
             --repo-root . \
             --repository "$GITHUB_REPOSITORY" \
             --commit-sha "$RELEASE_TARGET" \
@@ -168,11 +186,14 @@ jobs:
             build/release/agent-ablation-v3.json
           cp public-demo/evidence/episode-drilldown-v1.json \
             build/release/episode-drilldown-v1.json
+          cp build/evidence/guardian/release-guardian-v1.json \
+            build/release/release-guardian-v1.json
           (
             cd build/release
             sha256sum sandbox-provider-proof.json >sandbox-provider-proof.json.sha256
             sha256sum agent-ablation-v3.json >agent-ablation-v3.json.sha256
             sha256sum episode-drilldown-v1.json >episode-drilldown-v1.json.sha256
+            sha256sum release-guardian-v1.json >release-guardian-v1.json.sha256
           )
 
       - name: Create the durable draft before author signing
@@ -192,6 +213,8 @@ jobs:
             build/release/agent-ablation-v3.json.sha256 \
             build/release/episode-drilldown-v1.json \
             build/release/episode-drilldown-v1.json.sha256 \
+            build/release/release-guardian-v1.json \
+            build/release/release-guardian-v1.json.sha256 \
             --target "$RELEASE_TARGET" \
             --draft \
             --title "Continuum Memory Firewall evidence envelope" \
@@ -261,6 +284,8 @@ jobs:
               "agent-ablation-v3.json.sha256",
               "episode-drilldown-v1.json",
               "episode-drilldown-v1.json.sha256",
+              "release-guardian-v1.json",
+              "release-guardian-v1.json.sha256",
           )
           root = Path("build/release")
           print(json.dumps({name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}, sort_keys=True))
@@ -448,6 +473,8 @@ jobs:
               "agent-ablation-v3.json.sha256",
               "episode-drilldown-v1.json",
               "episode-drilldown-v1.json.sha256",
+              "release-guardian-v1.json",
+              "release-guardian-v1.json.sha256",
           )
           root = Path("build/release")
           print(json.dumps({name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}, sort_keys=True))

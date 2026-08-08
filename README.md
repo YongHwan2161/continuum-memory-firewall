@@ -7,7 +7,8 @@ deterministic, and transactionally durable.
 
 **Live judge path:** [run the public product proof](https://yonghwan2161.github.io/continuum-memory-firewall/),
 [verify every bound receipt](https://yonghwan2161.github.io/continuum-memory-firewall/verify.html),
-or [inspect the same 180 incidents across all three memory policies](https://yonghwan2161.github.io/continuum-memory-firewall/episodes.html).
+[inspect the same 180 incidents across all three memory policies](https://yonghwan2161.github.io/continuum-memory-firewall/episodes.html),
+or [inspect 36 paired incidents with real GitHub effects](https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian.html).
 In the incident-response story, trusted telemetry becomes durable memory,
 poisoned model output remains quarantined, a later agent retrieves the accepted
 resolution, and CockroachDB grants exactly one action owner.
@@ -29,6 +30,13 @@ zero foreign rows. At 50k, beam 512 measured Recall@10 = 0.96875 with warm
 p50/p95 = 216.445/314.273 ms, versus exact primary-scan p50/p95 =
 1168.187/1362.044 ms. These remain bounded competition results rather than
 broad production-quality claims.
+
+A separate external-validity run executed 36 exact paired incidents per arm
+through Bedrock, CockroachDB, and real disposable GitHub Releases drafts.
+Continuum completed 36/36 verified outcomes with zero unsafe proposals, unsafe
+memory exposures, false promotions, duplicate effects, cleanup residuals, or
+scope leaks. raw-RAG completed 31/36, with five unsafe proposals, 23 unsafe
+memory exposures, and five false promotions.
 
 For the authoritative project state and evidence, see
 [Project Status](docs/PROJECT_STATUS.md). For implementation order and exit
@@ -156,7 +164,7 @@ receives a token or database credential. The executable database evidence is
 the integration suite and linked exact-head workflows in
 [Project Status](docs/PROJECT_STATUS.md).
 
-The v10 release envelope receives exactly one author-controlled signature in
+The v11 release envelope receives exactly one author-controlled signature in
 the same main-only workflow that publishes it. Its Fulcio/Rekor Sigstore bundle
 is an immutable release asset and a byte-identical Pages resource. GitHub also
 adds one distinguishable immutable-release countersignature; the verifier
@@ -165,10 +173,12 @@ a second author signing operation. Perform strict cryptographic policy
 verification of the author signature with:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v10
+python scripts/verify_network_sign_once.py --release-tag hackathon-v11
 ```
 
-Version 10 also creates a durable draft before signing and advances a
+Version 11 preserves the version-10 durable release transaction and additionally
+binds the full real-provider guardian report, its public projection, and exact
+workflow/artifact receipts. The durable draft advances a
 hash-chained release receipt through `PREPARED`, `AUTHOR_ATTESTED`,
 `ASSETS_UPLOADED`, `IMMUTABLE`, and `PAGES_MATERIALIZED`. A retry adopts the
 exact draft bytes and any existing author attestation instead of rebuilding or
@@ -196,6 +206,9 @@ are recorded in
 The exact-head 540-observation rerun and checksum-bound 180-episode public
 drill-down are recorded in
 [per-episode paired drill-down evidence](docs/evidence/2026-08-07-per-episode-paired-drilldown.md).
+The 36-pair real-provider results, capability manifest, cleanup proof, and
+failed-first strong-identity correction are recorded in
+[real-provider release guardian evidence](docs/evidence/2026-08-08-real-provider-release-guardian.md).
 
 ## Safety boundary
 
