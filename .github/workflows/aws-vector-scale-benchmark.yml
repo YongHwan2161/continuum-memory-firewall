@@ -17,7 +17,7 @@ jobs:
     environment: continuum-production
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
@@ -120,7 +120,7 @@ jobs:
             "$RUNNER_TEMP/vector-scale.json"
       - name: Upload immutable benchmark report
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0 # v7.0.1, Node 24
         with:
           name: continuum-vector-scale-${{ github.sha }}
           path: ${{ runner.temp }}/vector-scale.json
