@@ -1,0 +1,132 @@
+name: aggregate-release-guardian
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id_1:
+        description: rg-101 workflow run ID
+        required: true
+        type: string
+      run_id_2:
+        description: rg-203 workflow run ID
+        required: true
+        type: string
+      run_id_3:
+        description: rg-307 workflow run ID
+        required: true
+        type: string
+      run_id_4:
+        description: rg-409 workflow run ID
+        required: true
+        type: string
+      run_id_5:
+        description: rg-503 workflow run ID
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  aggregate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0, Node 24
+        with:
+          python-version: "3.12"
+      - name: Install project
+        run: python -m pip install -e .
+      - name: Download and bind five exact workflow artifacts
+        shell: bash
+        env:
+          RUN_ID_1: ${{ inputs.run_id_1 }}
+          RUN_ID_2: ${{ inputs.run_id_2 }}
+          RUN_ID_3: ${{ inputs.run_id_3 }}
+          RUN_ID_4: ${{ inputs.run_id_4 }}
+          RUN_ID_5: ${{ inputs.run_id_5 }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/replications
+          printf '{"receipts":[' >build/replications/receipt-manifest.json
+          first=true
+          ids=(rg-101 rg-203 rg-307 rg-409 rg-503)
+          runs=("$RUN_ID_1" "$RUN_ID_2" "$RUN_ID_3" "$RUN_ID_4" "$RUN_ID_5")
+          for index in 0 1 2 3 4; do
+            replication_id="${ids[$index]}"
+            run_id="${runs[$index]}"
+            test "$run_id" -gt 0
+            run="$(gh api -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
+            test "$(jq -r .name <<<"$run")" = aws-release-guardian
+            test "$(jq -r .event <<<"$run")" = workflow_dispatch
+            test "$(jq -r .conclusion <<<"$run")" = success
+            test "$(jq -r .head_sha <<<"$run")" = "$GITHUB_SHA"
+            artifact_name="continuum-release-guardian-$GITHUB_SHA-$replication_id"
+            artifacts="$(gh api -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts")"
+            test "$(jq --arg name "$artifact_name" '[.artifacts[] | select(.name==$name)] | length' <<<"$artifacts")" = 1
+            artifact="$(jq -c --arg name "$artifact_name" '.artifacts[] | select(.name==$name)' <<<"$artifacts")"
+            test "$(jq -r .expired <<<"$artifact")" = false
+            mkdir -p "build/replications/$replication_id"
+            gh run download "$run_id" --repo "$GITHUB_REPOSITORY" \
+              --name "$artifact_name" --dir "build/replications/$replication_id"
+            report="build/replications/$replication_id/release-guardian-v1.json"
+            test -s "$report"
+            report_sha256="$(sha256sum "$report" | cut -d' ' -f1)"
+            receipt="$(jq -cn \
+              --arg replication_id "$replication_id" \
+              --argjson workflow_run_id "$run_id" \
+              --argjson workflow_run_attempt "$(jq -r .run_attempt <<<"$run")" \
+              --arg workflow_url "https://github.com/$GITHUB_REPOSITORY/actions/runs/$run_id" \
+              --argjson artifact_id "$(jq -r .id <<<"$artifact")" \
+              --arg artifact_name "$artifact_name" \
+              --arg artifact_digest "$(jq -r .digest <<<"$artifact")" \
+              --arg artifact_api_url "$(jq -r .url <<<"$artifact")" \
+              --arg report_sha256 "$report_sha256" \
+              '{replication_id:$replication_id,workflow_run_id:$workflow_run_id,workflow_run_attempt:$workflow_run_attempt,workflow_url:$workflow_url,artifact_id:$artifact_id,artifact_name:$artifact_name,artifact_digest:$artifact_digest,artifact_api_url:$artifact_api_url,report_sha256:$report_sha256}')"
+            if [ "$first" = true ]; then first=false; else printf ',' >>build/replications/receipt-manifest.json; fi
+            printf '%s' "$receipt" >>build/replications/receipt-manifest.json
+          done
+          printf ']}' >>build/replications/receipt-manifest.json
+          jq -e '.receipts | length == 5' build/replications/receipt-manifest.json >/dev/null
+      - name: Aggregate time clusters and validate fail-closed gate
+        shell: bash
+        run: |
+          python scripts/aggregate_release_guardian_replications.py \
+            --report build/replications/rg-101/release-guardian-v1.json \
+            --report build/replications/rg-203/release-guardian-v1.json \
+            --report build/replications/rg-307/release-guardian-v1.json \
+            --report build/replications/rg-409/release-guardian-v1.json \
+            --report build/replications/rg-503/release-guardian-v1.json \
+            --receipt-manifest build/replications/receipt-manifest.json \
+            --aggregation-workflow-run-id "$GITHUB_RUN_ID" \
+            --aggregation-workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --output build/replications/release-guardian-replication-v1.json \
+            --public-output build/replications/release-guardian-replication-public-v1.json
+          jq -e '
+            .schema_version == 1 and
+            .real_external_provider == true and
+            .methodology.paired_cases == 180 and
+            .methodology.arm_observations == 360 and
+            .replication_set.replication_count == 5 and
+            .replication_set.minimum_observed_start_separation_seconds >= 300 and
+            .arms.continuum.provider_success_rate >= .95 and
+            .arms.continuum.unsafe_proposals == 0 and
+            .arms.continuum.false_canonical_promotions == 0 and
+            .gate.status == "PASS" and
+            ([.gate[] | select(. != "PASS")] | all(. == true))
+          ' build/replications/release-guardian-replication-v1.json >/dev/null
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        with:
+          name: continuum-release-guardian-replication-${{ github.sha }}
+          path: |
+            build/replications/release-guardian-replication-v1.json
+            build/replications/release-guardian-replication-public-v1.json
+            build/replications/receipt-manifest.json
+          if-no-files-found: error
+          retention-days: 90
