@@ -1,15 +1,17 @@
 {
   "schema_version": 8,
-  "generated_at": "2026-08-08T07:30:09.111612+00:00",
+  "generated_at": "2026-08-08T08:52:50.6798364+00:00",
   "claim_boundary": "Read-only verification of live identity-bound memory, real GitHub draft-release effects across 36 paired incidents, CockroachDB vector/RLS evidence, AWS receipts, an immutable release, and Devpost lineage.",
   "submission": {
     "id": 1121568,
     "status": "Submitted",
     "project_url": "https://devpost.com/software/continuum-memory-firewall",
-    "project_updated_at": "2026-08-07T03:14:57.385-04:00",
-    "video_url": "https://youtu.be/T90h0qLGubk",
-    "video_duration_seconds": 100.918,
-    "video_sha256": "9027ead148849d1a052c40ffbcac8c297c72b9691830e61fdd139aae02ec1e4c",
+    "project_version": 16,
+    "project_updated_at": "2026-08-08T04:51:45.650-04:00",
+    "submitted_at": "2026-08-01T11:22:19.310-04:00",
+    "video_url": "https://youtu.be/OEPYF7cVpbs",
+    "video_duration_seconds": 99.53,
+    "video_sha256": "d5d7cc82bcce93e5db736cfef7331f64ce667eb4ff9055315c8b697717f09f8f",
     "deadline_kst": "2026-08-19T06:00:00+09:00"
   },
   "source": {

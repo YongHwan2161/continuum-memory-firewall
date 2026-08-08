@@ -150,12 +150,13 @@ The logged-out browser proof console is available at:
 
 <https://yonghwan2161.github.io/continuum-memory-firewall/>
 
-The current 101.674-second crash-reconciliation demo is public at
-<https://youtu.be/NOkD8YaTyAo>. It leads with the failure boundary, preserves
-the immutable release, proves zero recovery re-signatures, reconciles from
-provider truth, and ends at the public read-only PASS. Its publication and
-Devpost version-15 update are recorded in
-[the v5 delivery receipt](docs/evidence/2026-08-08-crash-video-devpost-v5.md).
+The current 99.53-second real-provider demo is public at
+<https://youtu.be/OEPYF7cVpbs>. It leads with the failed-action memory problem,
+runs the same 36 incidents against real GitHub draft-release effects, compares
+36/36 Continuum outcomes with 31/36 raw-RAG outcomes, documents the failed-first
+provider-identity repair, and ends at the public read-only PASS. Its publication
+and final Devpost refresh are recorded in
+[the v6 delivery receipt](docs/evidence/2026-08-08-real-provider-video-devpost-v6.md).
 
 The policy-replay interactions are simulations, while the live metric cards and
 read-only verifier load exact public receipts for the participant deployment,

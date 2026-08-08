@@ -528,13 +528,25 @@ jobs:
           test "$(jq -r '.draft' <<<"$release")" = false
           test "$(jq -r '.target_commitish' <<<"$release")" = "$RELEASE_TARGET"
           envelope_digest="$(jq -r '.envelope_sha256' build/release/release-transaction-receipt.json)"
-          all="$(gh api -H "X-GitHub-Api-Version: 2026-03-10" "repos/$GITHUB_REPOSITORY/attestations/sha256:$envelope_digest")"
-          author="$(gh api --method GET -H "X-GitHub-Api-Version: 2026-03-10" \
-            "repos/$GITHUB_REPOSITORY/attestations/sha256:$envelope_digest" \
-            -f 'predicate_type=https://slsa.dev/provenance/v1')"
-          platform="$(gh api --method GET -H "X-GitHub-Api-Version: 2026-03-10" \
-            "repos/$GITHUB_REPOSITORY/attestations/sha1:$RELEASE_TARGET" \
-            -f 'predicate_type=https://in-toto.io/attestation/release/v0.2')"
+          # Release immutability and attestation indexes are separate provider
+          # reads. The release may become immutable a few seconds before both
+          # attestations are visible, so reconcile that bounded propagation
+          # window instead of requiring a second workflow attempt.
+          for attempt in $(seq 1 12); do
+            all="$(gh api -H "X-GitHub-Api-Version: 2026-03-10" "repos/$GITHUB_REPOSITORY/attestations/sha256:$envelope_digest")"
+            author="$(gh api --method GET -H "X-GitHub-Api-Version: 2026-03-10" \
+              "repos/$GITHUB_REPOSITORY/attestations/sha256:$envelope_digest" \
+              -f 'predicate_type=https://slsa.dev/provenance/v1')"
+            platform="$(gh api --method GET -H "X-GitHub-Api-Version: 2026-03-10" \
+              "repos/$GITHUB_REPOSITORY/attestations/sha1:$RELEASE_TARGET" \
+              -f 'predicate_type=https://in-toto.io/attestation/release/v0.2')"
+            if [ "$(jq '.attestations | length' <<<"$all")" = 2 ] && \
+               [ "$(jq '.attestations | length' <<<"$author")" = 1 ] && \
+               [ "$(jq '.attestations | length' <<<"$platform")" = 1 ]; then
+              break
+            fi
+            sleep 5
+          done
           test "$(jq '.attestations | length' <<<"$all")" = 2
           test "$(jq '.attestations | length' <<<"$author")" = 1
           test "$(jq '.attestations | length' <<<"$platform")" = 1
