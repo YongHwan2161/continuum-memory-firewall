@@ -53,3 +53,19 @@ ambiguous provider response. Those requirements are tracked in
 - accepted candidate without a canonical row: raise an invariant violation
 
 No model call or external side effect occurs inside a retryable transaction.
+
+## Release transaction crash model
+
+The release coordinator treats every provider write and every local receipt
+advance as a separate crash boundary. Property-based tests permute all named
+boundaries and require deterministic reconciliation, monotonic receipt state,
+no second author signature, and `AMBIGUOUS` for conflicting identity or
+attestation cardinality.
+
+The disposable GitHub Release fault workflow complements the pure state model.
+It creates an unsigned draft with a run-unique tag, loses the local
+acknowledgement after provider create, asset upload, receipt upload, and delete,
+then reconciles by stable provider identity. A duplicate asset upload must fail
+without changing cardinality. The workflow succeeds only after the exact draft
+and any tag reference are absent; it never publishes or requests an OIDC
+attestation.
