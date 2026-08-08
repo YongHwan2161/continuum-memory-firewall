@@ -530,7 +530,7 @@ jobs:
           jq '{id,tag_name,target_commitish,immutable,assets:[.assets[]|{name,state,digest}]}' <<<"$release"
 
       - id: transaction-artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0 # v7.0.1, Node 24
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
         with:
           name: release-transaction-${{ inputs.release_tag }}-${{ github.sha }}
           path: build/release/*

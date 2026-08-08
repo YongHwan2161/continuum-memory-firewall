@@ -125,7 +125,7 @@ jobs:
           ' sandbox-provider-proof.json >/dev/null
           sha256sum sandbox-provider-proof.json | tee sandbox-provider-proof.sha256
           jq '{schema_version,source_head,provider,provider_capabilities,send_count,logical_effect_count,receipt_lookup_matched,gate}' sandbox-provider-proof.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0 # v7.0.1, Node 24
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
         with:
           name: aws-sandbox-provider-proof-${{ github.sha }}
           path: |
