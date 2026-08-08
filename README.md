@@ -142,6 +142,13 @@ The logged-out browser proof console is available at:
 
 <https://yonghwan2161.github.io/continuum-memory-firewall/>
 
+The current 101.674-second crash-reconciliation demo is public at
+<https://youtu.be/NOkD8YaTyAo>. It leads with the failure boundary, preserves
+the immutable release, proves zero recovery re-signatures, reconciles from
+provider truth, and ends at the public read-only PASS. Its publication and
+Devpost version-15 update are recorded in
+[the v5 delivery receipt](docs/evidence/2026-08-08-crash-video-devpost-v5.md).
+
 The policy-replay interactions are simulations, while the live metric cards and
 read-only verifier load exact public receipts for the participant deployment,
 60-query Titan evaluation, and 10k/50k vector benchmark. The verifier never
