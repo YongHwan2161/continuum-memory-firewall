@@ -98,9 +98,11 @@ evidence, and explicit non-claims.
 - Submitted Devpost project page; submission `1121568` returned `Submitted` at
   2026-08-02 00:22 KST:
   <https://devpost.com/software/continuum-memory-firewall>
-- Public 100.918-second outcome-first demonstration video embedded by Devpost:
-  <https://youtu.be/T90h0qLGubk> (SHA-256
-  `9027ead148849d1a052c40ffbcac8c297c72b9691830e61fdd139aae02ec1e4c`)
+- Public 101.674-second crash-reconciliation demonstration video embedded by
+  Devpost: <https://youtu.be/NOkD8YaTyAo> (SHA-256
+  `d273d0ff8d6885a7172299ff60987a69af32b798e7c7b1031efab755bf471252`)
+- YouTube and Devpost version-15 delivery receipt:
+  [2026-08-08-crash-video-devpost-v5.md](evidence/2026-08-08-crash-video-devpost-v5.md)
 - Redacted live AWS and CockroachDB evidence:
   [2026-07-31-cloud-live-smoke.md](evidence/2026-07-31-cloud-live-smoke.md)
 - Redacted live SQL migration and vector evidence:

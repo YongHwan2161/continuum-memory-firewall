@@ -1,6 +1,6 @@
 # Demo narration v5
 
-The deployment crashed after the release was signed. Most pipelines now face a dangerous choice: rebuild from mutable inputs, sign again, or hope the previous provider effect never happened. Continuum chooses none of them. It reconciles.
+The deployment crashed after the release was signed. Rebuild from inputs, sign again, or hope the provider effect never happened? Continuum chooses none of them. It reconciles.
 
 We inject failures at every external boundary: after draft creation, after asset upload, on a duplicate upload, after receipt upload, and after deletion before acknowledgement. A disposable GitHub sandbox recovers all five while publishing nothing and creating zero signatures.
 

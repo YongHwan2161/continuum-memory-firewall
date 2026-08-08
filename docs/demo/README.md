@@ -29,6 +29,9 @@ identifier, or private participant information.
   zero re-signatures, automatic reconciliation, and public coordinator proof.
 - `continuum-memory-firewall-v4.en.srt` — exact English captions for the
   public 100.918-second outcome demo.
+- `continuum-memory-firewall-v5.en.srt` — exact English caption source for the
+  public 101.674-second crash-reconciliation demo. The rendered video includes
+  the captions directly; its public URL is <https://youtu.be/NOkD8YaTyAo>.
 
 The browser console is an executable simulation of the policy and concurrency
 contract. The OIDC, RLS, Titan, Recall@3, and leakage statements shown in its

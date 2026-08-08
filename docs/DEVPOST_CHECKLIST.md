@@ -116,17 +116,17 @@ complete attestations and organizer agreements.
       incident, verifier, 10k/50k ANN, and 10/25/50-agent pressure evidence
 - [x] Secret-free screenshots captured for the live overview, policy rejection,
       and one-owner failover in [docs/demo/](demo/)
-- [x] Outcome-first demo uploaded publicly to YouTube and embedded on Devpost:
-      <https://youtu.be/T90h0qLGubk>; 100.918 seconds; SHA-256
-      `9027ead148849d1a052c40ffbcac8c297c72b9691830e61fdd139aae02ec1e4c`.
-      It leads with the live incident, then the 540-observation paired outcome
-      result, episode contract, authorization chain, scale proof, and one-click
-      verifier. English (US) metadata, public visibility, and a no-issues
-      copyright check were confirmed on 2026-08-07.
-- [x] Devpost project version 14 reflects the outcome-gated episode contract,
-      180 cases per arm, +47.2-point paired lift over raw RAG, 0% Continuum
-      unsafe proposals/poison exposure, and the new public video; project
-      timestamp `2026-08-07T03:14:57.385-04:00`
+- [x] Crash-reconciliation demo uploaded publicly to YouTube and embedded on
+      Devpost: <https://youtu.be/NOkD8YaTyAo>; 101.674 seconds; SHA-256
+      `d273d0ff8d6885a7172299ff60987a69af32b798e7c7b1031efab755bf471252`.
+      It leads with failure, immutable-release preservation, zero recovery
+      re-signatures, automatic reconciliation, and public PASS. Burned-in
+      English captions, public visibility, AI disclosure, and a no-issues
+      copyright check were confirmed on 2026-08-08.
+- [x] Devpost project version 15 reflects the crash-safe release transaction,
+      property-based and disposable-provider fault evidence, Node 24 immutable
+      action pins, and the new public video; project timestamp
+      `2026-08-08T01:26:33.680-04:00`
 - [x] Measured 60-query, 10k/50k, and 10/25/50-agent results recorded;
       production-quality generalization remains an explicit non-claim
 - [x] Final technology inventory limited to deployed/tested components in
