@@ -120,6 +120,7 @@ class McpHostInfrastructureTests(unittest.TestCase):
             "generate_blind_holdout.py",
             "seal_blind_holdout.py",
             "run_live_blind_holdout.py",
+            "cleanup_blind_holdout.py",
             "run_live_outbox_faults.py",
             "seed_judge_story.py",
             "remote_oidc_smoke.py",

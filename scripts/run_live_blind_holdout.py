@@ -36,14 +36,26 @@ from continuum.release_guardian import (
 from continuum.retrieval import BedrockTitanEmbedder, MemoryRetrievalStore
 from continuum.s3_holdout_provider import S3_ACTION_POLICIES, S3ObjectSandboxProvider
 from continuum.store import CockroachMemoryStore, pin_database_tls_root, psycopg_connection_factory
-from scripts.run_live_release_guardian import (
-    _append_memory,
-    _create_incident,
-    _database_url,
-    _secret_json,
-    _sha256_text,
-    _write_report,
-)
+try:
+    from scripts.run_live_release_guardian import (
+        _append_memory,
+        _create_incident,
+        _database_url,
+        _secret_json,
+        _sha256_text,
+        _write_report,
+    )
+except ModuleNotFoundError as exc:
+    if exc.name != "scripts":
+        raise
+    from run_live_release_guardian import (  # type: ignore[no-redef]
+        _append_memory,
+        _create_incident,
+        _database_url,
+        _secret_json,
+        _sha256_text,
+        _write_report,
+    )
 
 
 def _load(path: Path) -> dict[str, Any]:
