@@ -6,6 +6,7 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import time
@@ -43,7 +44,6 @@ try:
         _database_url,
         _secret_json,
         _sha256_text,
-        _write_report,
     )
 except ModuleNotFoundError as exc:
     if exc.name != "scripts":
@@ -54,7 +54,6 @@ except ModuleNotFoundError as exc:
         _database_url,
         _secret_json,
         _sha256_text,
-        _write_report,
     )
 
 
@@ -66,6 +65,15 @@ def _load(path: Path) -> dict[str, Any]:
     if data.replace(b"\r\n", b"\n") != canonical_json_bytes(value):
         raise RuntimeError(f"{path.name} is not canonical JSON")
     return value
+
+
+def _write_canonical(path: Path, value: Mapping[str, Any]) -> None:
+    """Write the exact codec enforced by the post-run blind evaluator."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(descriptor, "wb") as handle:
+        handle.write(canonical_json_bytes(dict(value)))
+    os.chmod(path, 0o600)
 
 
 def _cases(challenge: Mapping[str, Any]) -> tuple[ReleaseGuardianCase, ...]:
@@ -462,7 +470,7 @@ def main() -> None:
             },
             "observations": traces,
         }
-    _write_report(args.output, observations)
+    _write_canonical(args.output, observations)
     print(
         json.dumps(
             {key: value for key, value in observations.items() if key != "observations"},
