@@ -255,6 +255,7 @@ jobs:
           aws iam put-role-policy --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
             --policy-name ContinuumSequentialBlindOneRun --policy-document "$policy"
           echo "CONTINUUM_SEQUENTIAL_DENIED_OBJECTS=$(jq 'length' <<<"$deny_get")" >>"$GITHUB_ENV"
+          echo "CONTINUUM_SEQUENTIAL_SANDBOX_ACCESS_READY=1" >>"$GITHUB_ENV"
           sleep 10
       - name: Run three label-free batches with enforced start separation
         id: candidates
@@ -423,7 +424,8 @@ jobs:
         shell: bash
         run: |
           cleanup_failure=0
-          if [[ -n "${CONTINUUM_INSTANCE_ID:-}" && -n "${CONTINUUM_DEPLOY_BUCKET:-}" && \
+          if [[ "${CONTINUUM_SEQUENTIAL_SANDBOX_ACCESS_READY:-0}" == "1" && \
+                -n "${CONTINUUM_INSTANCE_ID:-}" && -n "${CONTINUUM_DEPLOY_BUCKET:-}" && \
                 -n "${CONTINUUM_HOLDOUT_SANDBOX_PREFIX:-}" ]]; then
             cleanup_command="set -eu
             cd /opt/continuum
