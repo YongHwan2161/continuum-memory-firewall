@@ -1,6 +1,6 @@
 # Evidence-to-story compiler
 
-The v15 judge story is generated from immutable receipts. It is not an editable
+The v16 judge delivery is generated from immutable receipts. It is not an editable
 second copy of the evaluation result.
 
 ## Purpose
@@ -11,7 +11,8 @@ read-only judge verifier, and release envelope. This removes the failure mode in
 which the implementation is current but a video, caption, or Devpost paragraph
 still cites an older experiment.
 
-The source campaign remains `hackathon-v14`. Version 15 does not rerun or
+The source campaign remains `hackathon-v14`. Version 15 introduced the compiler
+without rerunning or
 reinterpret its 540 provider observations. It binds that immutable source to the
 current public explanation and delivery receipts.
 
@@ -58,7 +59,7 @@ any post-compilation edit.
 
 ## Delivery binding
 
-The v15 promotion step binds the story to:
+The v16 promotion step binds the story to:
 
 - public video <https://youtu.be/QQxfQaDVz9c>;
 - 97.02-second local H.264/AAC render SHA-256
@@ -66,12 +67,18 @@ The v15 promotion step binds the story to:
 - English SRT SHA-256
   `f95c60536851fd6cfa8f05441e15ed069da35457aba779977e91024835bbd98b`;
 - Devpost project version 20 and its authenticated update timestamp;
-- immutable `hackathon-v15` envelope and story release assets.
+- immutable `hackathon-v16` envelope and story release assets.
 
 The release builder recomputes the story receipt and public file digest, checks
 the source v14 lineage, then compares its video, subtitle, and Devpost fields to
 the promoted judge record. The browser verifier and Python read-only verifier
 repeat these checks from public bytes.
+
+The browser computes the self-receipt from the original canonical bytes after
+removing the unique `receipt_sha256` field. It must not parse and reserialize the
+payload: JavaScript normalizes a JSON numeric lexeme such as `1.0` to `1`, which
+would produce a false digest mismatch despite identical evidence. This
+cross-language regression is covered by the public-story contract test.
 
 ## Claim boundary
 
@@ -99,7 +106,7 @@ After publication, use the logged-out page or strict command:
 
 ```bash
 python scripts/judge_readonly_verify.py
-python scripts/verify_network_sign_once.py --release-tag hackathon-v15
+python scripts/verify_network_sign_once.py --release-tag hackathon-v16
 ```
 
 Public paths:

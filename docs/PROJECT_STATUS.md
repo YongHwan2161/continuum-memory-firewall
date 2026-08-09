@@ -113,6 +113,8 @@ evidence, and explicit non-claims.
   `f95c60536851fd6cfa8f05441e15ed069da35457aba779977e91024835bbd98b`)
 - Public evidence-story receipt and nine-scene judge page:
   <https://yonghwan2161.github.io/continuum-memory-firewall/evidence-story.html>
+  The v16 browser gate hashes the original canonical bytes, preserving numeric
+  lexemes across Python and JavaScript.
 - Devpost authenticated update receipt: project version `20`, updated at
   `2026-08-09T10:54:00.418-04:00`, state `published`, with submission
   `1121568` retaining its original non-null `submitted_at` receipt.
