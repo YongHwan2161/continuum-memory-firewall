@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
       - name: Run the credential-free judge flow
         run: |
-          python scripts/judge_readonly_verify.py \
+          PYTHONPATH=src:. python -m scripts.judge_readonly_verify \
             --evidence-url \
             https://yonghwan2161.github.io/continuum-memory-firewall/evidence/judge-verification.json \
             | tee judge-path-result.json

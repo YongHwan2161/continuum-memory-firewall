@@ -172,7 +172,7 @@ class McpHostInfrastructureTests(unittest.TestCase):
         workflow = (
             ROOT / ".github" / "workflows" / "release-envelope.yml"
         ).read_text(encoding="utf-8")
-        self.assertIn("default: hackathon-v16", workflow)
+        self.assertIn("default: hackathon-v17", workflow)
         self.assertIn(
             "for plane in source vector_scale agent_pressure managed_mcp "
             "sandbox_provider agent_ablation release_guardian "
@@ -193,6 +193,15 @@ class McpHostInfrastructureTests(unittest.TestCase):
         self.assertIn("evidence-story-v1.json.sha256", workflow)
         self.assertIn("--sequential-blind-public", workflow)
         self.assertIn("build_public_sequential_blind", workflow)
+
+    def test_judge_monitor_loads_repository_and_src_packages(self):
+        workflow = (
+            ROOT / ".github" / "workflows" / "judge-path-monitor.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "PYTHONPATH=src:. python -m scripts.judge_readonly_verify",
+            workflow,
+        )
 
     def test_outbox_fault_workflow_is_keyless_bounded_and_self_revoking(self):
         workflow = (

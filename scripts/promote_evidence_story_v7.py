@@ -124,7 +124,7 @@ def main() -> None:
     parser.add_argument("--judge", type=Path, required=True)
     parser.add_argument("--story", type=Path, required=True)
     parser.add_argument("--repository", required=True)
-    parser.add_argument("--release-tag", default="hackathon-v16")
+    parser.add_argument("--release-tag", default="hackathon-v17")
     parser.add_argument("--video-url", required=True)
     parser.add_argument("--video-duration-seconds", type=float, required=True)
     parser.add_argument("--video-sha256", required=True)
