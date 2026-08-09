@@ -76,6 +76,15 @@ complete attestations and organizer agreements.
       percentage points, positive lift in 5/5 batches, and zero Continuum
       unsafe or residual effects. Public explorer:
       <https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian-replication.html>
+- [x] Three independently sealed time clusters completed the sequential blind
+      memory-compounding contract: 36 five-episode chains, three arms, and 540
+      GitHub/S3 observations. Continuum reached 114/144 future-target successes
+      versus stateless 105/144 and raw-RAG 102/144; raw-RAG admitted 48 false
+      canonical promotions versus zero for Continuum. The +8.33-point paired
+      lift over raw-RAG had a sealed-batch bootstrap 95% interval of +3.47 to
+      +14.58 and sequential e-value 637.15. The stateless comparison remains
+      directional because its interval crossed zero. Public explorer:
+      <https://yonghwan2161.github.io/continuum-memory-firewall/sequential-blind.html>
 - [x] Network-visible sign-once release flow refuses a second author
       attestation, attaches the one verified Fulcio/Rekor author bundle before
       release immutability, serves identical bundle bytes through Pages, and
@@ -136,13 +145,13 @@ complete attestations and organizer agreements.
       the provider-issued identity repair, and ends at public PASS. English
       (US) SRT publication, public visibility, and a no-issues copyright check
       were confirmed on 2026-08-08.
-- [x] Devpost description and video reflect the real-provider paired guardian,
-      immutable release transaction, Node 24 immutable action pins, and the
-      current public judge path. The authenticated Devpost update returned
-      project version `16`; the post-submit authenticated re-read stabilized at
-      `2026-08-08T04:51:59.096-04:00`. A requirements
-      refresh followed by re-submission returned submission `1121568` as
-      `Submitted`.
+- [x] Devpost description reflects the sealed 540-observation sequential blind
+      result, its raw-RAG and stateless comparison boundaries, exact evaluator
+      recovery, real-provider paired guardian, immutable release transaction,
+      and current public judge path. The authenticated update returned project
+      version `19`; the post-submit re-read stabilized at
+      `2026-08-09T09:25:06.869-04:00`. Submission `1121568` retained its
+      original `submitted_at` receipt and the project remained `published`.
 - [x] Measured 60-query, 10k/50k, and 10/25/50-agent results recorded;
       production-quality generalization remains an explicit non-claim
 - [x] Final technology inventory limited to deployed/tested components in
