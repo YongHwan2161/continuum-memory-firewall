@@ -1,0 +1,473 @@
+name: aws-sequential-blind-campaign
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: write
+
+concurrency:
+  group: continuum-sequential-blind-campaign
+  cancel-in-progress: false
+
+jobs:
+  sealed-memory-compounding:
+    runs-on: ubuntu-latest
+    environment: continuum-production
+    timeout-minutes: 330
+    env:
+      AWS_REGION: ap-southeast-1
+      CONTINUUM_BEDROCK_REGION: ap-northeast-2
+      CONTINUUM_AGENT_BEDROCK_REGION: ap-southeast-2
+      CONTINUUM_MCP_STACK_NAME: continuum-authenticated-mcp
+      CONTINUUM_GITHUB_TOKEN_SECRET: continuum/github-release-guardian-token
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3, Node 24
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          role-session-name: continuum-sequential-blind
+      - name: Prove dedicated deployment role and main lineage
+        shell: bash
+        run: |
+          [[ "$GITHUB_REF" == "refs/heads/main" ]]
+          ./scripts/assert_deployer_identity.sh
+      - name: Align judging-window budget alert to USD 20
+        shell: bash
+        run: |
+          parameter() {
+            aws cloudformation describe-stacks --region "$AWS_REGION" \
+              --stack-name continuum-hackathon-budget \
+              --query "Stacks[0].Parameters[?ParameterKey=='$1'].ParameterValue | [0]" \
+              --output text
+          }
+          export CONTINUUM_AWS_BUDGET_NAME="$(parameter BudgetName)"
+          export CONTINUUM_BUDGET_EMAIL="$(parameter BudgetEmail)"
+          export CONTINUUM_MONTHLY_BUDGET_USD=20
+          ./scripts/deploy_aws_budget.sh --apply
+          amount="$(aws budgets describe-budget \
+            --account-id "$(aws sts get-caller-identity --query Account --output text)" \
+            --budget-name "$CONTINUUM_AWS_BUDGET_NAME" \
+            --query 'Budget.BudgetLimit.Amount' --output text)"
+          test "$amount" = 20.0 || test "$amount" = 20
+      - name: Resolve fixed-egress runtime and bounded campaign paths
+        shell: bash
+        run: |
+          parameter() {
+            aws cloudformation describe-stacks --region "$AWS_REGION" \
+              --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+              --query "Stacks[0].Parameters[?ParameterKey=='$1'].ParameterValue | [0]" \
+              --output text
+          }
+          output() {
+            aws cloudformation describe-stacks --region "$AWS_REGION" \
+              --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue | [0]" \
+              --output text
+          }
+          runtime_secret_arn="$(parameter RuntimeSecretArn)"
+          deploy_bucket="$(parameter PackageBucket)"
+          deploy_key="$(parameter PackageKey)"
+          instance_role_arn="$(output RuntimeRoleArn)"
+          instance_id="$(output InstanceId)"
+          campaign_id="sequential-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          evidence_prefix="evidence/sequential-blind/$GITHUB_SHA/$GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT"
+          sandbox_prefix="blind-holdout-sandbox/blind-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          aws s3 cp "s3://$deploy_bucket/$deploy_key" /tmp/continuum-current.zip \
+            --region "$AWS_REGION" --only-show-errors
+          unzip -p /tmp/continuum-current.zip cockroach-ca.crt >/tmp/cockroach-ca.crt
+          chmod 0600 /tmp/cockroach-ca.crt
+          test -s /tmp/cockroach-ca.crt
+          echo "CONTINUUM_RUNTIME_SECRET_ARN=$runtime_secret_arn" >>"$GITHUB_ENV"
+          echo "CONTINUUM_DEPLOY_BUCKET=$deploy_bucket" >>"$GITHUB_ENV"
+          echo "CONTINUUM_MCP_DEPLOYMENT_KEY=$deploy_key" >>"$GITHUB_ENV"
+          echo "CONTINUUM_CA_CERT_PATH=/tmp/cockroach-ca.crt" >>"$GITHUB_ENV"
+          echo "CONTINUUM_INSTANCE_ROLE_NAME=${instance_role_arn##*/}" >>"$GITHUB_ENV"
+          echo "CONTINUUM_INSTANCE_ID=$instance_id" >>"$GITHUB_ENV"
+          echo "CONTINUUM_CAMPAIGN_ID=$campaign_id" >>"$GITHUB_ENV"
+          echo "CONTINUUM_SEQUENTIAL_EVIDENCE_PREFIX=$evidence_prefix" >>"$GITHUB_ENV"
+          echo "CONTINUUM_HOLDOUT_SANDBOX_PREFIX=$sandbox_prefix" >>"$GITHUB_ENV"
+      - name: Deploy exact-head runtime
+        shell: bash
+        run: |
+          stack_status="$(aws cloudformation describe-stacks \
+            --region "$AWS_REGION" --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+            --query 'Stacks[0].StackStatus' --output text)"
+          if [[ "$stack_status" == "UPDATE_ROLLBACK_FAILED" || \
+                "$stack_status" == "UPDATE_ROLLBACK_COMPLETE" ]]; then
+            ./scripts/deploy_mcp_host_direct_recovery.sh
+          else
+            ./scripts/deploy_mcp_host.sh
+          fi
+          artifact_sha256="$(aws cloudformation describe-stacks \
+            --region "$AWS_REGION" --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='ArtifactSha256'].OutputValue | [0]" \
+            --output text)"
+          test "${#artifact_sha256}" = 64
+          echo "CONTINUUM_SEQUENTIAL_ARTIFACT_SHA256=$artifact_sha256" >>"$GITHUB_ENV"
+      - name: Stage ephemeral provider credential and preregistration capability
+        env:
+          HOLDOUT_GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          umask 077
+          secret_file="$RUNNER_TEMP/sequential-blind-token.json"
+          jq -cn --arg token "$HOLDOUT_GITHUB_TOKEN" --arg run_id "$GITHUB_RUN_ID" \
+            '{token:$token,run_id:$run_id}' >"$secret_file"
+          if aws secretsmanager describe-secret --region "$AWS_REGION" \
+              --secret-id "$CONTINUUM_GITHUB_TOKEN_SECRET" >/dev/null 2>&1; then
+            aws secretsmanager put-secret-value --region "$AWS_REGION" \
+              --secret-id "$CONTINUUM_GITHUB_TOKEN_SECRET" \
+              --secret-string "file://$secret_file" >/dev/null
+          else
+            aws secretsmanager create-secret --region "$AWS_REGION" \
+              --name "$CONTINUUM_GITHUB_TOKEN_SECRET" \
+              --description "Ephemeral GitHub token for sequential blind campaign" \
+              --tags Key=Project,Value=continuum-memory-firewall \
+              --secret-string "file://$secret_file" >/dev/null
+          fi
+          rm -f -- "$secret_file"
+          evidence_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_SEQUENTIAL_EVIDENCE_PREFIX/*"
+          policy="$(jq -cn --arg evidence "$evidence_arn" \
+            '{Version:"2012-10-17",Statement:[
+              {Effect:"Allow",Action:["s3:GetObject","s3:PutObject"],Resource:$evidence}
+            ]}')"
+          aws iam put-role-policy --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+            --policy-name ContinuumSequentialBlindOneRun --policy-document "$policy"
+          sleep 10
+      - name: Generate and seal all three batches before any candidate starts
+        shell: bash
+        run: |
+          command_text="set -eu
+          work=/run/continuum-sequential-preregister
+          rm -rf -- \"\$work\"
+          install -d -m 0700 \"\$work\"
+          trap 'rm -rf -- \"\$work\"' EXIT
+          cd /opt/continuum
+          for batch in 1 2 3; do
+            install -d -m 0700 \"\$work/batch-\$batch\"
+            /opt/continuum/.venv/bin/python scripts/generate_sequential_blind_batch.py \\
+              --region '$CONTINUUM_AGENT_BEDROCK_REGION' \\
+              --source-head '$GITHUB_SHA' \\
+              --campaign-id '$CONTINUUM_CAMPAIGN_ID' \\
+              --batch-index \"\$batch\" \\
+              --generation-nonce 'workflow-$GITHUB_RUN_ID-attempt-$GITHUB_RUN_ATTEMPT-batch-'\"\$batch\" \\
+              --output-dir \"\$work/batch-\$batch\"
+            /opt/continuum/.venv/bin/python scripts/seal_sequential_blind_batch.py \\
+              --region '$AWS_REGION' \\
+              --bucket '$CONTINUUM_DEPLOY_BUCKET' \\
+              --prefix '$CONTINUUM_SEQUENTIAL_EVIDENCE_PREFIX/batch-'\"\$batch\" \\
+              --challenge \"\$work/batch-\$batch/challenge.json\" \\
+              --labels \"\$work/batch-\$batch/labels.json\" \\
+              --commitment \"\$work/batch-\$batch/commitment.json\" \\
+              --output \"\$work/batch-\$batch/seal-receipt.json\" \\
+              --workflow-run-id '$GITHUB_RUN_ID' \\
+              --workflow-run-attempt '$GITHUB_RUN_ATTEMPT'
+            aws s3 cp \"\$work/batch-\$batch/seal-receipt.json\" \\
+              's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_SEQUENTIAL_EVIDENCE_PREFIX/batch-'\"\$batch\"'/seal-receipt.json' \\
+              --region '$AWS_REGION' --sse AES256 --only-show-errors
+          done
+          /opt/continuum/.venv/bin/python scripts/seal_sequential_blind_campaign.py \\
+            --region '$AWS_REGION' \\
+            --bucket '$CONTINUUM_DEPLOY_BUCKET' \\
+            --prefix '$CONTINUUM_SEQUENTIAL_EVIDENCE_PREFIX' \\
+            --commitment \"\$work/batch-1/commitment.json\" \\
+            --commitment \"\$work/batch-2/commitment.json\" \\
+            --commitment \"\$work/batch-3/commitment.json\" \\
+            --source-head '$GITHUB_SHA' \\
+            --campaign-id '$CONTINUUM_CAMPAIGN_ID' \\
+            --manifest-output \"\$work/campaign-manifest.json\" \\
+            --receipt-output \"\$work/campaign-seal-receipt.json\" \\
+            --workflow-run-id '$GITHUB_RUN_ID' \\
+            --workflow-run-attempt '$GITHUB_RUN_ATTEMPT'
+          aws s3 cp \"\$work/campaign-seal-receipt.json\" \\
+            's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_SEQUENTIAL_EVIDENCE_PREFIX/campaign-seal-receipt.json' \\
+            --region '$AWS_REGION' --sse AES256 --only-show-errors"
+          parameters="$(jq -cn --arg command "$command_text" \
+            '{commands:[$command],executionTimeout:["3600"]}')"
+          command_id="$(aws ssm send-command --region "$AWS_REGION" \
+            --instance-ids "$CONTINUUM_INSTANCE_ID" --document-name AWS-RunShellScript \
+            --comment 'seal three sequential blind batches before candidates' \
+            --parameters "$parameters" --query 'Command.CommandId' --output text)"
+          status=Pending
+          for _attempt in $(seq 1 720); do
+            status="$(aws ssm get-command-invocation --region "$AWS_REGION" \
+              --command-id "$command_id" --instance-id "$CONTINUUM_INSTANCE_ID" \
+              --query Status --output text)"
+            case "$status" in Success|Failed|Cancelled|TimedOut) break ;; esac
+            sleep 5
+          done
+          aws ssm get-command-invocation --region "$AWS_REGION" \
+            --command-id "$command_id" --instance-id "$CONTINUUM_INSTANCE_ID" \
+            --query '{Status:Status,ResponseCode:ResponseCode,Output:StandardOutputContent,Error:StandardErrorContent}' \
+            --output table
+          test "$status" = Success
+      - name: Replace preregistration access with label and manifest deny policy
+        shell: bash
+        run: |
+          allow_get='[]'
+          deny_get='[]'
+          allow_put='[]'
+          for batch in 1 2 3; do
+            seal="$RUNNER_TEMP/sequential-seal-$batch.json"
+            aws s3 cp \
+              "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_SEQUENTIAL_EVIDENCE_PREFIX/batch-$batch/seal-receipt.json" \
+              "$seal" --region "$AWS_REGION" --only-show-errors
+            challenge="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$(jq -r '.objects.challenge.key' "$seal")"
+            labels="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$(jq -r '.objects.labels.key' "$seal")"
+            commitment="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$(jq -r '.objects.commitment.key' "$seal")"
+            seal_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_SEQUENTIAL_EVIDENCE_PREFIX/batch-$batch/seal-receipt.json"
+            observation="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_SEQUENTIAL_EVIDENCE_PREFIX/batch-$batch/observations.json"
+            allow_get="$(jq -cn --argjson prior "$allow_get" --arg a "$challenge" --arg b "$commitment" --arg c "$seal_arn" '$prior+[$a,$b,$c]')"
+            deny_get="$(jq -cn --argjson prior "$deny_get" --arg value "$labels" '$prior+[$value]')"
+            allow_put="$(jq -cn --argjson prior "$allow_put" --arg value "$observation" '$prior+[$value]')"
+          done
+          campaign_receipt="$RUNNER_TEMP/sequential-campaign-seal.json"
+          aws s3 cp \
+            "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_SEQUENTIAL_EVIDENCE_PREFIX/campaign-seal-receipt.json" \
+            "$campaign_receipt" --region "$AWS_REGION" --only-show-errors
+          campaign_receipt_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_SEQUENTIAL_EVIDENCE_PREFIX/campaign-seal-receipt.json"
+          campaign_manifest_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$(jq -r '.manifest_object.key' "$campaign_receipt")"
+          completed_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_SEQUENTIAL_EVIDENCE_PREFIX/all-candidates-completed-at.txt"
+          allow_get="$(jq -cn --argjson prior "$allow_get" --arg value "$campaign_receipt_arn" '$prior+[$value]')"
+          deny_get="$(jq -cn --argjson prior "$deny_get" --arg value "$campaign_manifest_arn" '$prior+[$value]')"
+          allow_put="$(jq -cn --argjson prior "$allow_put" --arg value "$completed_arn" '$prior+[$value]')"
+          token_arn="$(aws secretsmanager describe-secret --region "$AWS_REGION" \
+            --secret-id "$CONTINUUM_GITHUB_TOKEN_SECRET" --query ARN --output text)"
+          migrator_arn="$(aws secretsmanager describe-secret --region "$AWS_REGION" \
+            --secret-id continuum/cockroach/sql-migrator --query ARN --output text)"
+          bucket_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET"
+          sandbox_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_HOLDOUT_SANDBOX_PREFIX/*"
+          policy="$(jq -cn --arg token "$token_arn" --arg migrator "$migrator_arn" \
+            --argjson allow_get "$allow_get" --argjson deny_get "$deny_get" \
+            --argjson allow_put "$allow_put" --arg sandbox "$sandbox_arn" \
+            --arg bucket "$bucket_arn" --arg sandbox_prefix "$CONTINUUM_HOLDOUT_SANDBOX_PREFIX/*" \
+            '{Version:"2012-10-17",Statement:[
+              {Effect:"Deny",Action:"s3:GetObject",Resource:$deny_get},
+              {Effect:"Allow",Action:"secretsmanager:GetSecretValue",Resource:[$token,$migrator]},
+              {Effect:"Allow",Action:"s3:GetObject",Resource:$allow_get},
+              {Effect:"Allow",Action:"s3:PutObject",Resource:$allow_put},
+              {Effect:"Allow",Action:["s3:GetObject","s3:PutObject","s3:DeleteObject"],Resource:$sandbox},
+              {Effect:"Allow",Action:"s3:ListBucket",Resource:$bucket,Condition:{StringLike:{"s3:prefix":$sandbox_prefix}}}
+            ]}')"
+          aws iam put-role-policy --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+            --policy-name ContinuumSequentialBlindOneRun --policy-document "$policy"
+          echo "CONTINUUM_SEQUENTIAL_DENIED_OBJECTS=$(jq 'length' <<<"$deny_get")" >>"$GITHUB_ENV"
+          sleep 10
+      - name: Run three label-free batches with enforced start separation
+        id: candidates
+        shell: bash
+        run: |
+          test "$CONTINUUM_SEQUENTIAL_DENIED_OBJECTS" = 4
+          command_text="set -eu
+          work=/run/continuum-sequential-candidate
+          rm -rf -- \"\$work\"
+          install -d -m 0700 \"\$work\"
+          trap 'rm -rf -- \"\$work\"' EXIT
+          cd /opt/continuum
+          aws s3 cp 's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_SEQUENTIAL_EVIDENCE_PREFIX/campaign-seal-receipt.json' \\
+            \"\$work/campaign-seal-receipt.json\" --region '$AWS_REGION' --only-show-errors
+          previous_started=''
+          for batch in 1 2 3; do
+            if [ -n \"\$previous_started\" ]; then
+              prior_epoch=\"\$(date -d \"\$previous_started\" +%s)\"
+              now_epoch=\"\$(date -u +%s)\"
+              wait_seconds=\"\$((prior_epoch + 305 - now_epoch))\"
+              if [ \"\$wait_seconds\" -gt 0 ]; then sleep \"\$wait_seconds\"; fi
+            fi
+            install -d -m 0700 \"\$work/batch-\$batch\"
+            aws s3 cp 's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_SEQUENTIAL_EVIDENCE_PREFIX/batch-'\"\$batch\"'/seal-receipt.json' \\
+              \"\$work/batch-\$batch/seal.json\" --region '$AWS_REGION' --only-show-errors
+            challenge_key=\"\$(jq -r '.objects.challenge.key' \"\$work/batch-\$batch/seal.json\")\"
+            commitment_key=\"\$(jq -r '.objects.commitment.key' \"\$work/batch-\$batch/seal.json\")\"
+            aws s3 cp \"s3://$CONTINUUM_DEPLOY_BUCKET/\$challenge_key\" \\
+              \"\$work/batch-\$batch/challenge.json\" --region '$AWS_REGION' --only-show-errors
+            aws s3 cp \"s3://$CONTINUUM_DEPLOY_BUCKET/\$commitment_key\" \\
+              \"\$work/batch-\$batch/commitment.json\" --region '$AWS_REGION' --only-show-errors
+            /opt/continuum/.venv/bin/python scripts/run_live_sequential_blind.py \\
+              --region '$AWS_REGION' \\
+              --embedding-region '$CONTINUUM_BEDROCK_REGION' \\
+              --agent-region '$CONTINUUM_AGENT_BEDROCK_REGION' \\
+              --migrator-secret-id continuum/cockroach/sql-migrator \\
+              --github-token-secret-id '$CONTINUUM_GITHUB_TOKEN_SECRET' \\
+              --repository '$GITHUB_REPOSITORY' \\
+              --s3-bucket '$CONTINUUM_DEPLOY_BUCKET' \\
+              --run-namespace 'blind-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT' \\
+              --ca-cert /opt/continuum/cockroach-ca.crt \\
+              --source-head '$GITHUB_SHA' \\
+              --deployment-artifact-sha256 '$CONTINUUM_SEQUENTIAL_ARTIFACT_SHA256' \\
+              --workflow-run-id '$GITHUB_RUN_ID' \\
+              --workflow-run-attempt '$GITHUB_RUN_ATTEMPT' \\
+              --challenge \"\$work/batch-\$batch/challenge.json\" \\
+              --commitment \"\$work/batch-\$batch/commitment.json\" \\
+              --seal-receipt \"\$work/batch-\$batch/seal.json\" \\
+              --campaign-seal-receipt \"\$work/campaign-seal-receipt.json\" \\
+              --output \"\$work/batch-\$batch/observations.json\"
+            aws s3 cp \"\$work/batch-\$batch/observations.json\" \\
+              's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_SEQUENTIAL_EVIDENCE_PREFIX/batch-'\"\$batch\"'/observations.json' \\
+              --region '$AWS_REGION' --sse AES256 --only-show-errors
+            previous_started=\"\$(jq -r '.workflow.started_at' \"\$work/batch-\$batch/observations.json\")\"
+          done
+          date -u +%Y-%m-%dT%H:%M:%S.%NZ >\"\$work/all-candidates-completed-at.txt\"
+          aws s3 cp \"\$work/all-candidates-completed-at.txt\" \\
+            's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_SEQUENTIAL_EVIDENCE_PREFIX/all-candidates-completed-at.txt' \\
+            --region '$AWS_REGION' --sse AES256 --only-show-errors"
+          parameters="$(jq -cn --arg command "$command_text" \
+            '{commands:[$command],executionTimeout:["18000"]}')"
+          command_id="$(aws ssm send-command --region "$AWS_REGION" \
+            --instance-ids "$CONTINUUM_INSTANCE_ID" --document-name AWS-RunShellScript \
+            --timeout-seconds 18000 \
+            --comment 'three-arm sequential blind campaign' \
+            --parameters "$parameters" --query 'Command.CommandId' --output text)"
+          status=Pending
+          for _attempt in $(seq 1 3600); do
+            status="$(aws ssm get-command-invocation --region "$AWS_REGION" \
+              --command-id "$command_id" --instance-id "$CONTINUUM_INSTANCE_ID" \
+              --query Status --output text)"
+            case "$status" in Success|Failed|Cancelled|TimedOut) break ;; esac
+            sleep 5
+          done
+          aws ssm get-command-invocation --region "$AWS_REGION" \
+            --command-id "$command_id" --instance-id "$CONTINUUM_INSTANCE_ID" \
+            --query '{Status:Status,ResponseCode:ResponseCode,Output:StandardOutputContent,Error:StandardErrorContent}' \
+            --output table
+          test "$status" = Success
+      - name: Open labels only after all 540 candidate observations finish
+        shell: bash
+        run: |
+          out="$RUNNER_TEMP/sequential-blind"
+          mkdir -p "$out"
+          aws s3 cp \
+            "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_SEQUENTIAL_EVIDENCE_PREFIX/campaign-seal-receipt.json" \
+            "$out/campaign-seal-receipt.json" --region "$AWS_REGION" --only-show-errors
+          manifest_key="$(jq -r '.manifest_object.key' "$out/campaign-seal-receipt.json")"
+          aws s3 cp "s3://$CONTINUUM_DEPLOY_BUCKET/$manifest_key" \
+            "$out/campaign-manifest.json" --region "$AWS_REGION" --only-show-errors
+          aws s3 cp \
+            "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_SEQUENTIAL_EVIDENCE_PREFIX/all-candidates-completed-at.txt" \
+            "$out/all-candidates-completed-at.txt" --region "$AWS_REGION" --only-show-errors
+          all_completed="$(tr -d '\r\n' <"$out/all-candidates-completed-at.txt")"
+          campaign_args=()
+          for batch in 1 2 3; do
+            mkdir -p "$out/batch-$batch"
+            aws s3 cp \
+              "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_SEQUENTIAL_EVIDENCE_PREFIX/batch-$batch/seal-receipt.json" \
+              "$out/batch-$batch/seal.json" --region "$AWS_REGION" --only-show-errors
+            aws s3 cp \
+              "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_SEQUENTIAL_EVIDENCE_PREFIX/batch-$batch/observations.json" \
+              "$out/batch-$batch/observations.json" --region "$AWS_REGION" --only-show-errors
+            for object in challenge labels commitment; do
+              key="$(jq -r ".objects.$object.key" "$out/batch-$batch/seal.json")"
+              aws s3 cp "s3://$CONTINUUM_DEPLOY_BUCKET/$key" \
+                "$out/batch-$batch/$object.json" --region "$AWS_REGION" --only-show-errors
+            done
+            campaign_args+=(--campaign-commitment "$out/batch-$batch/commitment.json")
+          done
+          score_status=0
+          for batch in 1 2 3; do
+            PYTHONPATH=src:. python scripts/score_sequential_blind.py \
+              --challenge "$out/batch-$batch/challenge.json" \
+              --labels "$out/batch-$batch/labels.json" \
+              --commitment "$out/batch-$batch/commitment.json" \
+              "${campaign_args[@]}" \
+              --campaign-manifest "$out/campaign-manifest.json" \
+              --observations "$out/batch-$batch/observations.json" \
+              --all-candidates-completed-at "$all_completed" \
+              --output "$out/batch-$batch/report.json" \
+              --public-output "$out/batch-$batch/public-or-diagnostic.json" \
+              --receipt-output "$out/batch-$batch/artifact-receipt.json" || score_status=1
+          done
+          test "$score_status" = 0
+          PYTHONPATH=src:. python scripts/aggregate_sequential_blind.py \
+            --report "$out/batch-1/report.json" \
+            --report "$out/batch-2/report.json" \
+            --report "$out/batch-3/report.json" \
+            --receipt "$out/batch-1/artifact-receipt.json" \
+            --receipt "$out/batch-2/artifact-receipt.json" \
+            --receipt "$out/batch-3/artifact-receipt.json" \
+            --manifest "$out/campaign-manifest.json" \
+            --campaign-seal-receipt "$out/campaign-seal-receipt.json" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --output "$out/campaign-report.json" \
+            --public-output "$out/campaign-public.json"
+          jq -e '
+            .kind == "continuum.sequential-blind.campaign-report" and
+            .source_head == env.GITHUB_SHA and
+            .methodology.sealed_batches == 3 and
+            .methodology.arm_observations == 540 and
+            .methodology.candidate_label_fields == 0 and
+            .methodology.candidate_process_opened_labels == false and
+            .methodology.scored_after_all_arms_and_batches == true and
+            (.methodology.observed_start_separations_seconds | length) == 2 and
+            ([.methodology.observed_start_separations_seconds[] >= 300] | all) and
+            .providers == ["github","s3"] and
+            (.observations | length) == 540 and
+            .arms.continuum.false_canonical_promotions == 0 and
+            .arms.continuum.canonical_promotion_precision == 1 and
+            .arms.continuum.cross_scope_leak_count == 0 and
+            .gate.status == "PASS"
+          ' "$out/campaign-report.json" >/dev/null
+          sha256sum "$out"/*.json "$out"/batch-*/*.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        if: always()
+        with:
+          name: continuum-sequential-blind-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/sequential-blind/
+          if-no-files-found: warn
+          retention-days: 90
+      - name: Revoke temporary capabilities, tombstone token, and prove sandbox cleanup
+        if: always()
+        shell: bash
+        run: |
+          cleanup_failure=0
+          if [[ -n "${CONTINUUM_INSTANCE_ID:-}" && -n "${CONTINUUM_DEPLOY_BUCKET:-}" && \
+                -n "${CONTINUUM_HOLDOUT_SANDBOX_PREFIX:-}" ]]; then
+            cleanup_command="set -eu
+            cd /opt/continuum
+            /opt/continuum/.venv/bin/python scripts/cleanup_blind_holdout.py \\
+              --region '$AWS_REGION' \\
+              --bucket '$CONTINUUM_DEPLOY_BUCKET' \\
+              --prefix '$CONTINUUM_HOLDOUT_SANDBOX_PREFIX'"
+            parameters="$(jq -cn --arg command "$cleanup_command" '{commands:[$command]}')"
+            if command_id="$(aws ssm send-command --region "$AWS_REGION" \
+                --instance-ids "$CONTINUUM_INSTANCE_ID" \
+                --document-name AWS-RunShellScript \
+                --comment 'sequential blind bounded sandbox cleanup' \
+                --parameters "$parameters" --query 'Command.CommandId' --output text)"; then
+              cleanup_status=Pending
+              for _attempt in $(seq 1 120); do
+                cleanup_status="$(aws ssm get-command-invocation --region "$AWS_REGION" \
+                  --command-id "$command_id" --instance-id "$CONTINUUM_INSTANCE_ID" \
+                  --query Status --output text)"
+                case "$cleanup_status" in Success|Failed|Cancelled|TimedOut) break ;; esac
+                sleep 5
+              done
+              [[ "$cleanup_status" == Success ]] || cleanup_failure=1
+            else
+              cleanup_failure=1
+            fi
+          fi
+          if [[ -n "${CONTINUUM_INSTANCE_ROLE_NAME:-}" ]]; then
+            aws iam delete-role-policy --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+              --policy-name ContinuumSequentialBlindOneRun || true
+            if aws iam get-role-policy --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+                --policy-name ContinuumSequentialBlindOneRun >/dev/null 2>&1; then
+              cleanup_failure=1
+            fi
+          fi
+          if aws secretsmanager describe-secret --region "$AWS_REGION" \
+              --secret-id "$CONTINUUM_GITHUB_TOKEN_SECRET" >/dev/null 2>&1; then
+            umask 077
+            tombstone="$RUNNER_TEMP/sequential-blind-tombstone.json"
+            jq -cn --arg run_id "$GITHUB_RUN_ID" \
+              '{revoked:true,run_id:$run_id}' >"$tombstone"
+            aws secretsmanager put-secret-value --region "$AWS_REGION" \
+              --secret-id "$CONTINUUM_GITHUB_TOKEN_SECRET" \
+              --secret-string "file://$tombstone" >/dev/null || cleanup_failure=1
+            rm -f -- "$tombstone"
+          fi
+          rm -f -- /tmp/continuum-current.zip /tmp/cockroach-ca.crt
+          test "$cleanup_failure" = 0

@@ -46,7 +46,7 @@ class ReleaseGuardianWorkflowTests(unittest.TestCase):
             for path in workflows
             if "configure-aws-credentials@" in path.read_text(encoding="utf-8")
         ]
-        self.assertEqual(len(credential_workflows), 12)
+        self.assertEqual(len(credential_workflows), 13)
         for path in credential_workflows:
             source = path.read_text(encoding="utf-8")
             self.assertIn(expected, source, path.name)
