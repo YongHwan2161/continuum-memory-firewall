@@ -11,6 +11,7 @@ class SequentialBlindWorkflowTests(unittest.TestCase):
         self.source = self.path.read_text(encoding="utf-8")
 
     def test_main_environment_oidc_budget_and_node24_are_fixed(self) -> None:
+        self.assertIn("runs-on: ubuntu-22.04", self.source)
         self.assertIn("environment: continuum-production", self.source)
         self.assertIn('[[ "$GITHUB_REF" == "refs/heads/main" ]]', self.source)
         self.assertIn("assert_deployer_identity.sh", self.source)

@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   sealed-memory-compounding:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     environment: continuum-production
     timeout-minutes: 330
     env:
