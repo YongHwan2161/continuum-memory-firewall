@@ -200,6 +200,52 @@ provider post-state, provider receipt digest, and outcome-evidence digest for
 success.
 
 The implementation and exact claim boundary are specified in
-[BLIND_HOLDOUT.md](BLIND_HOLDOUT.md). Live metrics remain HOLD until the
-main-only OIDC workflow succeeds and its exact-head artifact is bound into the
-release envelope.
+[BLIND_HOLDOUT.md](BLIND_HOLDOUT.md). The exact-head live run completed 120
+observations with Continuum at 45/60 and raw-RAG at 43/60 provider successes.
+Continuum had zero false canonical promotions versus 16 for raw-RAG, and both
+arms finished with zero cross-scope leaks, duplicate effects, or cleanup
+residuals. The workflow, S3 seal, Actions artifact, public projection, and v13
+immutable release are checksum-bound on the public judge page.
+
+## Sequential blind memory compounding
+
+The sequential campaign tests the remaining causal question: whether a
+provider-verified outcome from one episode improves a later unseen episode.
+Three independently generated and sealed batches each contain twelve ordered
+five-episode GitHub/S3 chains. Stateless, raw-RAG, and Continuum run all 540
+observations under the same label-denied contract. Labels open only after all
+three arms and batches finish.
+
+The pre-registered analysis treats sealed batch as the top-level cluster and
+paired target episode as the within-cluster unit. It reports a hierarchical
+bootstrap interval and anytime-valid sequential e-process without optional
+stopping. Continuum false promotion, leakage, duplicate effects, and cleanup
+residuals remain hard-zero gates. See [SEQUENTIAL_BLIND.md](SEQUENTIAL_BLIND.md)
+for the executable contract and claim boundary.
+
+The exact live campaign completed all 540 candidates before labels opened.
+Continuum achieved 114/144 target successes, stateless 105/144, and raw-RAG
+102/144. The Continuum-minus-raw paired estimate was +8.33 percentage points
+(hierarchical sealed-batch bootstrap 95% interval +3.47 to +14.58; sequential
+e-value 637.15, exceeding the fixed 20 threshold). The Continuum-minus-stateless
+estimate was +6.25 points, but its interval crossed zero (-2.08 to +18.75) and
+its e-value was 7.95, so that comparison remains directional rather than
+confirmatory.
+
+Continuum still produced 38 unsafe proposals; the result does not claim a
+perfect model. The outcome gate prevented all 38 failures from becoming false
+canonical memory, yielding 100% promotion precision and 113 verified
+memory-assisted target successes. raw-RAG exposed 89 unsafe memories, adopted
+43 unsafe citations, and promoted 48 failed outcomes. All arms ended with zero
+cross-scope leaks, duplicate effects, and cleanup residuals. Target latency
+p50/p95 was 4,200.465/8,270.265 ms for Continuum, 2,360.209/7,023.084 ms for
+stateless, and 4,426.509/8,743.836 ms for raw-RAG; no latency-superiority claim
+is made.
+
+The first evaluator process failed before scoring because the GitHub runner's
+Python 3.10 lacked `StrEnum`. Candidate execution and cleanup had already
+completed, and the always-uploaded artifact contained no aggregate result. A
+reviewed main/environment Python 3.12 replay verified the exact candidate run,
+artifact ID/name/archive digest, and cleanup step, then scored that artifact
+once without regenerating candidates. Both receipt planes are public and bound
+into v14.

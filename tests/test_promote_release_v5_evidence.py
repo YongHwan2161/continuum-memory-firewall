@@ -214,7 +214,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
                     release_tag="hackathon-v5",
                 )
 
-    def test_repository_public_evidence_has_v13_source_closure(self) -> None:
+    def test_repository_public_evidence_has_v14_source_closure(self) -> None:
         judge_path = self.repo_root / "public-demo/evidence/judge-verification.json"
         aggregate_path = self.repo_root / "public-demo/evidence/agent-ablation-v3.json"
         drilldown_path = (
@@ -235,9 +235,14 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         )
         blind_bytes = blind_path.read_bytes()
         blind = json.loads(blind_bytes)
+        sequential_path = (
+            self.repo_root / "public-demo/evidence/sequential-blind-v1.json"
+        )
+        sequential_bytes = sequential_path.read_bytes()
+        sequential = json.loads(sequential_bytes)
 
-        self.assertEqual(judge["schema_version"], 8)
-        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v13")
+        self.assertEqual(judge["schema_version"], 9)
+        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v14")
         self.assertEqual(
             judge["network_sign_once"]["required_total_attestation_count"],
             2,
@@ -294,6 +299,38 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         self.assertEqual(blind["arms"]["continuum"]["false_canonical_promotions"], 0)
         self.assertGreater(blind["arms"]["raw_rag"]["false_canonical_promotions"], 0)
         self.assertEqual(blind["gate"]["status"], "PASS")
+        self.assertEqual(
+            hashlib.sha256(sequential_bytes.replace(b"\r\n", b"\n")).hexdigest(),
+            judge["sequential_blind_campaign"]["public_sha256"],
+        )
+        self.assertEqual(
+            sequential["source_head"],
+            judge["sequential_blind_campaign"]["head_sha"],
+        )
+        self.assertEqual(sequential["methodology"]["sealed_batches"], 3)
+        self.assertEqual(sequential["methodology"]["arm_observations"], 540)
+        self.assertEqual(len(sequential["observations"]), 540)
+        self.assertEqual(sequential["gate"]["status"], "PASS")
+        self.assertEqual(
+            sequential["evaluation_replay"]["candidate_workflow"]["run_id"],
+            judge["sequential_blind_campaign"]["candidate_workflow_run_id"],
+        )
+        self.assertEqual(
+            sequential["evaluation_replay"]["candidate_artifact"][
+                "archive_sha256"
+            ],
+            judge["sequential_blind_campaign"][
+                "candidate_artifact_archive_sha256"
+            ],
+        )
+        self.assertEqual(
+            sequential["aggregation_workflow"]["run_id"],
+            judge["sequential_blind_campaign"]["workflow_run_id"],
+        )
+        self.assertEqual(
+            judge["release_envelope"]["sequential_blind_asset_name"],
+            "sequential-blind-v1.json",
+        )
 
 
 if __name__ == "__main__":

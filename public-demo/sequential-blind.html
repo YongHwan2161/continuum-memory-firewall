@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://api.github.com; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <title>Continuum Sequential Blind Proof</title>
+  <style>
+    :root{color-scheme:dark;--bg:#07110f;--card:#0e1b18;--line:#21443a;--text:#eefcf7;--muted:#98b8ae;--mint:#64f5bd;--amber:#ffc96b;--red:#ff8793}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 75% 0,#123c31 0,transparent 38%),var(--bg);color:var(--text);font:15px/1.55 Inter,system-ui,sans-serif}main{width:min(1120px,calc(100% - 32px));margin:auto;padding:40px 0 70px}.top{display:flex;justify-content:space-between;gap:16px}.brand,.pass{color:var(--mint);font-weight:900;letter-spacing:.12em}.pill{border:1px solid var(--line);border-radius:99px;padding:7px 12px;color:var(--muted)}h1{font-size:clamp(40px,7vw,72px);line-height:1;margin:68px 0 20px;letter-spacing:-.05em}h1 em{color:var(--mint);font-style:normal}.lede{max-width:850px;color:var(--muted);font-size:19px}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:42px 0}.card{background:linear-gradient(145deg,#10211d,#0a1714);border:1px solid var(--line);border-radius:17px;padding:20px}.card span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.1em}.card strong{display:block;font-size:28px;margin-top:8px}.card small{color:var(--mint)}h2{margin-top:42px}.chart-grid{display:grid;grid-template-columns:3fr 2fr;gap:14px}.chart{background:linear-gradient(145deg,#10211d,#0a1714);border:1px solid var(--line);border-radius:17px;padding:22px}.chart h3{margin:0}.chart p{color:var(--muted);margin:4px 0 20px}.bar-row{display:grid;grid-template-columns:96px 1fr 64px;align-items:center;gap:12px;margin:14px 0}.bar-label{font-weight:700}.bar-track{height:17px;background:#07110f;border:1px solid var(--line);border-radius:99px;overflow:hidden}.bar-fill{height:100%;width:0;background:var(--amber);border-right:2px solid var(--text);transition:width .35s ease}.bar-fill.continuum{background:var(--mint)}.bar-value{text-align:right;font-variant-numeric:tabular-nums}.axis{display:flex;justify-content:space-between;margin-left:108px;color:var(--muted);font-size:11px}.chain{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.chain .card strong{font-size:17px}.chain .card b{color:var(--mint)}.table{overflow:auto;border:1px solid var(--line);border-radius:17px}table{width:100%;border-collapse:collapse;min-width:820px}th,td{text-align:left;padding:11px 13px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-size:11px;letter-spacing:.08em;text-transform:uppercase}code{color:var(--mint);word-break:break-all}.links{display:flex;gap:18px;flex-wrap:wrap;margin-top:28px}.links a{color:var(--text);text-decoration:none;border-bottom:1px solid var(--mint)}.hold{color:var(--amber)}.fail{color:var(--red)}@media(max-width:800px){.metrics{grid-template-columns:repeat(2,1fr)}.chart-grid{grid-template-columns:1fr}.chain{grid-template-columns:1fr}.top{flex-direction:column}}
+  </style>
+</head>
+<body><main>
+  <div class="top"><div class="brand">CONTINUUM · SEQUENTIAL BLIND</div><div class="pill">3 SEALED BATCHES · 36 CHAINS · 540 OBSERVATIONS</div></div>
+  <h1>Does verified memory improve the <em>next unseen episode?</em></h1>
+  <p class="lede">Three fresh Bedrock populations are sealed before any candidate runs. Stateless, raw-RAG, and Continuum then face the same five-episode provider chains. Only real GitHub and S3 receipts score future-episode success; false promotion, leakage, duplicates, and cleanup residuals are hard failures.</p>
+  <section class="metrics">
+    <div class="card"><span>Public gate</span><strong id="status">—</strong><small>fixed three-batch plan</small></div>
+    <div class="card"><span>Target pairs</span><strong id="pairs">—</strong><small>per comparison</small></div>
+    <div class="card"><span>Continuum target success</span><strong id="continuum">—</strong><small>verified outcomes</small></div>
+    <div class="card"><span>Stateless target success</span><strong id="stateless">—</strong><small>no memory tools</small></div>
+    <div class="card"><span>Raw-RAG target success</span><strong id="raw">—</strong><small>append-all baseline</small></div>
+    <div class="card"><span>Lift vs stateless</span><strong id="lift-stateless">—</strong><small>percentage points</small></div>
+    <div class="card"><span>Lift vs raw-RAG</span><strong id="lift-raw">—</strong><small>percentage points</small></div>
+    <div class="card"><span>False promotions</span><strong id="false">—</strong><small>raw-RAG / Continuum</small></div>
+    <div class="card"><span>Memory-assisted wins</span><strong id="assisted">—</strong><small>Continuum targets</small></div>
+    <div class="card"><span>Promotion precision</span><strong id="precision">—</strong><small>Continuum canonical</small></div>
+    <div class="card"><span>Minimum spacing</span><strong id="spacing">—</strong><small>batch start seconds</small></div>
+    <div class="card"><span>Residual effects</span><strong id="residuals">—</strong><small>all arms</small></div>
+    <div class="card"><span>95% CI vs stateless</span><strong id="ci-stateless">—</strong><small>batch-cluster bootstrap, pp</small></div>
+    <div class="card"><span>95% CI vs raw-RAG</span><strong id="ci-raw">—</strong><small>batch-cluster bootstrap, pp</small></div>
+    <div class="card"><span>Sequential e-value</span><strong id="e-raw">—</strong><small>Continuum vs raw-RAG</small></div>
+    <div class="card"><span>Batch gates</span><strong id="batch-gate">—</strong><small>all three required</small></div>
+  </section>
+  <h2>Three-arm outcome comparison</h2>
+  <p class="lede">Target provider success uses the same 144 future episodes per comparison. All bars start at zero; the second panel reports exact canonical-promotion errors rather than mixing counts with rates.</p>
+  <section class="chart-grid" aria-label="Three-arm target success and false promotion comparison">
+    <article class="chart">
+      <h3>Target provider success</h3><p>Percent of later unseen target episodes with a verified provider outcome · n=144 paired targets per comparison.</p>
+      <div class="bar-row"><div class="bar-label">Continuum</div><div class="bar-track"><div class="bar-fill continuum" id="bar-continuum"></div></div><div class="bar-value" id="bar-continuum-value">—</div></div>
+      <div class="bar-row"><div class="bar-label">Stateless</div><div class="bar-track"><div class="bar-fill" id="bar-stateless"></div></div><div class="bar-value" id="bar-stateless-value">—</div></div>
+      <div class="bar-row"><div class="bar-label">Raw-RAG</div><div class="bar-track"><div class="bar-fill" id="bar-raw"></div></div><div class="bar-value" id="bar-raw-value">—</div></div>
+      <div class="axis"><span>0%</span><span>50%</span><span>100%</span></div>
+    </article>
+    <article class="chart">
+      <h3>False canonical promotions</h3><p>Provider-unverified memories admitted to canonical state. Zero is the hard gate.</p>
+      <div class="bar-row"><div class="bar-label">Continuum</div><div class="bar-track"><div class="bar-fill continuum" id="bar-false-continuum"></div></div><div class="bar-value" id="bar-false-continuum-value">—</div></div>
+      <div class="bar-row"><div class="bar-label">Raw-RAG</div><div class="bar-track"><div class="bar-fill" id="bar-false-raw"></div></div><div class="bar-value" id="bar-false-raw-value">—</div></div>
+      <div class="axis"><span>0</span><span id="false-axis-max">max —</span></div>
+    </article>
+  </section>
+  <h2>Causal memory-compounding contract</h2>
+  <section class="chain">
+    <div class="card"><b>01</b><strong>Seed</strong><span>A clean provider outcome establishes the first receipt.</span></div>
+    <div class="card"><b>02</b><strong>Paraphrase</strong><span>A fresh wording tests useful transfer without label reuse.</span></div>
+    <div class="card"><b>03</b><strong>Poison</strong><span>Unverified instructions pressure raw append-all memory.</span></div>
+    <div class="card"><b>04</b><strong>Stale</strong><span>Provider state changes while prior text stays plausible.</span></div>
+    <div class="card"><b>05</b><strong>Conflict</strong><span>Only provider-verified outcome evidence may survive.</span></div>
+  </section>
+  <h2>Checksum-bound lineage</h2>
+  <section class="table"><table><tbody>
+    <tr><th>Candidate workflow</th><td><code id="candidate-workflow">—</code></td></tr>
+    <tr><th>Evaluator workflow</th><td><code id="workflow">—</code></td></tr>
+    <tr><th>Source SHA</th><td><code id="source">—</code></td></tr>
+    <tr><th>Campaign ID</th><td><code id="campaign">—</code></td></tr>
+    <tr><th>Manifest SHA-256</th><td><code id="manifest">—</code></td></tr>
+    <tr><th>Campaign seal receipt</th><td><code id="seal">—</code></td></tr>
+    <tr><th>Public result SHA-256</th><td><code id="result">—</code></td></tr>
+  </tbody></table></section>
+  <p class="lede">Recovery boundary: all 540 candidates and cleanup completed before the first evaluator failed at Python 3.10 import. A reviewed Python 3.12 workflow scored the exact digest-bound artifact once; no candidate was regenerated. Claim boundary: these are independently sealed time clusters separated by at least five minutes. They are not presented as independent people or three calendar days.</p>
+  <div class="links"><a href="./verify.html">Run the complete one-click judge →</a><a id="workflow-link" target="_blank" rel="noreferrer">Open exact workflow ↗</a><a href="./evidence/sequential-blind-v1.json" target="_blank" rel="noreferrer">Inspect all 540 observations ↗</a></div>
+</main><script>
+const percent=value=>(Number(value)*100).toFixed(1)+'%';
+async function sha256(buffer){const digest=await crypto.subtle.digest('SHA-256',buffer);return [...new Uint8Array(digest)].map(value=>value.toString(16).padStart(2,'0')).join('')}
+async function boot(){try{const judge=await fetch('./evidence/judge-verification.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('judge evidence');return r.json()}),ref=judge.sequential_blind_campaign,response=await fetch('./evidence/sequential-blind-v1.json',{cache:'no-store'});if(!response.ok)throw new Error('campaign report');const bytes=await response.arrayBuffer(),actual=await sha256(bytes),report=JSON.parse(new TextDecoder().decode(bytes)),arms=report.arms,continuum=arms.continuum,raw=arms.raw_rag,stateless=arms.stateless,vsStateless=report.paired_comparisons.continuum_vs_stateless,vsRaw=report.paired_comparisons.continuum_vs_raw_rag,ciStateless=vsStateless.hierarchical_cluster_bootstrap_95_percentage_points,ciRaw=vsRaw.hierarchical_cluster_bootstrap_95_percentage_points,spacing=report.methodology.observed_start_separations_seconds;const bound=actual===ref.public_sha256&&report.source_head===ref.head_sha&&report.campaign_manifest.campaign_manifest_sha256===ref.campaign_manifest_sha256&&report.campaign_seal_receipt.receipt_sha256===ref.campaign_seal_receipt_sha256&&report.gate.status==='PASS'&&report.methodology.arm_observations===540&&spacing.every(value=>value>=300);document.querySelector('#status').textContent=bound?'PASS':'FAIL';document.querySelector('#status').className=bound?'pass':'fail';document.querySelector('#pairs').textContent=vsStateless.pairs;document.querySelector('#continuum').textContent=percent(continuum.target_provider_success_rate);document.querySelector('#stateless').textContent=percent(stateless.target_provider_success_rate);document.querySelector('#raw').textContent=percent(raw.target_provider_success_rate);document.querySelector('#lift-stateless').textContent=vsStateless.continuum_lift_percentage_points.toFixed(1)+' pp';document.querySelector('#lift-raw').textContent=vsRaw.continuum_lift_percentage_points.toFixed(1)+' pp';document.querySelector('#false').textContent=raw.false_canonical_promotions+' / '+continuum.false_canonical_promotions;document.querySelector('#assisted').textContent=continuum.verified_memory_assisted_successes;document.querySelector('#precision').textContent=percent(continuum.canonical_promotion_precision);document.querySelector('#spacing').textContent=Math.min(...spacing)+' s';document.querySelector('#residuals').textContent=Object.values(arms).reduce((sum,arm)=>sum+arm.duplicate_effect_count+arm.cleanup_residual_count,0);document.querySelector('#ci-stateless').textContent=ciStateless.lower.toFixed(1)+'–'+ciStateless.upper.toFixed(1);document.querySelector('#ci-raw').textContent=ciRaw.lower.toFixed(1)+'–'+ciRaw.upper.toFixed(1);document.querySelector('#e-raw').textContent=Number(vsRaw.sequential_e_process.final_e_value).toExponential(2);document.querySelector('#batch-gate').textContent=report.gate.all_batches_passed?'3 / 3':'FAIL';[['continuum',continuum],['stateless',stateless],['raw',raw]].forEach(([name,arm])=>{const value=arm.target_provider_success_rate;document.querySelector('#bar-'+name).style.width=(value*100)+'%';document.querySelector('#bar-'+name+'-value').textContent=percent(value)});const falseMax=Math.max(1,continuum.false_canonical_promotions,raw.false_canonical_promotions);[['continuum',continuum],['raw',raw]].forEach(([name,arm])=>{document.querySelector('#bar-false-'+name).style.width=(arm.false_canonical_promotions/falseMax*100)+'%';document.querySelector('#bar-false-'+name+'-value').textContent=arm.false_canonical_promotions});document.querySelector('#false-axis-max').textContent='max '+falseMax;document.querySelector('#candidate-workflow').textContent=ref.candidate_workflow_run_id?'#'+ref.candidate_workflow_run_id+' · attempt '+ref.candidate_workflow_attempt:'same as evaluator';document.querySelector('#workflow').textContent='#'+ref.workflow_run_id+' · attempt '+ref.workflow_attempt;document.querySelector('#source').textContent=report.source_head;document.querySelector('#campaign').textContent=report.campaign_id;document.querySelector('#manifest').textContent=report.campaign_manifest.campaign_manifest_sha256;document.querySelector('#seal').textContent=report.campaign_seal_receipt.receipt_sha256;document.querySelector('#result').textContent=actual;document.querySelector('#workflow-link').href=ref.workflow_url}catch(error){document.querySelector('#status').textContent='HOLD';document.querySelector('#status').className='hold';console.error(error)}}boot();
+</script></body></html>

@@ -3,6 +3,7 @@ const scaleUrl = './evidence/vector-scale.json';
 const pressureUrl = './evidence/agent-pressure.json';
 const guardianUrl = './evidence/release-guardian-v1.json';
 const blindUrl = './evidence/blind-holdout-v1.json';
+const sequentialUrl = './evidence/sequential-blind-v1.json';
 const byId = id => document.getElementById(id);
 const percent = value => `${(Number(value) * 100).toFixed(1)}%`;
 const latency = value => `${Number(value).toFixed(1)} ms`;
@@ -27,6 +28,7 @@ function renderJudge(evidence) {
   byId('video-link').href = evidence.submission.video_url;
   if (evidence.release_guardian) byId('guardian-workflow').href = evidence.release_guardian.workflow_url;
   if (evidence.blind_holdout) byId('blind-workflow').href = evidence.blind_holdout.workflow_url;
+  if (evidence.sequential_blind_campaign) byId('sequential-workflow').href = evidence.sequential_blind_campaign.workflow_url;
   liveStoryUrl = evidence.runtime.demo_url
     || evidence.runtime.health_url.replace(/\/healthz$/, '/demo/run?scenario=checkout-cache-pressure-v1');
   byId('proof-status').textContent = 'EVIDENCE READY';
@@ -48,6 +50,14 @@ function renderBlind(evidence) {
   byId('blind-raw').textContent = percent(raw.provider_success_rate);
   byId('blind-false').textContent = `${raw.false_canonical_promotions} / ${continuum.false_canonical_promotions}`;
   byId('blind-exposure').textContent = `${raw.unsafe_memory_exposures} / ${continuum.unsafe_memory_exposures}`;
+}
+
+function renderSequential(evidence) {
+  const arms = evidence.arms;
+  byId('sequential-continuum').textContent = percent(arms.continuum.target_provider_success_rate);
+  byId('sequential-stateless').textContent = percent(arms.stateless.target_provider_success_rate);
+  byId('sequential-raw').textContent = percent(arms.raw_rag.target_provider_success_rate);
+  byId('sequential-false').textContent = `${arms.raw_rag.false_canonical_promotions} / ${arms.continuum.false_canonical_promotions}`;
 }
 
 async function runStory() {
@@ -130,8 +140,8 @@ async function quickCheck() {
   button.disabled = true;
   result.textContent = 'Checking immutable evidence, workflow, Pages, and MCP health…';
   try {
-    const [judge, scale, pressure, guardian, blind] = await Promise.all([
-      json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl), json(blindUrl)
+    const [judge, scale, pressure, guardian, blind, sequential] = await Promise.all([
+      json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl), json(blindUrl), json(sequentialUrl)
     ]);
     const [workflow, health, page, release] = await Promise.all([
       json(judge.source.workflow_api_url),
@@ -164,8 +174,14 @@ async function quickCheck() {
       && blind.methodology.candidate_process_opened_labels === false
       && blind.arms.continuum.false_canonical_promotions === 0
       && blind.arms.continuum.cross_scope_leak_count === 0;
-    result.textContent = passed && guardianPassed && blindPassed ? 'PASS · public evidence, blind provider proof, and live health agree.' : 'HOLD · open the full verifier for details.';
-    byId('proof-status').textContent = passed && guardianPassed && blindPassed ? 'ALL PUBLIC GATES PASS' : 'HOLD';
+    const sequentialPassed = sequential.gate.status === 'PASS'
+      && sequential.methodology.sealed_batches === 3
+      && sequential.methodology.arm_observations === 540
+      && sequential.methodology.observed_start_separations_seconds.every(value => value >= 300)
+      && sequential.arms.continuum.false_canonical_promotions === 0
+      && sequential.arms.continuum.cross_scope_leak_count === 0;
+    result.textContent = passed && guardianPassed && blindPassed && sequentialPassed ? 'PASS · public evidence, sequential blind proof, and live health agree.' : 'HOLD · open the full verifier for details.';
+    byId('proof-status').textContent = passed && guardianPassed && blindPassed && sequentialPassed ? 'ALL PUBLIC GATES PASS' : 'HOLD';
   } catch (error) {
     result.textContent = 'HOLD · public verification is temporarily unavailable.';
     byId('proof-status').textContent = 'HOLD';
@@ -175,13 +191,14 @@ async function quickCheck() {
   }
 }
 
-Promise.all([json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl), json(blindUrl)])
-  .then(([judge, scale, pressure, guardian, blind]) => {
+Promise.all([json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl), json(blindUrl), json(sequentialUrl)])
+  .then(([judge, scale, pressure, guardian, blind, sequential]) => {
     renderJudge(judge);
     renderScale(scale);
     renderPressure(pressure);
     renderGuardian(guardian);
     renderBlind(blind);
+    renderSequential(sequential);
   })
   .catch(error => { byId('proof-status').textContent = 'EVIDENCE HOLD'; console.error(error); });
 byId('quick-check').addEventListener('click', quickCheck);
