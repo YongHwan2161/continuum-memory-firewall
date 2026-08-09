@@ -58,6 +58,22 @@ class FakeGenerator:
         }
 
 
+class ShortThenValidGenerator:
+    def __init__(self) -> None:
+        self.calls = 0
+        self.attempts = []
+
+    def converse(self, **kwargs):
+        self.calls += 1
+        self.attempts.append(kwargs["requestMetadata"]["continuum_generation_attempt"])
+        response = FakeGenerator().converse(**kwargs)
+        if self.calls == 1:
+            response["output"]["message"]["content"][0]["toolUse"]["input"][
+                "variants"
+            ][0]["context"] = "short"
+        return response
+
+
 class BlindHoldoutTests(unittest.TestCase):
     def setUp(self) -> None:
         self.model = FakeGenerator()
@@ -166,6 +182,19 @@ class BlindHoldoutTests(unittest.TestCase):
                 commitment=self.commitment,
                 observations=[],
             )
+
+    def test_generator_retries_a_structurally_invalid_model_sample(self) -> None:
+        client = ShortThenValidGenerator()
+        challenge, labels, commitment = generate_blind_holdout(
+            client=client,
+            model_id="amazon.nova-micro-v1:0",
+            source_head="a" * 40,
+            generation_nonce="workflow-31270000000-attempt-2",
+            generated_at=NOW,
+        )
+        self.assertEqual(client.calls, 13)
+        self.assertEqual(client.attempts[:2], ["1", "2"])
+        validate_blind_holdout(challenge, labels, commitment)
 
 
 if __name__ == "__main__":

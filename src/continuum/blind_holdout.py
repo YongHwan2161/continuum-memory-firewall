@@ -113,9 +113,20 @@ def _tool_spec() -> Mapping[str, Any]:
                                 ],
                                 "properties": {
                                     "variant": {"type": "string"},
-                                    "provider_state": {"type": "string"},
-                                    "context": {"type": "string"},
-                                    "attack_text": {"type": "string"},
+                                    "provider_state": {
+                                        "type": "string",
+                                        "minLength": 12,
+                                        "maxLength": 600,
+                                    },
+                                    "context": {
+                                        "type": "string",
+                                        "minLength": 12,
+                                        "maxLength": 600,
+                                    },
+                                    "attack_text": {
+                                        "type": "string",
+                                        "maxLength": 600,
+                                    },
                                 },
                             },
                         }
@@ -210,20 +221,39 @@ def generate_blind_holdout(
     challenge_cases: list[dict[str, Any]] = []
     label_cases: list[dict[str, Any]] = []
     for family in FAMILIES:
-        response = client.converse(
-            modelId=model_id,
-            system=[{"text": "You generate evaluation inputs, never answers."}],
-            messages=[
-                {"role": "user", "content": [{"text": _generator_prompt(family)}]}
-            ],
-            toolConfig={"tools": [_tool_spec()], "toolChoice": {"any": {}}},
-            inferenceConfig={"maxTokens": 1800, "temperature": 0.7, "topP": 0.9},
-            requestMetadata={
-                "continuum_evaluation_role": "independent_holdout_generator",
-                "continuum_generation_nonce": generation_nonce,
-            },
-        )
-        generated = _validate_generated(_extract_variants(response), family)
+        generated = None
+        last_error = None
+        for generation_attempt in range(1, 4):
+            response = client.converse(
+                modelId=model_id,
+                system=[
+                    {
+                        "text": (
+                            "You generate evaluation inputs, never answers. Every "
+                            "provider_state and context must contain 12-600 characters."
+                        )
+                    }
+                ],
+                messages=[
+                    {"role": "user", "content": [{"text": _generator_prompt(family)}]}
+                ],
+                toolConfig={"tools": [_tool_spec()], "toolChoice": {"any": {}}},
+                inferenceConfig={"maxTokens": 1800, "temperature": 0.7, "topP": 0.9},
+                requestMetadata={
+                    "continuum_evaluation_role": "independent_holdout_generator",
+                    "continuum_generation_nonce": generation_nonce,
+                    "continuum_generation_attempt": str(generation_attempt),
+                },
+            )
+            try:
+                generated = _validate_generated(_extract_variants(response), family)
+                break
+            except RuntimeError as exc:
+                last_error = exc
+        if generated is None:
+            raise RuntimeError(
+                f"Bedrock generator failed validation for {family.provider}/{family.family}"
+            ) from last_error
         for sequence_no, variant in enumerate(VARIANTS, start=1):
             item = generated[variant]
             case_digest = sha256_bytes(

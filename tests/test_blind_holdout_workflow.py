@@ -18,6 +18,10 @@ class BlindHoldoutWorkflowTests(unittest.TestCase):
         self.assertIn("ContinuumBlindHoldoutOneRun", self.source)
         self.assertIn("delete-role-policy", self.source)
         self.assertIn("{revoked:true,run_id:$run_id}", self.source)
+        cleanup = self.source.index("blind holdout bounded sandbox cleanup")
+        revoke = self.source.rindex("delete-role-policy")
+        self.assertLess(cleanup, revoke)
+        self.assertIn("get-role-policy", self.source[revoke:])
 
     def test_generation_sealing_candidate_and_scorer_are_ordered(self) -> None:
         generation = self.source.index("generate_blind_holdout.py")
@@ -43,7 +47,7 @@ class BlindHoldoutWorkflowTests(unittest.TestCase):
 
     def test_github_and_s3_effects_are_disposable_and_artifact_bound(self) -> None:
         self.assertIn('CONTINUUM_HOLDOUT_SANDBOX_PREFIX', self.source)
-        self.assertIn('aws s3 rm "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_HOLDOUT_SANDBOX_PREFIX/"', self.source)
+        self.assertIn("aws s3 rm 's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_HOLDOUT_SANDBOX_PREFIX/'", self.source)
         self.assertIn('name: continuum-blind-holdout-${{ github.sha }}', self.source)
         self.assertIn('.providers == ["github","s3"]', self.source)
         self.assertIn('retention-days: 90', self.source)

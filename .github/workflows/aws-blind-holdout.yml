@@ -345,9 +345,47 @@ jobs:
         if: always()
         shell: bash
         run: |
+          cleanup_failure=0
+          if [[ -n "${CONTINUUM_INSTANCE_ID:-}" && -n "${CONTINUUM_DEPLOY_BUCKET:-}" && \
+                -n "${CONTINUUM_HOLDOUT_SANDBOX_PREFIX:-}" ]]; then
+            cleanup_command="set -eu
+            aws s3 rm 's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_HOLDOUT_SANDBOX_PREFIX/' \
+              --recursive --region '$AWS_REGION' --only-show-errors
+            remaining=\"\$(aws s3api list-objects-v2 --region '$AWS_REGION' \
+              --bucket '$CONTINUUM_DEPLOY_BUCKET' \
+              --prefix '$CONTINUUM_HOLDOUT_SANDBOX_PREFIX/' \
+              --query KeyCount --output text)\"
+            test \"\$remaining\" = 0"
+            parameters="$(jq -cn --arg command "$cleanup_command" '{commands:[$command]}')"
+            if command_id="$(aws ssm send-command --region "$AWS_REGION" \
+                --instance-ids "$CONTINUUM_INSTANCE_ID" \
+                --document-name AWS-RunShellScript \
+                --comment 'blind holdout bounded sandbox cleanup' \
+                --parameters "$parameters" --query 'Command.CommandId' --output text)"; then
+              cleanup_status=Pending
+              for _attempt in $(seq 1 60); do
+                cleanup_status="$(aws ssm get-command-invocation --region "$AWS_REGION" \
+                  --command-id "$command_id" --instance-id "$CONTINUUM_INSTANCE_ID" \
+                  --query Status --output text)"
+                case "$cleanup_status" in Success|Failed|Cancelled|TimedOut) break ;; esac
+                sleep 5
+              done
+              aws ssm get-command-invocation --region "$AWS_REGION" \
+                --command-id "$command_id" --instance-id "$CONTINUUM_INSTANCE_ID" \
+                --query '{Status:Status,ResponseCode:ResponseCode,Output:StandardOutputContent,Error:StandardErrorContent}' \
+                --output table || true
+              [[ "$cleanup_status" == Success ]] || cleanup_failure=1
+            else
+              cleanup_failure=1
+            fi
+          fi
           if [[ -n "${CONTINUUM_INSTANCE_ROLE_NAME:-}" ]]; then
             aws iam delete-role-policy --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
               --policy-name ContinuumBlindHoldoutOneRun || true
+            if aws iam get-role-policy --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+                --policy-name ContinuumBlindHoldoutOneRun >/dev/null 2>&1; then
+              cleanup_failure=1
+            fi
           fi
           if aws secretsmanager describe-secret --region "$AWS_REGION" \
               --secret-id "$CONTINUUM_GITHUB_TOKEN_SECRET" >/dev/null 2>&1; then
@@ -356,15 +394,8 @@ jobs:
             jq -cn --arg run_id "$GITHUB_RUN_ID" '{revoked:true,run_id:$run_id}' >"$tombstone"
             aws secretsmanager put-secret-value --region "$AWS_REGION" \
               --secret-id "$CONTINUUM_GITHUB_TOKEN_SECRET" \
-              --secret-string "file://$tombstone" >/dev/null || true
+              --secret-string "file://$tombstone" >/dev/null || cleanup_failure=1
             rm -f -- "$tombstone"
           fi
-          if [[ -n "${CONTINUUM_DEPLOY_BUCKET:-}" && -n "${CONTINUUM_HOLDOUT_SANDBOX_PREFIX:-}" ]]; then
-            aws s3 rm "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_HOLDOUT_SANDBOX_PREFIX/" \
-              --recursive --region "$AWS_REGION" --only-show-errors || true
-            remaining="$(aws s3api list-objects-v2 --region "$AWS_REGION" \
-              --bucket "$CONTINUUM_DEPLOY_BUCKET" --prefix "$CONTINUUM_HOLDOUT_SANDBOX_PREFIX/" \
-              --query 'KeyCount' --output text 2>/dev/null || echo 0)"
-            test "$remaining" = 0
-          fi
           rm -f -- /tmp/continuum-current.zip /tmp/cockroach-ca.crt
+          test "$cleanup_failure" = 0
