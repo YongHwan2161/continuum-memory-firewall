@@ -458,10 +458,15 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         }
         self.judge_bytes = (json.dumps(self.judge, sort_keys=True) + "\n").encode()
 
-    def build(self, blind_holdout_public=None):
+    def build(self, blind_holdout_public=None, sequential_blind_public=None):
         blind_bytes = (
             (json.dumps(blind_holdout_public, sort_keys=True) + "\n").encode()
             if blind_holdout_public is not None
+            else b""
+        )
+        sequential_bytes = (
+            (json.dumps(sequential_blind_public, sort_keys=True) + "\n").encode()
+            if sequential_blind_public is not None
             else b""
         )
         return build_envelope(
@@ -475,6 +480,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             self.release_guardian,
             self.release_guardian_public,
             blind_holdout_public=blind_holdout_public,
+            sequential_blind_public=sequential_blind_public,
             judge_bytes=self.judge_bytes,
             scale_bytes=self.scale_bytes,
             pressure_bytes=self.pressure_bytes,
@@ -485,6 +491,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             release_guardian_bytes=self.release_guardian_bytes,
             release_guardian_public_bytes=self.release_guardian_public_bytes,
             blind_holdout_public_bytes=blind_bytes,
+            sequential_blind_public_bytes=sequential_bytes,
             repo_root=Path(__file__).parents[1],
             repository="o/r",
             commit_sha="d" * 40,
@@ -562,6 +569,55 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         self.assertEqual(envelope["blind_holdout"]["public_sha256"], sha256_bytes(blind_bytes))
         self.assertEqual(envelope["blind_holdout"]["methodology"]["paired_cases"], 60)
         self.assertEqual(envelope["blind_holdout"]["arms"]["continuum"]["false_canonical_promotions"], 0)
+
+    def test_v14_binds_sequential_blind_memory_compounding(self) -> None:
+        from tests.test_sequential_blind_judge import _public
+
+        sequential = _public()
+        sequential_bytes = (json.dumps(sequential, sort_keys=True) + "\n").encode()
+        source = sequential["source_head"]
+        self.judge["schema_version"] = 9
+        self.judge["sequential_blind_campaign"] = {
+            "head_sha": source,
+            "workflow_run_id": 51,
+            "workflow_attempt": 1,
+            "workflow_url": "https://github.com/o/r/actions/runs/51",
+            "artifact_id": 52,
+            "artifact_name": f"continuum-sequential-blind-{source}-51-1",
+            "artifact_archive_sha256": "a" * 64,
+            "public_sha256": sha256_bytes(sequential_bytes),
+            "public_url": "https://demo.example.test/evidence/sequential.json",
+            "page_url": "https://demo.example.test/sequential.html",
+            "campaign_id": sequential["campaign_id"],
+            "campaign_manifest_sha256": sequential["campaign_manifest"][
+                "campaign_manifest_sha256"
+            ],
+            "campaign_seal_receipt_sha256": sequential[
+                "campaign_seal_receipt"
+            ]["receipt_sha256"],
+        }
+        self.judge["release_envelope"]["sequential_blind_asset_name"] = (
+            "sequential-blind-v1.json"
+        )
+        self.judge["release_envelope"]["sequential_blind_asset_url"] = (
+            "https://github.com/o/r/releases/download/hackathon-v1/"
+            "sequential-blind-v1.json"
+        )
+        self.judge_bytes = (json.dumps(self.judge, sort_keys=True) + "\n").encode()
+        envelope = self.build(sequential_blind_public=sequential)
+        self.assertEqual(envelope["gates"]["status"], "PASS")
+        self.assertEqual(
+            envelope["sequential_blind_campaign"]["methodology"][
+                "arm_observations"
+            ],
+            540,
+        )
+        self.assertEqual(
+            envelope["sequential_blind_campaign"]["arms"]["continuum"][
+                "false_canonical_promotions"
+            ],
+            0,
+        )
 
     def test_scale_checksum_and_leakage_fail_closed(self) -> None:
         self.judge["vector_scale"]["report_sha256"] = "0" * 64
