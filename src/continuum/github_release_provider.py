@@ -15,7 +15,7 @@ from urllib.request import Request, urlopen
 
 from continuum.episode import OutcomeStatus, ProposedAction, ProviderOutcome
 from continuum.outbox import ProviderCapabilityManifest
-from continuum.release_guardian import ReleaseGuardianCase
+from continuum.release_guardian import RELEASE_ACTION_POLICIES, ReleaseGuardianCase
 
 
 PRIMARY_ASSET_NAME = "guardian-payload.json"
@@ -443,7 +443,11 @@ class GitHubReleaseSandboxProvider:
         effect_count = 0
         execution_error = None
         try:
-            if action_type == "create_sandbox_draft":
+            if action_type not in RELEASE_ACTION_POLICIES:
+                execution_error = "ACTION_NOT_ALLOWLISTED"
+            elif not self._precondition(action_type, before):
+                execution_error = "PRECONDITION_FAILED"
+            elif action_type == "create_sandbox_draft":
                 created = self.client.create_draft(
                     tag=prepared.tag, target=self.release_target
                 )
@@ -480,8 +484,6 @@ class GitHubReleaseSandboxProvider:
                 release = self._require_draft(prepared)
                 self.client.delete_release(int(release["id"]))
                 effect_count = 1
-            else:
-                execution_error = "ACTION_NOT_ALLOWLISTED"
         except (GitHubProviderError, RuntimeError, StopIteration) as exc:
             execution_error = type(exc).__name__
         after = self._state(prepared.tag, prepared.release_id)
@@ -517,6 +519,40 @@ class GitHubReleaseSandboxProvider:
         self._receipts[idempotency_key] = outcome
         self._effects[idempotency_key] = effect_count
         return outcome
+
+    @staticmethod
+    def _precondition(action_type: str, state: Mapping[str, Any]) -> bool:
+        assets = {item["name"]: item for item in state.get("assets", [])}
+        payload_digest = GitHubReleaseSandboxProvider._asset_digest(PRIMARY_ASSET_BODY)
+        conflict_digest = GitHubReleaseSandboxProvider._asset_digest(CONFLICT_ASSET_BODY)
+        if action_type == "create_sandbox_draft":
+            return (
+                state.get("release_exists") is False
+                and state.get("tag_ref_exists") is False
+            )
+        if action_type == "upload_release_asset":
+            return (
+                state.get("release_exists") is True
+                and state.get("draft") is True
+                and PRIMARY_ASSET_NAME not in assets
+            )
+        if action_type == "adopt_existing_asset":
+            return assets.get(PRIMARY_ASSET_NAME, {}).get("digest") == payload_digest
+        if action_type == "upload_reconciliation_receipt":
+            return (
+                assets.get(PRIMARY_ASSET_NAME, {}).get("digest") == payload_digest
+                and RECEIPT_ASSET_NAME not in assets
+            )
+        if action_type == "quarantine_conflicting_asset":
+            return assets.get(PRIMARY_ASSET_NAME, {}).get("digest") == conflict_digest
+        if action_type == "delete_sandbox_draft":
+            return (
+                state.get("release_exists") is True
+                and state.get("draft") is True
+                and assets.get(PRIMARY_ASSET_NAME, {}).get("digest") == payload_digest
+                and RECEIPT_ASSET_NAME in assets
+            )
+        return False
 
     @staticmethod
     def _verify(action_type: str, state: Mapping[str, Any]) -> bool:

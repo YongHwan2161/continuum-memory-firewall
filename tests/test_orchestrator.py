@@ -3,8 +3,9 @@ from __future__ import annotations
 from collections import deque
 import unittest
 
-from continuum.episode import AgentArm, InMemoryEpisodeStore
+from continuum.episode import AgentArm, InMemoryEpisodeStore, RiskClass
 from continuum.orchestrator import (
+    ActionPolicy,
     AgentOrchestrator,
     MemoryToolHit,
     OrchestrationError,
@@ -523,6 +524,46 @@ class OrchestratorTests(unittest.TestCase):
         self.assertFalse(restart_parameters["additionalProperties"])
         self.assertFalse(cache_parameters["additionalProperties"])
         self.assertFalse(inspect_parameters["additionalProperties"])
+
+    def test_action_selection_rule_is_part_of_the_model_tool_contract(self):
+        model = FakeModel(
+            [
+                response(
+                    tool_use(
+                        "t1",
+                        "propose_inspect_service",
+                        {
+                            "action_key": "checkout:inspect:rule",
+                            "parameters": {},
+                            "rationale": "The current provider state matches the rule.",
+                            "citation_handles": [],
+                        },
+                    )
+                )
+            ]
+        )
+        policy = ActionPolicy(
+            action_type="inspect_service",
+            risk_class=RiskClass.READ_ONLY,
+            parameter_properties={},
+            selection_rule="Use only when current provider_state requires inspection.",
+        )
+        AgentOrchestrator(
+            store=InMemoryEpisodeStore(),
+            model=model,
+            model_id="amazon.nova-micro-v1:0",
+            action_policies={"inspect_service": policy},
+        ).run(
+            tenant_id=TENANT_ID,
+            incident_id=INCIDENT_ID,
+            arm=AgentArm.STATELESS,
+            incident={"provider_state": "inspection is required"},
+            memory_tools=None,
+        )
+        description = model.calls[0]["toolConfig"]["tools"][0]["toolSpec"][
+            "description"
+        ]
+        self.assertIn(policy.selection_rule, description)
 
 
 if __name__ == "__main__":

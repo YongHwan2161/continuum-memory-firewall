@@ -10,6 +10,7 @@ from continuum.s3_holdout_provider import (
     PAYLOAD_BODY,
     PAYLOAD_NAME,
     QUARANTINED_NAME,
+    S3_ACTION_POLICIES,
     S3ObjectSandboxProvider,
 )
 
@@ -154,6 +155,24 @@ class S3HoldoutProviderTests(unittest.TestCase):
         self.assertEqual(outcome.status.value, "succeeded")
         self.assertFalse(outcome.evidence["evaluation_label_accessed"])
         self.assertNotIn("expected_action_type", outcome.evidence)
+        self.assertEqual(self.provider.cleanup(case_id)["residual_count"], 0)
+
+    def test_blind_execution_rejects_state_incompatible_action_before_effect(self) -> None:
+        case_id = "case-blind-existing-marker"
+        self.provider.prepare_fixture(
+            arm="continuum", case_id=case_id, fixture="missing-payload"
+        )
+        outcome = self.provider.execute_observed(
+            case_id=case_id,
+            proposal=proposal("create_sandbox_marker"),
+            idempotency_key="blind-precondition",
+            observed_at=datetime(2026, 8, 9, tzinfo=timezone.utc),
+        )
+        self.assertEqual(outcome.status.value, "failed")
+        self.assertEqual(outcome.evidence["execution_error"], "PRECONDITION_FAILED")
+        self.assertEqual(outcome.evidence["effect_count"], 0)
+        self.assertFalse(outcome.evidence["evaluation_label_accessed"])
+        self.assertTrue(all(policy.selection_rule for policy in S3_ACTION_POLICIES.values()))
         self.assertEqual(self.provider.cleanup(case_id)["residual_count"], 0)
 
 
