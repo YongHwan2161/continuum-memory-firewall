@@ -168,7 +168,7 @@ class McpHostInfrastructureTests(unittest.TestCase):
         workflow = (
             ROOT / ".github" / "workflows" / "release-envelope.yml"
         ).read_text(encoding="utf-8")
-        self.assertIn("default: hackathon-v12", workflow)
+        self.assertIn("default: hackathon-v13", workflow)
         self.assertIn(
             "for plane in source vector_scale agent_pressure managed_mcp "
             "sandbox_provider agent_ablation release_guardian "
@@ -181,6 +181,8 @@ class McpHostInfrastructureTests(unittest.TestCase):
         self.assertIn("build_public_release_guardian(raw)", workflow)
         self.assertIn("--release-guardian-replication", workflow)
         self.assertIn("release-guardian-replication-v1.json.sha256", workflow)
+        self.assertIn("blind-holdout-v1.json.sha256", workflow)
+        self.assertIn("--blind-holdout-public", workflow)
         self.assertIn("build_public_release_guardian_replication", workflow)
 
     def test_outbox_fault_workflow_is_keyless_bounded_and_self_revoking(self):

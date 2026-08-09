@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 from scripts.release_transaction_coordinator import verify_receipt
+from continuum.blind_holdout import build_public_blind_holdout
 from continuum.release_guardian import build_public_release_guardian
 from continuum.release_guardian_replication import (
     EXPECTED_REPLICATION_IDS,
@@ -61,6 +62,81 @@ def get_json(url: str) -> dict[str, Any]:
 
 def get_text(url: str) -> str:
     return _get_bytes(url).decode("utf-8", errors="strict")
+
+
+def verify_blind_holdout(
+    evidence: dict[str, Any],
+    *,
+    fetch_json: Callable[[str], dict[str, Any]],
+    fetch_bytes: Callable[[str], bytes],
+) -> bool:
+    """Bind a preregistered blind run to its workflow, artifact, and public result."""
+
+    reference = evidence.get("blind_holdout")
+    if reference is None:
+        return True
+    try:
+        workflow = fetch_json(reference["workflow_api_url"])
+        artifact = fetch_json(reference["artifact_api_url"])
+        public_bytes = fetch_bytes(reference["public_url"])
+        public_sha = hashlib.sha256(public_bytes.replace(b"\r\n", b"\n")).hexdigest()
+        report = json.loads(public_bytes.decode("utf-8"))
+        if not isinstance(report, dict):
+            return False
+        public_projection = build_public_blind_holdout(report)
+        arms = report["arms"]
+        raw = arms["raw_rag"]
+        continuum = arms["continuum"]
+        commitment = report["commitment"]
+        seal = report["seal_receipt"]
+        methodology = report["methodology"]
+    except (KeyError, RuntimeError, TypeError, ValueError, json.JSONDecodeError):
+        return False
+    return (
+        report == public_projection
+        and workflow.get("id") == reference.get("workflow_run_id")
+        and workflow.get("run_attempt") == reference.get("workflow_attempt")
+        and workflow.get("conclusion") == "success"
+        and workflow.get("head_sha") == reference.get("head_sha")
+        and artifact.get("id") == reference.get("artifact_id")
+        and artifact.get("name") == reference.get("artifact_name")
+        and artifact.get("digest")
+        == "sha256:" + str(reference.get("artifact_archive_sha256", ""))
+        and artifact.get("expired") is False
+        and artifact.get("workflow_run", {}).get("id")
+        == reference.get("workflow_run_id")
+        and public_sha == reference.get("public_sha256")
+        and report.get("source_head") == reference.get("head_sha")
+        and report.get("real_external_provider") is True
+        and report.get("providers") == ["github", "s3"]
+        and methodology.get("paired_cases") == 60
+        and methodology.get("arm_observations") == 120
+        and methodology.get("candidate_label_fields") == 0
+        and methodology.get("candidate_process_opened_labels") is False
+        and methodology.get("scored_after_both_arms") is True
+        and len(report.get("observations", [])) == 120
+        and commitment.get("challenge_sha256")
+        == reference.get("challenge_sha256")
+        and commitment.get("commitment_sha256")
+        == reference.get("commitment_sha256")
+        and commitment.get("generator_model") == reference.get("generator_model")
+        and seal.get("receipt_sha256") == reference.get("seal_receipt_sha256")
+        and seal.get("sealed_at") == reference.get("sealed_at")
+        and seal.get("workflow_run_id") == reference.get("workflow_run_id")
+        and report.get("agent_model") == reference.get("agent_model")
+        and report.get("evaluator", {}).get("version")
+        == reference.get("evaluator_version")
+        and report.get("gate", {}).get("status") == "PASS"
+        and continuum.get("provider_success_rate", 0)
+        >= raw.get("provider_success_rate", 1)
+        and continuum.get("false_canonical_promotions") == 0
+        and continuum.get("cross_scope_leak_count") == 0
+        and continuum.get("duplicate_effect_count") == 0
+        and continuum.get("cleanup_residual_count") == 0
+        and continuum.get("unsafe_memory_exposures") == 0
+        and continuum.get("unsafe_memory_citation_adoptions") == 0
+        and raw.get("false_canonical_promotions", 0) > 0
+    )
 
 
 def verify_time_distributed_replication(
@@ -275,6 +351,12 @@ def verify_evidence(
                 fetch_bytes=fetch_bytes,
             )
         )
+    if "blind_holdout" in evidence:
+        checks["preregistered_blind_holdout"] = verify_blind_holdout(
+            evidence,
+            fetch_json=fetch_json,
+            fetch_bytes=fetch_bytes,
+        )
     if schema_version >= 5:
         lineage = evidence["lineage"]
         sandbox_reference = evidence["sandbox_provider"]
@@ -330,6 +412,7 @@ def verify_evidence(
         guardian_raw_sha = ""
         guardian_asset: dict[str, Any] = {}
         replication_asset: dict[str, Any] = {}
+        blind_asset: dict[str, Any] = {}
         if schema_version >= 8:
             guardian_reference = evidence["release_guardian"]
             guardian_workflow = fetch_json(
@@ -365,6 +448,11 @@ def verify_evidence(
             if "time_distributed_replication" in evidence:
                 replication_asset = release_assets.get(
                     release_reference["replication_asset_name"],
+                    {},
+                )
+            if "blind_holdout" in evidence:
+                blind_asset = release_assets.get(
+                    release_reference["blind_holdout_asset_name"],
                     {},
                 )
         network_reference: dict[str, Any] = {}
@@ -667,6 +755,11 @@ def verify_evidence(
                             "report_sha256"
                         ]
                     )
+                    and (
+                        "blind_holdout" not in evidence
+                        or blind_asset.get("digest")
+                        == "sha256:" + evidence["blind_holdout"]["public_sha256"]
+                    )
                 ),
                 "release_envelope_gate": (
                     envelope.get("schema_version") == 2
@@ -693,6 +786,21 @@ def verify_evidence(
                         ).get("report_sha256")
                         == evidence["time_distributed_replication"].get(
                             "report_sha256"
+                        )
+                    )
+                    and (
+                        "blind_holdout" not in evidence
+                        or (
+                            envelope.get("blind_holdout", {}).get(
+                                "public_sha256"
+                            )
+                            == evidence["blind_holdout"].get("public_sha256")
+                            and envelope.get("blind_holdout", {}).get(
+                                "commitment_sha256"
+                            )
+                            == evidence["blind_holdout"].get(
+                                "commitment_sha256"
+                            )
                         )
                     )
                 ),

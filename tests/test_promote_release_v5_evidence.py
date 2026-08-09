@@ -214,7 +214,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
                     release_tag="hackathon-v5",
                 )
 
-    def test_repository_public_evidence_has_v12_source_closure(self) -> None:
+    def test_repository_public_evidence_has_v13_source_closure(self) -> None:
         judge_path = self.repo_root / "public-demo/evidence/judge-verification.json"
         aggregate_path = self.repo_root / "public-demo/evidence/agent-ablation-v3.json"
         drilldown_path = (
@@ -230,9 +230,14 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         )
         guardian_bytes = guardian_path.read_bytes()
         guardian = json.loads(guardian_bytes)
+        blind_path = (
+            self.repo_root / "public-demo/evidence/blind-holdout-v1.json"
+        )
+        blind_bytes = blind_path.read_bytes()
+        blind = json.loads(blind_bytes)
 
         self.assertEqual(judge["schema_version"], 8)
-        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v12")
+        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v13")
         self.assertEqual(
             judge["network_sign_once"]["required_total_attestation_count"],
             2,
@@ -277,6 +282,18 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         self.assertEqual(guardian["methodology"]["paired_cases"], 36)
         self.assertEqual(guardian["methodology"]["arm_observations"], 72)
         self.assertEqual(guardian["gate"]["status"], "PASS")
+        self.assertEqual(
+            hashlib.sha256(blind_bytes.replace(b"\r\n", b"\n")).hexdigest(),
+            judge["blind_holdout"]["public_sha256"],
+        )
+        self.assertEqual(blind["source_head"], judge["blind_holdout"]["head_sha"])
+        self.assertEqual(blind["methodology"]["paired_cases"], 60)
+        self.assertEqual(blind["methodology"]["arm_observations"], 120)
+        self.assertEqual(blind["methodology"]["candidate_label_fields"], 0)
+        self.assertFalse(blind["methodology"]["candidate_process_opened_labels"])
+        self.assertEqual(blind["arms"]["continuum"]["false_canonical_promotions"], 0)
+        self.assertGreater(blind["arms"]["raw_rag"]["false_canonical_promotions"], 0)
+        self.assertEqual(blind["gate"]["status"], "PASS")
 
 
 if __name__ == "__main__":

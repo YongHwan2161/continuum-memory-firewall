@@ -11,6 +11,7 @@ from scripts.build_release_envelope import (
     build_envelope,
     build_public_ablation_aggregate,
     repository_text_bytes,
+    sha256_bytes,
 )
 from continuum.drilldown import build_public_episode_drilldown
 from continuum.release_guardian import build_public_release_guardian
@@ -457,7 +458,12 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         }
         self.judge_bytes = (json.dumps(self.judge, sort_keys=True) + "\n").encode()
 
-    def build(self):
+    def build(self, blind_holdout_public=None):
+        blind_bytes = (
+            (json.dumps(blind_holdout_public, sort_keys=True) + "\n").encode()
+            if blind_holdout_public is not None
+            else b""
+        )
         return build_envelope(
             self.judge,
             self.scale,
@@ -468,6 +474,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             self.episode_drilldown,
             self.release_guardian,
             self.release_guardian_public,
+            blind_holdout_public=blind_holdout_public,
             judge_bytes=self.judge_bytes,
             scale_bytes=self.scale_bytes,
             pressure_bytes=self.pressure_bytes,
@@ -477,6 +484,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             episode_drilldown_bytes=self.episode_drilldown_bytes,
             release_guardian_bytes=self.release_guardian_bytes,
             release_guardian_public_bytes=self.release_guardian_public_bytes,
+            blind_holdout_public_bytes=blind_bytes,
             repo_root=Path(__file__).parents[1],
             repository="o/r",
             commit_sha="d" * 40,
@@ -521,6 +529,39 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             envelope["release_transaction"]["required_terminal_state"],
             "PAGES_MATERIALIZED",
         )
+
+    def test_binds_preregistered_blind_holdout(self) -> None:
+        blind = json.loads(
+            (
+                Path(__file__).parents[1]
+                / "public-demo/evidence/blind-holdout-v1.json"
+            ).read_bytes()
+        )
+        blind_bytes = (json.dumps(blind, sort_keys=True) + "\n").encode()
+        source = blind["source_head"]
+        self.judge["blind_holdout"] = {
+            "head_sha": source,
+            "workflow_run_id": 41,
+            "workflow_attempt": 1,
+            "workflow_url": "https://github.com/o/r/actions/runs/41",
+            "artifact_id": 42,
+            "artifact_name": f"continuum-blind-holdout-{source}",
+            "artifact_archive_sha256": "e" * 64,
+            "report_sha256": "f" * 64,
+            "public_sha256": sha256_bytes(blind_bytes),
+            "public_url": "https://demo.example.test/evidence/blind.json",
+            "commitment_sha256": blind["commitment"]["commitment_sha256"],
+            "seal_receipt_sha256": blind["seal_receipt"]["receipt_sha256"],
+        }
+        self.judge["release_envelope"]["blind_holdout_asset_url"] = (
+            "https://github.com/o/r/releases/download/hackathon-v1/"
+            "blind-holdout-v1.json"
+        )
+        envelope = self.build(blind)
+        self.assertEqual(envelope["gates"]["status"], "PASS")
+        self.assertEqual(envelope["blind_holdout"]["public_sha256"], sha256_bytes(blind_bytes))
+        self.assertEqual(envelope["blind_holdout"]["methodology"]["paired_cases"], 60)
+        self.assertEqual(envelope["blind_holdout"]["arms"]["continuum"]["false_canonical_promotions"], 0)
 
     def test_scale_checksum_and_leakage_fail_closed(self) -> None:
         self.judge["vector_scale"]["report_sha256"] = "0" * 64
