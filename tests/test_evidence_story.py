@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import unittest
@@ -82,6 +83,27 @@ class EvidenceStoryTests(unittest.TestCase):
         story = _build()
         story["metrics"]["target_successes"]["continuum"] = 144
         self.assertFalse(verify_evidence_story_receipt(story))
+
+    def test_browser_contract_hashes_raw_numeric_lexemes(self) -> None:
+        story_bytes = (
+            ROOT / "public-demo/evidence/evidence-story-v1.json"
+        ).read_bytes()
+        story_bytes = story_bytes.replace(b"\r\n", b"\n")
+        story = json.loads(story_bytes)
+        receipt_field = (
+            f',"receipt_sha256":"{story["receipt_sha256"]}"'.encode("utf-8")
+        )
+        self.assertEqual(story_bytes.count(receipt_field), 1)
+        self.assertTrue(story_bytes.endswith(b"\n"))
+        payload = story_bytes.replace(receipt_field, b"")
+        self.assertEqual(
+            hashlib.sha256(payload).hexdigest(), story["receipt_sha256"]
+        )
+        for page in ("public-demo/evidence-story.html", "public-demo/verify.html"):
+            source = (ROOT / page).read_text(encoding="utf-8")
+            self.assertIn("storyReceiptShaFromBytes", source)
+            self.assertIn("normalizedTextBytes", source)
+            self.assertIn("story receipt field is not canonical", source)
 
     def test_compiler_fails_closed_on_material_evidence_drift(self) -> None:
         cases = (

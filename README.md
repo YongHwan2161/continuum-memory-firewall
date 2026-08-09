@@ -169,7 +169,7 @@ receives a token or database credential. The executable database evidence is
 the integration suite and linked exact-head workflows in
 [Project Status](docs/PROJECT_STATUS.md).
 
-The v15 release envelope receives exactly one author-controlled signature in
+The v16 release envelope receives exactly one author-controlled signature in
 the same main-only workflow that publishes it. Its Fulcio/Rekor Sigstore bundle
 is an immutable release asset and a byte-identical Pages resource. GitHub also
 adds one distinguishable immutable-release countersignature; the verifier
@@ -178,8 +178,14 @@ a second author signing operation. Perform strict cryptographic policy
 verification of the author signature with:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v15
+python scripts/verify_network_sign_once.py --release-tag hackathon-v16
 ```
+
+Version 16 preserves the v15 evidence and fixes the public self-receipt verifier
+to hash the original canonical JSON bytes. This keeps Python's `1.0` numeric
+lexeme from being normalized to JavaScript's `1` before hashing. The release
+therefore binds both the immutable story receipt and the browser-visible PASS at
+the same exact head.
 
 Version 15 preserves the immutable v14 evaluation unchanged and adds a
 fail-closed evidence-to-story receipt. That receipt binds the exact v14 envelope

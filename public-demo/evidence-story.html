@@ -66,13 +66,14 @@
   </div>
 </main>
 <script>
-const canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonical(value[key])])):value;
 async function sha256(bytes){const digest=await crypto.subtle.digest('SHA-256',bytes);return[...new Uint8Array(digest)].map(value=>value.toString(16).padStart(2,'0')).join('')}
+function normalizedTextBytes(bytes){return new TextEncoder().encode(new TextDecoder().decode(bytes).replace(/\r\n/g,'\n'))}
+async function storyReceiptShaFromBytes(bytes,expected){const text=new TextDecoder().decode(bytes).replace(/\r\n/g,'\n'),field=`,"receipt_sha256":"${expected}"`;if(!text.endsWith('\n')||text.indexOf(field)<0||text.indexOf(field)!==text.lastIndexOf(field))throw new Error('story receipt field is not canonical');return sha256(new TextEncoder().encode(text.replace(field,'')))}
 async function load(){
   const [judgeResponse,storyResponse]=await Promise.all([fetch('./evidence/judge-verification.json',{cache:'no-store'}),fetch('./evidence/evidence-story-v1.json',{cache:'no-store'})]);
   if(!judgeResponse.ok||!storyResponse.ok)throw new Error('public evidence unavailable');
-  const judge=await judgeResponse.json(),storyBytes=await storyResponse.arrayBuffer(),storySha=await sha256(storyBytes),story=JSON.parse(new TextDecoder().decode(storyBytes));
-  const receiptBody={...story};delete receiptBody.receipt_sha256;const receiptSha=await sha256(new TextEncoder().encode(JSON.stringify(canonical(receiptBody))+'\n'));
+  const judge=await judgeResponse.json(),storyBytes=await storyResponse.arrayBuffer(),storySha=await sha256(normalizedTextBytes(storyBytes)),story=JSON.parse(new TextDecoder().decode(storyBytes));
+  const receiptSha=await storyReceiptShaFromBytes(storyBytes,story.receipt_sha256);
   const ref=judge.evidence_story,source=story.source_release,scores=story.metrics.target_successes,continuum=story.metrics.continuum,raw=story.metrics.raw_rag;
   const pass=storySha===ref.public_sha256&&receiptSha===story.receipt_sha256&&story.receipt_sha256===ref.story_receipt_sha256&&story.gate.status==='PASS'&&Object.values(story.gate.checks).every(Boolean)&&source.sequential_asset_sha256===judge.sequential_blind_campaign.public_sha256&&ref.video_sha256===judge.submission.video_sha256&&ref.video_url===judge.submission.video_url;
   document.querySelector('#status').textContent=pass?'PASS':'FAIL';document.querySelector('#receipt').textContent=story.receipt_sha256;

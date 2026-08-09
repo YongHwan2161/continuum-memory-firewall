@@ -1,6 +1,6 @@
 # Immutable competition release envelope
 
-`hackathon-v15` is the proof unit for the receipt-compiled competition story. It is
+`hackathon-v16` is the proof unit for the receipt-compiled competition story. It is
 published only by `.github/workflows/release-envelope.yml` after every
 fail-closed gate passes.
 
@@ -152,6 +152,15 @@ and is the only metric source for the nine-scene narration, public story page,
 and v15 envelope. It confirms the paired raw-RAG comparison, keeps the stateless
 comparison directional, and explicitly does not claim latency superiority.
 
+Version 16 closes the cross-language browser-receipt gap found by the logged-out
+deployment check. Python's canonical JSON retained `1.0`, while parsing and
+re-stringifying the same number in JavaScript produced `1`; the evidence was
+unchanged but the browser self-check failed. The browser now hashes the original
+canonical story bytes after removing the unique receipt field, preserving every
+numeric lexeme. The workflow, Python verifier, browser verifier, and immutable
+release therefore converge on the same receipt without weakening any source
+digest or claim gate.
+
 The v14 sequential section binds two workflow planes. Candidate run
 `31311573511` completed the full 540-observation step and cleanup, then failed
 before scoring when the runner's Python 3.10 could not import `StrEnum`.
@@ -188,7 +197,7 @@ asset state, and SHA-256 digest. A judge can independently download the envelope
 and validate its sidecar without trusting the public page:
 
 ```bash
-gh release download hackathon-v15 --pattern 'continuum-release-envelope-v2.json*'
+gh release download hackathon-v16 --pattern 'continuum-release-envelope-v2.json*'
 sha256sum -c continuum-release-envelope-v2.json.sha256
 ```
 
@@ -199,7 +208,7 @@ attestation API and the in-toto subject digest. Full cryptographic policy
 verification is one repository command:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v15
+python scripts/verify_network_sign_once.py --release-tag hackathon-v16
 ```
 
 That command downloads the immutable envelope, detached author bundle, and both
