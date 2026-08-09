@@ -584,6 +584,10 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         candidate_name = (
             f"continuum-sequential-blind-{source}-{CANDIDATE_RUN_ID}-1"
         )
+        evaluator_name = (
+            f"continuum-sequential-blind-evaluator-{CANDIDATE_RUN_ID}-"
+            f"{EVALUATOR_HEAD}-51-1"
+        )
         sequential["evaluation_replay"] = {
             "schema_version": 1,
             "reason": "github_runner_python_3_10_missing_strenum_before_scoring",
@@ -611,7 +615,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             "workflow_attempt": 1,
             "workflow_url": "https://github.com/o/r/actions/runs/51",
             "artifact_id": 52,
-            "artifact_name": f"continuum-sequential-blind-{source}-51-1",
+            "artifact_name": evaluator_name,
             "artifact_archive_sha256": "a" * 64,
             "public_sha256": sha256_bytes(sequential_bytes),
             "public_url": "https://demo.example.test/evidence/sequential.json",
@@ -662,6 +666,28 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             envelope["sequential_blind_campaign"]["evaluation_replay"],
             sequential["evaluation_replay"],
         )
+        self.judge["sequential_blind_campaign"]["artifact_name"] = (
+            f"continuum-sequential-blind-{source}-51-1"
+        )
+        self.judge_bytes = (
+            json.dumps(self.judge, sort_keys=True) + "\n"
+        ).encode()
+        with self.assertRaisesRegex(
+            RuntimeError, "sequential_blind_artifact_bound"
+        ):
+            self.build(sequential_blind_public=sequential)
+
+        self.judge["sequential_blind_campaign"]["artifact_name"] = evaluator_name
+        self.judge["sequential_blind_campaign"][
+            "candidate_artifact_archive_sha256"
+        ] = "0" * 64
+        self.judge_bytes = (
+            json.dumps(self.judge, sort_keys=True) + "\n"
+        ).encode()
+        with self.assertRaisesRegex(
+            RuntimeError, "sequential_blind_artifact_bound"
+        ):
+            self.build(sequential_blind_public=sequential)
 
     def test_scale_checksum_and_leakage_fail_closed(self) -> None:
         self.judge["vector_scale"]["report_sha256"] = "0" * 64

@@ -240,6 +240,92 @@ def build_envelope(
         if sequential_blind_public is not None
         else None
     )
+    sequential_replay = (
+        sequential_blind_public.get("evaluation_replay")
+        if sequential_blind_public is not None
+        and isinstance(
+            sequential_blind_public.get("evaluation_replay"), Mapping
+        )
+        else None
+    )
+    sequential_evaluator_head = (
+        sequential_reference.get(
+            "evaluator_head_sha", sequential_reference.get("head_sha")
+        )
+        if sequential_reference is not None
+        else None
+    )
+    sequential_expected_artifact_name = None
+    sequential_replay_receipts_bound = sequential_replay is None
+    if sequential_reference is not None:
+        if sequential_replay is None:
+            sequential_expected_artifact_name = (
+                "continuum-sequential-blind-"
+                + str(sequential_reference.get("head_sha", ""))
+                + "-"
+                + str(sequential_reference.get("workflow_run_id", ""))
+                + "-"
+                + str(sequential_reference.get("workflow_attempt", ""))
+            )
+        else:
+            candidate_workflow = sequential_replay.get("candidate_workflow", {})
+            candidate_artifact = sequential_replay.get("candidate_artifact", {})
+            candidate_run_id = sequential_reference.get(
+                "candidate_workflow_run_id"
+            )
+            sequential_expected_artifact_name = (
+                "continuum-sequential-blind-evaluator-"
+                + str(candidate_run_id or "")
+                + "-"
+                + str(sequential_evaluator_head or "")
+                + "-"
+                + str(sequential_reference.get("workflow_run_id", ""))
+                + "-"
+                + str(sequential_reference.get("workflow_attempt", ""))
+            )
+            sequential_replay_receipts_bound = (
+                sequential_replay.get("reason")
+                == "github_runner_python_3_10_missing_strenum_before_scoring"
+                and sequential_replay.get("evaluator_source_head")
+                == sequential_evaluator_head
+                and candidate_workflow.get("run_id") == candidate_run_id
+                and candidate_workflow.get("run_attempt")
+                == sequential_reference.get("candidate_workflow_attempt")
+                and candidate_workflow.get("source_head")
+                == sequential_reference.get("head_sha")
+                and candidate_workflow.get("conclusion") == "failure"
+                and candidate_workflow.get("candidate_step_conclusion")
+                == "success"
+                and candidate_workflow.get("cleanup_step_conclusion")
+                == "success"
+                and candidate_artifact.get("id")
+                == sequential_reference.get("candidate_artifact_id")
+                and candidate_artifact.get("name")
+                == sequential_reference.get("candidate_artifact_name")
+                and candidate_artifact.get("archive_sha256")
+                == sequential_reference.get("candidate_artifact_archive_sha256")
+                and sequential_reference.get("candidate_artifact_name")
+                == (
+                    "continuum-sequential-blind-"
+                    + str(sequential_reference.get("head_sha", ""))
+                    + "-"
+                    + str(candidate_run_id or "")
+                    + "-"
+                    + str(
+                        sequential_reference.get(
+                            "candidate_workflow_attempt", ""
+                        )
+                    )
+                )
+                and SHA256_PATTERN.fullmatch(
+                    str(
+                        sequential_reference.get(
+                            "candidate_artifact_archive_sha256", ""
+                        )
+                    )
+                )
+                is not None
+            )
     ablation_arms = ablation.get("arms", {})
     continuum_metrics = ablation_arms.get("continuum", {})
     raw_metrics = ablation_arms.get("raw_rag", {})
@@ -560,14 +646,10 @@ def build_envelope(
                 and sequential_reference.get("head_sha")
                 == sequential_blind_public.get("source_head")
                 and sequential_reference.get("artifact_name")
-                == (
-                    "continuum-sequential-blind-"
-                    + sequential_reference.get("head_sha", "")
-                    + "-"
-                    + str(sequential_reference.get("workflow_run_id", ""))
-                    + "-"
-                    + str(sequential_reference.get("workflow_attempt", ""))
-                )
+                == sequential_expected_artifact_name
+                and SHA_PATTERN.fullmatch(str(sequential_evaluator_head or ""))
+                is not None
+                and sequential_replay_receipts_bound
                 and SHA256_PATTERN.fullmatch(
                     str(sequential_reference.get("artifact_archive_sha256", ""))
                 )
