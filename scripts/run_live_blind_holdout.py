@@ -18,6 +18,7 @@ from continuum.blind_holdout import (
     candidate_projection,
     canonical_json_bytes,
     validate_candidate_bundle,
+    write_canonical_json,
 )
 from continuum.episode import AgentArm, CockroachEpisodeStore, OutcomeStatus, payload_digest
 from continuum.github_release_provider import GitHubReleaseClient, GitHubReleaseSandboxProvider
@@ -43,7 +44,6 @@ try:
         _database_url,
         _secret_json,
         _sha256_text,
-        _write_report,
     )
 except ModuleNotFoundError as exc:
     if exc.name != "scripts":
@@ -54,7 +54,6 @@ except ModuleNotFoundError as exc:
         _database_url,
         _secret_json,
         _sha256_text,
-        _write_report,
     )
 
 
@@ -462,7 +461,7 @@ def main() -> None:
             },
             "observations": traces,
         }
-    _write_report(args.output, observations)
+    write_canonical_json(args.output, observations)
     print(
         json.dumps(
             {key: value for key, value in observations.items() if key != "observations"},

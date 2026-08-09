@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import math
+import os
+from pathlib import Path
 import random
 import re
 from typing import Any, Mapping, Protocol, Sequence
@@ -67,6 +69,15 @@ def canonical_json_bytes(value: Mapping[str, Any]) -> bytes:
         )
         + "\n"
     ).encode("utf-8")
+
+
+def write_canonical_json(path: Path, value: Mapping[str, Any]) -> None:
+    """Persist the exact canonical representation used by blind commitments."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(descriptor, "wb") as handle:
+        handle.write(canonical_json_bytes(dict(value)))
+    os.chmod(path, 0o600)
 
 
 def sha256_bytes(value: bytes) -> str:

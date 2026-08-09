@@ -14,6 +14,7 @@ from continuum.blind_holdout import (
     canonical_json_bytes,
     score_blind_holdout,
     validate_blind_holdout,
+    write_canonical_json,
 )
 
 
@@ -31,8 +32,7 @@ def _load(path: Path) -> dict[str, Any]:
 
 
 def _write(path: Path, value: Mapping[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(canonical_json_bytes(dict(value)))
+    write_canonical_json(path, value)
 
 
 def evaluate(
