@@ -172,7 +172,7 @@ class McpHostInfrastructureTests(unittest.TestCase):
         workflow = (
             ROOT / ".github" / "workflows" / "release-envelope.yml"
         ).read_text(encoding="utf-8")
-        self.assertIn("default: hackathon-v14", workflow)
+        self.assertIn("default: hackathon-v15", workflow)
         self.assertIn(
             "for plane in source vector_scale agent_pressure managed_mcp "
             "sandbox_provider agent_ablation release_guardian "
@@ -190,6 +190,7 @@ class McpHostInfrastructureTests(unittest.TestCase):
         self.assertIn("build_public_release_guardian_replication", workflow)
         self.assertIn("sequential_blind_campaign", workflow)
         self.assertIn("sequential-blind-v1.json.sha256", workflow)
+        self.assertIn("evidence-story-v1.json.sha256", workflow)
         self.assertIn("--sequential-blind-public", workflow)
         self.assertIn("build_public_sequential_blind", workflow)
 

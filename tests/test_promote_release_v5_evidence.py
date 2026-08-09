@@ -214,7 +214,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
                     release_tag="hackathon-v5",
                 )
 
-    def test_repository_public_evidence_has_v14_source_closure(self) -> None:
+    def test_repository_public_evidence_has_v15_story_closure(self) -> None:
         judge_path = self.repo_root / "public-demo/evidence/judge-verification.json"
         aggregate_path = self.repo_root / "public-demo/evidence/agent-ablation-v3.json"
         drilldown_path = (
@@ -240,9 +240,12 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         )
         sequential_bytes = sequential_path.read_bytes()
         sequential = json.loads(sequential_bytes)
+        story_path = self.repo_root / "public-demo/evidence/evidence-story-v1.json"
+        story_bytes = story_path.read_bytes()
+        story = json.loads(story_bytes)
 
-        self.assertEqual(judge["schema_version"], 9)
-        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v14")
+        self.assertEqual(judge["schema_version"], 10)
+        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v15")
         self.assertEqual(
             judge["network_sign_once"]["required_total_attestation_count"],
             2,
@@ -330,6 +333,24 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         self.assertEqual(
             judge["release_envelope"]["sequential_blind_asset_name"],
             "sequential-blind-v1.json",
+        )
+        self.assertEqual(
+            hashlib.sha256(story_bytes.replace(b"\r\n", b"\n")).hexdigest(),
+            judge["evidence_story"]["public_sha256"],
+        )
+        self.assertEqual(story["gate"]["status"], "PASS")
+        self.assertEqual(story["source_release"]["tag"], "hackathon-v14")
+        self.assertEqual(
+            story["source_artifacts"]["sequential_public_sha256"],
+            judge["sequential_blind_campaign"]["public_sha256"],
+        )
+        self.assertEqual(
+            story["receipt_sha256"],
+            judge["evidence_story"]["story_receipt_sha256"],
+        )
+        self.assertEqual(
+            judge["release_envelope"]["evidence_story_asset_name"],
+            "evidence-story-v1.json",
         )
 
 

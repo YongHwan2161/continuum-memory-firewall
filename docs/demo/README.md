@@ -30,6 +30,9 @@ identifier, or private participant information.
 - `DEMO_NARRATION_V6.md` — real-provider narration: failed-action memory
   problem, 36 paired GitHub incidents, outcome-gated promotion, failed-first
   identity repair, immutable release, and one-click proof.
+- `DEMO_NARRATION_V7.md` — compiler-generated narration from the immutable v14
+  sequential receipt: 144 future targets per arm, false-promotion mechanism,
+  exact-artifact reconciliation, architecture, and public proof.
 - `continuum-memory-firewall-v4.en.srt` — exact English captions for the
   public 100.918-second outcome demo.
 - `continuum-memory-firewall-v5.en.srt` — exact English caption source for the
@@ -38,6 +41,9 @@ identifier, or private participant information.
 - `build/demo-v6/continuum-memory-firewall-v6.en.srt` — generated English (US)
   captions published with the 99.53-second real-provider video at
   <https://youtu.be/OEPYF7cVpbs>.
+- `build/demo-v7/continuum-memory-firewall-demo-v7.srt` — receipt-compiled
+  English (US) captions published with the 97.02-second judge video at
+  <https://youtu.be/QQxfQaDVz9c>.
 
 The browser console is an executable simulation of the policy and concurrency
 contract. The OIDC, RLS, Titan, Recall@3, and leakage statements shown in its
@@ -168,3 +174,37 @@ python scripts/build_demo_video_v6.py `
 The v6 builder requires judge schema v8, a 36-pair/72-observation real-provider
 guardian `PASS`, and a five-event `PAGES_MATERIALIZED` transaction receipt. It
 also enforces the 90–120 second competition duration.
+
+For the receipt-compiled v7 entry, first compile the immutable v14 source into a
+canonical story receipt and narration. Synthesize the nine disposable segments,
+then build the captioned video:
+
+```powershell
+python scripts/compile_evidence_story_v7.py `
+  --judge public-demo/evidence/judge-verification.json `
+  --sequential public-demo/evidence/sequential-blind-v1.json `
+  --release-receipt build/demo-v7/release-transaction-receipt-v14.json `
+  --source-release-tag hackathon-v14 `
+  --source-release-target 5b75dedff551137d7d8ec72726e8b2cba6dedb99 `
+  --source-release-envelope-sha256 8c880fa4908e0405084155387a7f01bbf0bc9f22b2a11b8b7b3de5072a733a07 `
+  --source-release-sequential-sha256 f34c2d9f7695b5b6bb333c5b23bcd7b5b924f71e68970c64220ed6ef116f8f3d `
+  --output public-demo/evidence/evidence-story-v1.json `
+  --narration-output docs/demo/DEMO_NARRATION_V7.md
+
+powershell -File scripts/synthesize_demo_narration_v4.ps1 `
+  -Narration docs/demo/DEMO_NARRATION_V7.md `
+  -OutputDirectory build/demo-v7/narration `
+  -Rate 4
+
+python scripts/build_demo_video_v7.py `
+  --story public-demo/evidence/evidence-story-v1.json `
+  --narration-text docs/demo/DEMO_NARRATION_V7.md `
+  --narration-dir build/demo-v7/narration `
+  --subtitles build/demo-v7/continuum-memory-firewall-demo-v7.srt `
+  --output build/demo-v7/continuum-memory-firewall-demo-v7.mp4
+```
+
+The compiler rejects mutable or mismatched release inputs and overclaims. The
+video builder accepts only a valid self-addressed story receipt and enforces the
+90–120 second duration. WAV files, the MP4, and the upload SRT remain local build
+artifacts; the source, story JSON, narration, and rebuild scripts are reviewed.

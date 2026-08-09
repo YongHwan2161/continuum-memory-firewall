@@ -458,7 +458,12 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         }
         self.judge_bytes = (json.dumps(self.judge, sort_keys=True) + "\n").encode()
 
-    def build(self, blind_holdout_public=None, sequential_blind_public=None):
+    def build(
+        self,
+        blind_holdout_public=None,
+        sequential_blind_public=None,
+        evidence_story=None,
+    ):
         blind_bytes = (
             (json.dumps(blind_holdout_public, sort_keys=True) + "\n").encode()
             if blind_holdout_public is not None
@@ -467,6 +472,11 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         sequential_bytes = (
             (json.dumps(sequential_blind_public, sort_keys=True) + "\n").encode()
             if sequential_blind_public is not None
+            else b""
+        )
+        story_bytes = (
+            (json.dumps(evidence_story, sort_keys=True) + "\n").encode()
+            if evidence_story is not None
             else b""
         )
         return build_envelope(
@@ -481,6 +491,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             self.release_guardian_public,
             blind_holdout_public=blind_holdout_public,
             sequential_blind_public=sequential_blind_public,
+            evidence_story=evidence_story,
             judge_bytes=self.judge_bytes,
             scale_bytes=self.scale_bytes,
             pressure_bytes=self.pressure_bytes,
@@ -492,6 +503,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             release_guardian_public_bytes=self.release_guardian_public_bytes,
             blind_holdout_public_bytes=blind_bytes,
             sequential_blind_public_bytes=sequential_bytes,
+            evidence_story_bytes=story_bytes,
             repo_root=Path(__file__).parents[1],
             repository="o/r",
             commit_sha="d" * 40,
@@ -688,6 +700,101 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             RuntimeError, "sequential_blind_artifact_bound"
         ):
             self.build(sequential_blind_public=sequential)
+
+    def test_v15_binds_receipt_compiled_story_and_video(self) -> None:
+        from continuum.evidence_story import build_evidence_story
+
+        sequential_path = (
+            Path(__file__).parents[1]
+            / "public-demo/evidence/sequential-blind-v1.json"
+        )
+        sequential = json.loads(sequential_path.read_bytes())
+        sequential_bytes = (json.dumps(sequential, sort_keys=True) + "\n").encode()
+        live_judge = json.loads(
+            (
+                Path(__file__).parents[1]
+                / "public-demo/evidence/judge-verification.json"
+            ).read_text(encoding="utf-8")
+        )
+        reference = live_judge["sequential_blind_campaign"]
+        reference["public_sha256"] = sha256_bytes(sequential_bytes)
+        self.judge["schema_version"] = 9
+        self.judge["sequential_blind_campaign"] = reference
+        self.judge["release_envelope"].update(
+            {
+                "sequential_blind_asset_name": "sequential-blind-v1.json",
+                "sequential_blind_asset_url": (
+                    "https://github.com/o/r/releases/download/hackathon-v1/"
+                    "sequential-blind-v1.json"
+                ),
+            }
+        )
+        source_target = "1" * 40
+        source_envelope = "2" * 64
+        receipt = {
+            "release_tag": "hackathon-v1",
+            "source_digest": source_target,
+            "envelope_sha256": source_envelope,
+            "events": [
+                {
+                    "state": "PAGES_MATERIALIZED",
+                    "evidence": {
+                        "status": "success",
+                        "release_target": source_target,
+                        "coordinator_workflow_run_id": 81,
+                        "coordinator_artifact_digest": "sha256:" + "3" * 64,
+                        "pages_workflow_run_id": 82,
+                        "public_receipt_url": "https://demo.example.test/evidence/release-transaction-receipt.json",
+                    },
+                }
+            ],
+        }
+        story = build_evidence_story(
+            self.judge,
+            sequential,
+            receipt,
+            sequential_bytes=sequential_bytes,
+            source_release_tag="hackathon-v1",
+            source_release_target=source_target,
+            source_release_envelope_sha256=source_envelope,
+            source_release_sequential_sha256=sha256_bytes(sequential_bytes),
+            compiled_at="2026-08-09T00:00:00Z",
+        )
+        story_bytes = (json.dumps(story, sort_keys=True) + "\n").encode()
+        self.judge["schema_version"] = 10
+        self.judge["submission"]["video_subtitles_sha256"] = "4" * 64
+        self.judge["evidence_story"] = {
+            "public_sha256": sha256_bytes(story_bytes),
+            "public_url": "https://demo.example.test/evidence/evidence-story-v1.json",
+            "page_url": "https://demo.example.test/evidence-story.html",
+            "source_release_tag": "hackathon-v1",
+            "source_release_target": source_target,
+            "source_release_envelope_sha256": source_envelope,
+            "source_sequential_sha256": sha256_bytes(sequential_bytes),
+            "story_receipt_sha256": story["receipt_sha256"],
+            "video_url": self.judge["submission"]["video_url"],
+            "video_duration_seconds": self.judge["submission"]["video_duration_seconds"],
+            "video_sha256": self.judge["submission"]["video_sha256"],
+            "subtitles_sha256": self.judge["submission"]["video_subtitles_sha256"],
+        }
+        self.judge["release_envelope"].update(
+            {
+                "evidence_story_asset_name": "evidence-story-v1.json",
+                "evidence_story_asset_url": (
+                    "https://github.com/o/r/releases/download/hackathon-v1/"
+                    "evidence-story-v1.json"
+                ),
+            }
+        )
+        self.judge_bytes = (json.dumps(self.judge, sort_keys=True) + "\n").encode()
+        envelope = self.build(
+            sequential_blind_public=sequential,
+            evidence_story=story,
+        )
+        self.assertEqual(envelope["gates"]["status"], "PASS")
+        self.assertEqual(envelope["evidence_story"]["receipt_sha256"], story["receipt_sha256"])
+        self.assertEqual(envelope["evidence_story"]["video"]["sha256"], "e" * 64)
+        self.assertEqual(envelope["evidence_story"]["claim_boundary"]["continuum_vs_stateless"], "directional_not_confirmatory")
 
     def test_scale_checksum_and_leakage_fail_closed(self) -> None:
         self.judge["vector_scale"]["report_sha256"] = "0" * 64

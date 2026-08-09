@@ -106,11 +106,16 @@ evidence, and explicit non-claims.
 - Submitted Devpost project page; submission `1121568` returned `Submitted` at
   2026-08-02 00:22 KST:
   <https://devpost.com/software/continuum-memory-firewall>
-- Public 99.53-second real-provider demonstration video embedded by Devpost:
-  <https://youtu.be/OEPYF7cVpbs> (SHA-256
-  `d5d7cc82bcce93e5db736cfef7331f64ce667eb4ff9055315c8b697717f09f8f`)
-- YouTube, public judge, and final Devpost delivery receipt:
-  [2026-08-08-real-provider-video-devpost-v6.md](evidence/2026-08-08-real-provider-video-devpost-v6.md)
+- Public 97.02-second receipt-compiled judge video embedded by Devpost:
+  <https://youtu.be/QQxfQaDVz9c> (local render SHA-256
+  `30518452bf16d46ad33d3500d98731f89273789d4b3b7b75bddd032194a7bed4`;
+  English subtitle SHA-256
+  `f95c60536851fd6cfa8f05441e15ed069da35457aba779977e91024835bbd98b`)
+- Public evidence-story receipt and nine-scene judge page:
+  <https://yonghwan2161.github.io/continuum-memory-firewall/evidence-story.html>
+- Devpost authenticated update receipt: project version `20`, updated at
+  `2026-08-09T10:54:00.418-04:00`, state `published`, with submission
+  `1121568` retaining its original non-null `submitted_at` receipt.
 - Redacted live AWS and CockroachDB evidence:
   [2026-07-31-cloud-live-smoke.md](evidence/2026-07-31-cloud-live-smoke.md)
 - Redacted live SQL migration and vector evidence:
@@ -160,6 +165,8 @@ evidence, and explicit non-claims.
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31162961883>
 - Public paired episode explorer:
   <https://yonghwan2161.github.io/continuum-memory-firewall/episodes.html>
+- Evidence-to-story compiler contract and rebuild instructions:
+  [EVIDENCE_TO_STORY_COMPILER.md](EVIDENCE_TO_STORY_COMPILER.md)
 
 `main` is the authoritative code. The linked workflows cover the reviewed P2B
 and migration implementation commits; the pull request records final-head
@@ -209,14 +216,15 @@ customer remediation provider.
 
 The AWS, Managed MCP, participant-cluster SQL, least-privilege runtime, fixed
 egress, authenticated remote MCP, and Devpost submission gates are closed. The
-highest-value work before the submission deadline is:
+receipt-compiled judge story is now the primary public path. The highest-value
+work before the submission deadline is:
 
-1. **Lead with the real-provider differentiator:** keep the 36-pair explorer and
-   exact receipts above the older retrieval-only metrics on the judge page,
-   video, and Devpost description.
-2. **Preserve statistical honesty:** present the 540-observation synthetic
-   ablation as breadth and the 72-observation GitHub run as external validity;
-   do not merge their confidence claims.
+1. **Lead with causal memory compounding:** keep the sealed 540-observation
+   sequential result, 48-versus-zero false-promotion mechanism, and exact
+   evaluator replay ahead of older retrieval-only metrics.
+2. **Preserve statistical honesty:** claim the paired advantage over raw-RAG;
+   describe the stateless comparison as directional and latency as measured but
+   not superior.
 3. **Burn in the signed judge path:** monitor the Pages author bundle, immutable
    release asset, public attestation index, Rekor proof, platform release
    countersignature, and strict verifier through the judging window. Alert on a

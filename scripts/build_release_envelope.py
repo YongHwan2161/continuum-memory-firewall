@@ -13,6 +13,7 @@ from typing import Any, Mapping
 
 from continuum.blind_holdout import build_public_blind_holdout
 from continuum.drilldown import build_public_episode_drilldown
+from continuum.evidence_story import verify_evidence_story_receipt
 from continuum.release_guardian import build_public_release_guardian
 from continuum.release_guardian_replication import (
     build_public_release_guardian_replication,
@@ -45,6 +46,7 @@ RELEASE_GUARDIAN_ASSET = "release-guardian-v1.json"
 RELEASE_GUARDIAN_REPLICATION_ASSET = "release-guardian-replication-v1.json"
 BLIND_HOLDOUT_ASSET = "blind-holdout-v1.json"
 SEQUENTIAL_BLIND_ASSET = "sequential-blind-v1.json"
+EVIDENCE_STORY_ASSET = "evidence-story-v1.json"
 SIGNATURE_BUNDLE_ASSET = "continuum-release-envelope-v2.sigstore.jsonl"
 
 
@@ -136,6 +138,7 @@ def build_envelope(
     release_guardian_replication: dict[str, Any] | None = None,
     blind_holdout_public: dict[str, Any] | None = None,
     sequential_blind_public: dict[str, Any] | None = None,
+    evidence_story: dict[str, Any] | None = None,
     *,
     judge_bytes: bytes,
     scale_bytes: bytes,
@@ -149,6 +152,7 @@ def build_envelope(
     release_guardian_replication_bytes: bytes = b"",
     blind_holdout_public_bytes: bytes = b"",
     sequential_blind_public_bytes: bytes = b"",
+    evidence_story_bytes: bytes = b"",
     repo_root: Path,
     repository: str,
     commit_sha: str,
@@ -157,8 +161,8 @@ def build_envelope(
     release_tag: str,
     generated_at: str | None = None,
 ) -> dict[str, Any]:
-    if judge.get("schema_version") not in {8, 9}:
-        raise RuntimeError("judge evidence schema 8 or 9 is required")
+    if judge.get("schema_version") not in {8, 9, 10}:
+        raise RuntimeError("judge evidence schema 8, 9, or 10 is required")
     if not SHA_PATTERN.fullmatch(commit_sha):
         raise RuntimeError("release commit must be a full lowercase SHA")
     if workflow_run_id < 1 or not workflow_url.startswith("https://github.com/"):
@@ -180,6 +184,7 @@ def build_envelope(
     replication_reference = judge.get("time_distributed_replication")
     blind_reference = judge.get("blind_holdout")
     sequential_reference = judge.get("sequential_blind_campaign")
+    story_reference = judge.get("evidence_story")
     database_policy_reference = judge["database_policy"]
     release_reference = judge["release_envelope"]
     network_sign_once = judge["network_sign_once"]
@@ -220,6 +225,11 @@ def build_envelope(
     sequential_blind_public_sha = (
         sha256_bytes(repository_text_bytes(sequential_blind_public_bytes))
         if sequential_blind_public is not None
+        else ""
+    )
+    evidence_story_sha = (
+        sha256_bytes(repository_text_bytes(evidence_story_bytes))
+        if evidence_story is not None
         else ""
     )
     public_ablation = build_public_ablation_aggregate(ablation)
@@ -733,6 +743,50 @@ def build_envelope(
                 > 0
             )
         ),
+        "evidence_story_receipt_bound": (
+            judge.get("schema_version") < 10
+            or (
+                story_reference is not None
+                and evidence_story is not None
+                and evidence_story_sha == story_reference.get("public_sha256")
+                and verify_evidence_story_receipt(evidence_story)
+                and evidence_story.get("gate", {}).get("status") == "PASS"
+                and evidence_story.get("source_release", {}).get(
+                    "sequential_asset_sha256"
+                )
+                == sequential_reference.get("public_sha256")
+                == story_reference.get("source_sequential_sha256")
+                and evidence_story.get("source_release", {}).get("tag")
+                == story_reference.get("source_release_tag")
+                and evidence_story.get("source_release", {}).get("target")
+                == story_reference.get("source_release_target")
+                and evidence_story.get("source_release", {}).get(
+                    "envelope_sha256"
+                )
+                == story_reference.get("source_release_envelope_sha256")
+                and evidence_story.get("receipt_sha256")
+                == story_reference.get("story_receipt_sha256")
+                and story_reference.get("video_url")
+                == submission.get("video_url")
+                and story_reference.get("video_sha256")
+                == submission.get("video_sha256")
+                and story_reference.get("video_duration_seconds")
+                == submission.get("video_duration_seconds")
+                and story_reference.get("subtitles_sha256")
+                == submission.get("video_subtitles_sha256")
+                and evidence_story.get("claim_boundary", {}).get(
+                    "continuum_vs_raw_rag"
+                )
+                == "confirmed_paired_advantage"
+                and evidence_story.get("claim_boundary", {}).get(
+                    "continuum_vs_stateless"
+                )
+                == "directional_not_confirmatory"
+                and evidence_story.get("claim_boundary", {}).get("latency")
+                == "measured_not_claimed_as_superior"
+                and len(evidence_story.get("story", {}).get("scenes", [])) == 9
+            )
+        ),
         "citation_grounding_failures_zero": grounding_failures == 0,
         "public_rls_checksum_matches_source": (
             database_policy_reference.get("rls_combined_sha256")
@@ -884,6 +938,18 @@ def build_envelope(
                     )
                 )
             )
+            and (
+                story_reference is None
+                or (
+                    release_reference.get("evidence_story_asset_name")
+                    == EVIDENCE_STORY_ASSET
+                    and release_reference.get("evidence_story_asset_url")
+                    == (
+                        f"https://github.com/{repository}/releases/download/"
+                        f"{release_tag}/{EVIDENCE_STORY_ASSET}"
+                    )
+                )
+            )
         ),
         "network_sign_once_contract_bound": (
             network_sign_once.get("schema_version") == 2
@@ -1013,6 +1079,15 @@ def build_envelope(
                         ]
                     }
                     if sequential_reference is not None
+                    else {}
+                ),
+                **(
+                    {
+                        "evidence_story": release_reference[
+                            "evidence_story_asset_url"
+                        ]
+                    }
+                    if story_reference is not None
                     else {}
                 ),
             },
@@ -1297,6 +1372,35 @@ def build_envelope(
             and sequential_blind_public is not None
             else {}
         ),
+        **(
+            {
+                "evidence_story": {
+                    "schema_version": evidence_story["schema_version"],
+                    "public_sha256": evidence_story_sha,
+                    "receipt_sha256": evidence_story["receipt_sha256"],
+                    "public_url": story_reference["public_url"],
+                    "page_url": story_reference["page_url"],
+                    "immutable_release_asset_url": release_reference[
+                        "evidence_story_asset_url"
+                    ],
+                    "source_release": evidence_story["source_release"],
+                    "source_artifacts": evidence_story["source_artifacts"],
+                    "metrics": evidence_story["metrics"],
+                    "claim_boundary": evidence_story["claim_boundary"],
+                    "video": {
+                        "url": story_reference["video_url"],
+                        "duration_seconds": story_reference[
+                            "video_duration_seconds"
+                        ],
+                        "sha256": story_reference["video_sha256"],
+                        "subtitles_sha256": story_reference["subtitles_sha256"],
+                    },
+                    "gate": evidence_story["gate"],
+                }
+            }
+            if story_reference is not None and evidence_story is not None
+            else {}
+        ),
         "public_judge_evidence": {
             "url": judge["public_demo"]["evidence_url"],
             "sha256": judge_sha,
@@ -1336,6 +1440,7 @@ def main() -> None:
     parser.add_argument("--release-guardian-replication", type=Path)
     parser.add_argument("--blind-holdout-public", type=Path)
     parser.add_argument("--sequential-blind-public", type=Path)
+    parser.add_argument("--evidence-story", type=Path)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--repository", required=True)
     parser.add_argument("--commit-sha", required=True)
@@ -1368,6 +1473,11 @@ def main() -> None:
         if args.sequential_blind_public is not None
         else b""
     )
+    evidence_story_bytes = (
+        args.evidence_story.read_bytes()
+        if args.evidence_story is not None
+        else b""
+    )
     envelope = build_envelope(
         json.loads(judge_bytes),
         json.loads(scale_bytes),
@@ -1393,6 +1503,11 @@ def main() -> None:
             if sequential_blind_public_bytes
             else None
         ),
+        (
+            json.loads(evidence_story_bytes)
+            if evidence_story_bytes
+            else None
+        ),
         judge_bytes=judge_bytes,
         scale_bytes=scale_bytes,
         pressure_bytes=pressure_bytes,
@@ -1405,6 +1520,7 @@ def main() -> None:
         release_guardian_replication_bytes=release_guardian_replication_bytes,
         blind_holdout_public_bytes=blind_holdout_public_bytes,
         sequential_blind_public_bytes=sequential_blind_public_bytes,
+        evidence_story_bytes=evidence_story_bytes,
         repo_root=args.repo_root.resolve(),
         repository=args.repository,
         commit_sha=args.commit_sha,

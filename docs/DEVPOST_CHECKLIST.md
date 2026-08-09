@@ -137,20 +137,23 @@ complete attestations and organizer agreements.
       incident, verifier, 10k/50k ANN, and 10/25/50-agent pressure evidence
 - [x] Secret-free screenshots captured for the live overview, policy rejection,
       and one-owner failover in [docs/demo/](demo/)
-- [x] Real-provider demo uploaded publicly to YouTube and embedded on Devpost:
-      <https://youtu.be/OEPYF7cVpbs>; 99.53 seconds; SHA-256
-      `d5d7cc82bcce93e5db736cfef7331f64ce667eb4ff9055315c8b697717f09f8f`.
-      It leads with the failed-action memory problem, compares 36/36 Continuum
-      outcomes with 31/36 raw-RAG outcomes against real GitHub effects, shows
-      the provider-issued identity repair, and ends at public PASS. English
-      (US) SRT publication, public visibility, and a no-issues copyright check
-      were confirmed on 2026-08-08.
+- [x] Receipt-compiled judge demo uploaded publicly to YouTube and embedded on
+      Devpost: <https://youtu.be/QQxfQaDVz9c>; 97.02 seconds; local-render
+      SHA-256
+      `30518452bf16d46ad33d3500d98731f89273789d4b3b7b75bddd032194a7bed4`.
+      It leads with the failed-outcome memory problem, compares the same 144
+      future target episodes per arm, shows 48 raw-RAG false promotions versus
+      zero for Continuum, proves exact-artifact evaluator reconciliation, and
+      ends at public PASS. English (US) SRT SHA-256
+      `f95c60536851fd6cfa8f05441e15ed069da35457aba779977e91024835bbd98b`,
+      public visibility, and a no-issues copyright check were confirmed on
+      2026-08-09.
 - [x] Devpost description reflects the sealed 540-observation sequential blind
       result, its raw-RAG and stateless comparison boundaries, exact evaluator
       recovery, real-provider paired guardian, immutable release transaction,
       and current public judge path. The authenticated update returned project
-      version `19`; the post-submit re-read stabilized at
-      `2026-08-09T09:25:06.869-04:00`. Submission `1121568` retained its
+      version `20`; the post-submit re-read stabilized at
+      `2026-08-09T10:54:00.418-04:00`. Submission `1121568` retained its
       original `submitted_at` receipt and the project remained `published`.
 - [x] Measured 60-query, 10k/50k, and 10/25/50-agent results recorded;
       production-quality generalization remains an explicit non-claim
