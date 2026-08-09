@@ -6,7 +6,7 @@ on:
       release_tag:
         description: New or resumable immutable GitHub Release tag
         required: true
-        default: hackathon-v13
+        default: hackathon-v14
       release_target:
         description: Exact existing release target to reconcile; blank uses the workflow SHA
         required: false
@@ -74,7 +74,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           judge=public-demo/evidence/judge-verification.json
-          for plane in source vector_scale agent_pressure managed_mcp sandbox_provider agent_ablation release_guardian time_distributed_replication blind_holdout; do
+          for plane in source vector_scale agent_pressure managed_mcp sandbox_provider agent_ablation release_guardian time_distributed_replication blind_holdout sequential_blind_campaign; do
             case "$plane" in
               source)
                 run_id="$(jq -r '.source.workflow_run_id' "$judge")"
@@ -112,6 +112,10 @@ jobs:
                 run_id="$(jq -r '.blind_holdout.workflow_run_id' "$judge")"
                 expected_head="$(jq -r '.blind_holdout.head_sha' "$judge")"
                 ;;
+              sequential_blind_campaign)
+                run_id="$(jq -r '.sequential_blind_campaign.workflow_run_id' "$judge")"
+                expected_head="$(jq -r '.sequential_blind_campaign.head_sha' "$judge")"
+                ;;
             esac
             provider_receipt="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
             test "$(jq -r '.conclusion' <<<"$provider_receipt")" = success
@@ -128,8 +132,8 @@ jobs:
         run: |
           set -euo pipefail
           judge=public-demo/evidence/judge-verification.json
-          mkdir -p build/evidence/sandbox build/evidence/ablation build/evidence/guardian build/evidence/replication build/evidence/blind
-          for plane in sandbox_provider agent_ablation release_guardian time_distributed_replication blind_holdout; do
+          mkdir -p build/evidence/sandbox build/evidence/ablation build/evidence/guardian build/evidence/replication build/evidence/blind build/evidence/sequential
+          for plane in sandbox_provider agent_ablation release_guardian time_distributed_replication blind_holdout sequential_blind_campaign; do
             artifact_id="$(jq -r ".$plane.artifact_id" "$judge")"
             artifact_name="$(jq -r ".$plane.artifact_name" "$judge")"
             expected_archive="sha256:$(jq -r ".$plane.artifact_archive_sha256" "$judge")"
@@ -142,6 +146,7 @@ jobs:
             if [ "$plane" = release_guardian ]; then target=build/evidence/guardian; fi
             if [ "$plane" = time_distributed_replication ]; then target=build/evidence/replication; fi
             if [ "$plane" = blind_holdout ]; then target=build/evidence/blind; fi
+            if [ "$plane" = sequential_blind_campaign ]; then target=build/evidence/sequential; fi
             gh run download \
               "$(jq -r ".$plane.workflow_run_id" "$judge")" \
               --name "$artifact_name" \
@@ -169,12 +174,17 @@ jobs:
             "$(jq -r '.blind_holdout.public_sha256' "$judge")"
           cmp build/evidence/blind/blind-holdout-public-v1.json \
             public-demo/evidence/blind-holdout-v1.json
+          test "$(sha256sum build/evidence/sequential/campaign-public.json | cut -d' ' -f1)" = \
+            "$(jq -r '.sequential_blind_campaign.public_sha256' "$judge")"
+          cmp build/evidence/sequential/campaign-public.json \
+            public-demo/evidence/sequential-blind-v1.json
           PYTHONPATH=src python - <<'PY'
           import json
           from pathlib import Path
           from continuum.blind_holdout import build_public_blind_holdout
           from continuum.release_guardian import build_public_release_guardian
           from continuum.release_guardian_replication import build_public_release_guardian_replication
+          from continuum.sequential_blind import build_public_sequential_blind
           raw = json.loads(Path("build/evidence/guardian/release-guardian-v1.json").read_text())
           public = json.loads(Path("public-demo/evidence/release-guardian-v1.json").read_text())
           if public != build_public_release_guardian(raw):
@@ -187,6 +197,10 @@ jobs:
           blind_public = json.loads(Path("public-demo/evidence/blind-holdout-v1.json").read_text())
           if blind_public != build_public_blind_holdout(blind_raw):
               raise SystemExit("public blind holdout projection does not match raw report")
+          sequential_raw = json.loads(Path("build/evidence/sequential/campaign-report.json").read_text())
+          sequential_public = json.loads(Path("public-demo/evidence/sequential-blind-v1.json").read_text())
+          if sequential_public != build_public_sequential_blind(sequential_raw):
+              raise SystemExit("public sequential campaign projection does not match raw report")
           PY
 
       - name: Build the exact release payload once
@@ -207,6 +221,7 @@ jobs:
             --release-guardian-public public-demo/evidence/release-guardian-v1.json \
             --release-guardian-replication build/evidence/replication/release-guardian-replication-v1.json \
             --blind-holdout-public public-demo/evidence/blind-holdout-v1.json \
+            --sequential-blind-public public-demo/evidence/sequential-blind-v1.json \
             --repo-root . \
             --repository "$GITHUB_REPOSITORY" \
             --commit-sha "$RELEASE_TARGET" \
@@ -226,6 +241,8 @@ jobs:
             build/release/release-guardian-replication-v1.json
           cp public-demo/evidence/blind-holdout-v1.json \
             build/release/blind-holdout-v1.json
+          cp public-demo/evidence/sequential-blind-v1.json \
+            build/release/sequential-blind-v1.json
           (
             cd build/release
             sha256sum sandbox-provider-proof.json >sandbox-provider-proof.json.sha256
@@ -234,6 +251,7 @@ jobs:
             sha256sum release-guardian-v1.json >release-guardian-v1.json.sha256
             sha256sum release-guardian-replication-v1.json >release-guardian-replication-v1.json.sha256
             sha256sum blind-holdout-v1.json >blind-holdout-v1.json.sha256
+            sha256sum sequential-blind-v1.json >sequential-blind-v1.json.sha256
           )
 
       - name: Create the durable draft before author signing
@@ -259,6 +277,8 @@ jobs:
             build/release/release-guardian-replication-v1.json.sha256 \
             build/release/blind-holdout-v1.json \
             build/release/blind-holdout-v1.json.sha256 \
+            build/release/sequential-blind-v1.json \
+            build/release/sequential-blind-v1.json.sha256 \
             --target "$RELEASE_TARGET" \
             --draft \
             --title "Continuum Memory Firewall evidence envelope" \
@@ -334,6 +354,8 @@ jobs:
               "release-guardian-replication-v1.json.sha256",
               "blind-holdout-v1.json",
               "blind-holdout-v1.json.sha256",
+              "sequential-blind-v1.json",
+              "sequential-blind-v1.json.sha256",
           )
           root = Path("build/release")
           print(json.dumps({name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}, sort_keys=True))
@@ -527,6 +549,8 @@ jobs:
               "release-guardian-replication-v1.json.sha256",
               "blind-holdout-v1.json",
               "blind-holdout-v1.json.sha256",
+              "sequential-blind-v1.json",
+              "sequential-blind-v1.json.sha256",
           )
           root = Path("build/release")
           print(json.dumps({name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}, sort_keys=True))

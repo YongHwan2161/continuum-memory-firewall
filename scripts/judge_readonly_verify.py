@@ -18,6 +18,7 @@ from continuum.release_guardian_replication import (
     EXPECTED_REPLICATION_IDS,
     build_public_release_guardian_replication,
 )
+from continuum.sequential_blind import build_public_sequential_blind
 
 
 DEFAULT_EVIDENCE_URL = (
@@ -136,6 +137,97 @@ def verify_blind_holdout(
         and continuum.get("unsafe_memory_exposures") == 0
         and continuum.get("unsafe_memory_citation_adoptions") == 0
         and raw.get("false_canonical_promotions", 0) > 0
+    )
+
+
+def verify_sequential_blind_campaign(
+    evidence: dict[str, Any],
+    *,
+    fetch_json: Callable[[str], dict[str, Any]],
+    fetch_bytes: Callable[[str], bytes],
+) -> bool:
+    """Bind the sealed three-batch memory-compounding campaign end to end."""
+
+    reference = evidence.get("sequential_blind_campaign")
+    if reference is None:
+        return True
+    try:
+        workflow = fetch_json(reference["workflow_api_url"])
+        artifact = fetch_json(reference["artifact_api_url"])
+        public_bytes = fetch_bytes(reference["public_url"])
+        public_sha = hashlib.sha256(public_bytes.replace(b"\r\n", b"\n")).hexdigest()
+        report = json.loads(public_bytes.decode("utf-8"))
+        if not isinstance(report, dict):
+            return False
+        public_projection = build_public_sequential_blind(report)
+        methodology = report["methodology"]
+        manifest = report["campaign_manifest"]
+        campaign_seal = report["campaign_seal_receipt"]
+        receipts = report["batch_receipts"]
+        arms = report["arms"]
+        continuum = arms["continuum"]
+        comparisons = report["paired_comparisons"]
+    except (KeyError, RuntimeError, TypeError, ValueError, json.JSONDecodeError):
+        return False
+    receipt_ids = [str(item.get("receipt_sha256", "")) for item in receipts]
+    commitment_ids = [str(item.get("commitment_sha256", "")) for item in receipts]
+    return (
+        report == public_projection
+        and workflow.get("id") == reference.get("workflow_run_id")
+        and workflow.get("run_attempt") == reference.get("workflow_attempt")
+        and workflow.get("conclusion") == "success"
+        and workflow.get("head_sha") == reference.get("head_sha")
+        and artifact.get("id") == reference.get("artifact_id")
+        and artifact.get("name") == reference.get("artifact_name")
+        and artifact.get("digest")
+        == "sha256:" + str(reference.get("artifact_archive_sha256", ""))
+        and artifact.get("expired") is False
+        and artifact.get("workflow_run", {}).get("id")
+        == reference.get("workflow_run_id")
+        and public_sha == reference.get("public_sha256")
+        and report.get("source_head") == reference.get("head_sha")
+        and report.get("campaign_id") == reference.get("campaign_id")
+        and report.get("real_external_provider") is True
+        and report.get("providers") == ["github", "s3"]
+        and methodology.get("sealed_batches") == 3
+        and methodology.get("chains") == 36
+        and methodology.get("episodes_per_arm") == 180
+        and methodology.get("target_episodes_per_arm") == 144
+        and methodology.get("arm_observations") == 540
+        and methodology.get("candidate_label_fields") == 0
+        and methodology.get("candidate_process_opened_labels") is False
+        and methodology.get("scored_after_all_arms_and_batches") is True
+        and methodology.get("minimum_start_separation_seconds") == 300
+        and len(methodology.get("observed_start_separations_seconds", [])) == 2
+        and all(
+            int(value) >= 300
+            for value in methodology.get("observed_start_separations_seconds", [])
+        )
+        and len(report.get("observations", [])) == 540
+        and set(arms) == {"stateless", "raw_rag", "continuum"}
+        and manifest.get("campaign_manifest_sha256")
+        == reference.get("campaign_manifest_sha256")
+        and manifest.get("planned_batches") == 3
+        and len(manifest.get("batches", [])) == 3
+        and campaign_seal.get("receipt_sha256")
+        == reference.get("campaign_seal_receipt_sha256")
+        and campaign_seal.get("campaign_manifest_sha256")
+        == manifest.get("campaign_manifest_sha256")
+        and len(receipts) == 3
+        and [int(item.get("batch_index", 0)) for item in receipts] == [1, 2, 3]
+        and len(set(receipt_ids)) == 3
+        and all(SHA256_PATTERN.fullmatch(value) for value in receipt_ids)
+        and len(set(commitment_ids)) == 3
+        and all(SHA256_PATTERN.fullmatch(value) for value in commitment_ids)
+        and continuum.get("canonical_promotion_precision") == 1.0
+        and continuum.get("false_canonical_promotions") == 0
+        and continuum.get("cross_scope_leak_count") == 0
+        and continuum.get("duplicate_effect_count") == 0
+        and continuum.get("cleanup_residual_count") == 0
+        and continuum.get("verified_memory_assisted_successes", 0) > 0
+        and comparisons.get("continuum_vs_stateless", {}).get("pairs") == 144
+        and comparisons.get("continuum_vs_raw_rag", {}).get("pairs") == 144
+        and report.get("gate", {}).get("status") == "PASS"
     )
 
 
@@ -299,7 +391,7 @@ def verify_evidence(
             and runtime["control_plane_and_migrator_role_options_empty"] is True
         ),
         "representative_scale_gate": (
-            schema_version in {4, 5, 6, 7, 8}
+            schema_version in {4, 5, 6, 7, 8, 9}
             and scale_report.get("gate", {}).get("status") == "PASS"
             and [scale.get("row_count") for scale in scales] == [10_000, 50_000]
         ),
@@ -357,6 +449,14 @@ def verify_evidence(
             fetch_json=fetch_json,
             fetch_bytes=fetch_bytes,
         )
+    if "sequential_blind_campaign" in evidence:
+        checks["sequential_blind_memory_compounding"] = (
+            verify_sequential_blind_campaign(
+                evidence,
+                fetch_json=fetch_json,
+                fetch_bytes=fetch_bytes,
+            )
+        )
     if schema_version >= 5:
         lineage = evidence["lineage"]
         sandbox_reference = evidence["sandbox_provider"]
@@ -413,6 +513,7 @@ def verify_evidence(
         guardian_asset: dict[str, Any] = {}
         replication_asset: dict[str, Any] = {}
         blind_asset: dict[str, Any] = {}
+        sequential_asset: dict[str, Any] = {}
         if schema_version >= 8:
             guardian_reference = evidence["release_guardian"]
             guardian_workflow = fetch_json(
@@ -453,6 +554,11 @@ def verify_evidence(
             if "blind_holdout" in evidence:
                 blind_asset = release_assets.get(
                     release_reference["blind_holdout_asset_name"],
+                    {},
+                )
+            if "sequential_blind_campaign" in evidence:
+                sequential_asset = release_assets.get(
+                    release_reference["sequential_blind_asset_name"],
                     {},
                 )
         network_reference: dict[str, Any] = {}
@@ -760,6 +866,12 @@ def verify_evidence(
                         or blind_asset.get("digest")
                         == "sha256:" + evidence["blind_holdout"]["public_sha256"]
                     )
+                    and (
+                        "sequential_blind_campaign" not in evidence
+                        or sequential_asset.get("digest")
+                        == "sha256:"
+                        + evidence["sequential_blind_campaign"]["public_sha256"]
+                    )
                 ),
                 "release_envelope_gate": (
                     envelope.get("schema_version") == 2
@@ -800,6 +912,23 @@ def verify_evidence(
                             )
                             == evidence["blind_holdout"].get(
                                 "commitment_sha256"
+                            )
+                        )
+                    )
+                    and (
+                        "sequential_blind_campaign" not in evidence
+                        or (
+                            envelope.get("sequential_blind_campaign", {}).get(
+                                "public_sha256"
+                            )
+                            == evidence["sequential_blind_campaign"].get(
+                                "public_sha256"
+                            )
+                            and envelope.get(
+                                "sequential_blind_campaign", {}
+                            ).get("campaign_manifest_sha256")
+                            == evidence["sequential_blind_campaign"].get(
+                                "campaign_manifest_sha256"
                             )
                         )
                     )

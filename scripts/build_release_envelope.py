@@ -17,6 +17,7 @@ from continuum.release_guardian import build_public_release_guardian
 from continuum.release_guardian_replication import (
     build_public_release_guardian_replication,
 )
+from continuum.sequential_blind import build_public_sequential_blind
 
 
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
@@ -43,6 +44,7 @@ DRILLDOWN_ASSET = "episode-drilldown-v1.json"
 RELEASE_GUARDIAN_ASSET = "release-guardian-v1.json"
 RELEASE_GUARDIAN_REPLICATION_ASSET = "release-guardian-replication-v1.json"
 BLIND_HOLDOUT_ASSET = "blind-holdout-v1.json"
+SEQUENTIAL_BLIND_ASSET = "sequential-blind-v1.json"
 SIGNATURE_BUNDLE_ASSET = "continuum-release-envelope-v2.sigstore.jsonl"
 
 
@@ -133,6 +135,7 @@ def build_envelope(
     release_guardian_public: dict[str, Any],
     release_guardian_replication: dict[str, Any] | None = None,
     blind_holdout_public: dict[str, Any] | None = None,
+    sequential_blind_public: dict[str, Any] | None = None,
     *,
     judge_bytes: bytes,
     scale_bytes: bytes,
@@ -145,6 +148,7 @@ def build_envelope(
     release_guardian_public_bytes: bytes,
     release_guardian_replication_bytes: bytes = b"",
     blind_holdout_public_bytes: bytes = b"",
+    sequential_blind_public_bytes: bytes = b"",
     repo_root: Path,
     repository: str,
     commit_sha: str,
@@ -153,8 +157,8 @@ def build_envelope(
     release_tag: str,
     generated_at: str | None = None,
 ) -> dict[str, Any]:
-    if judge.get("schema_version") != 8:
-        raise RuntimeError("judge evidence schema 8 is required")
+    if judge.get("schema_version") not in {8, 9}:
+        raise RuntimeError("judge evidence schema 8 or 9 is required")
     if not SHA_PATTERN.fullmatch(commit_sha):
         raise RuntimeError("release commit must be a full lowercase SHA")
     if workflow_run_id < 1 or not workflow_url.startswith("https://github.com/"):
@@ -175,6 +179,7 @@ def build_envelope(
     guardian_reference = judge["release_guardian"]
     replication_reference = judge.get("time_distributed_replication")
     blind_reference = judge.get("blind_holdout")
+    sequential_reference = judge.get("sequential_blind_campaign")
     database_policy_reference = judge["database_policy"]
     release_reference = judge["release_envelope"]
     network_sign_once = judge["network_sign_once"]
@@ -212,6 +217,11 @@ def build_envelope(
         if blind_holdout_public is not None
         else ""
     )
+    sequential_blind_public_sha = (
+        sha256_bytes(repository_text_bytes(sequential_blind_public_bytes))
+        if sequential_blind_public is not None
+        else ""
+    )
     public_ablation = build_public_ablation_aggregate(ablation)
     public_drilldown = build_public_episode_drilldown(ablation)
     public_guardian = build_public_release_guardian(release_guardian)
@@ -223,6 +233,11 @@ def build_envelope(
     public_blind_holdout = (
         build_public_blind_holdout(blind_holdout_public)
         if blind_holdout_public is not None
+        else None
+    )
+    public_sequential_blind = (
+        build_public_sequential_blind(sequential_blind_public)
+        if sequential_blind_public is not None
         else None
     )
     ablation_arms = ablation.get("arms", {})
@@ -535,6 +550,107 @@ def build_envelope(
                 == blind_reference.get("seal_receipt_sha256")
             )
         ),
+        "sequential_blind_artifact_bound": (
+            judge.get("schema_version") < 9
+            or (
+                sequential_reference is not None
+                and sequential_blind_public is not None
+                and int(sequential_reference.get("workflow_run_id", 0)) > 0
+                and int(sequential_reference.get("artifact_id", 0)) > 0
+                and sequential_reference.get("head_sha")
+                == sequential_blind_public.get("source_head")
+                and sequential_reference.get("artifact_name")
+                == (
+                    "continuum-sequential-blind-"
+                    + sequential_reference.get("head_sha", "")
+                    + "-"
+                    + str(sequential_reference.get("workflow_run_id", ""))
+                    + "-"
+                    + str(sequential_reference.get("workflow_attempt", ""))
+                )
+                and SHA256_PATTERN.fullmatch(
+                    str(sequential_reference.get("artifact_archive_sha256", ""))
+                )
+                is not None
+                and sequential_blind_public_sha
+                == sequential_reference.get("public_sha256")
+                and sequential_blind_public == public_sequential_blind
+                and sequential_blind_public.get("campaign_id")
+                == sequential_reference.get("campaign_id")
+                and sequential_blind_public.get("campaign_manifest", {}).get(
+                    "campaign_manifest_sha256"
+                )
+                == sequential_reference.get("campaign_manifest_sha256")
+                and sequential_blind_public.get("campaign_seal_receipt", {}).get(
+                    "receipt_sha256"
+                )
+                == sequential_reference.get("campaign_seal_receipt_sha256")
+            )
+        ),
+        "sequential_blind_memory_compounding_passed": (
+            judge.get("schema_version") < 9
+            or (
+                sequential_blind_public is not None
+                and sequential_blind_public.get("real_external_provider") is True
+                and sequential_blind_public.get("providers") == ["github", "s3"]
+                and sequential_blind_public.get("methodology", {}).get(
+                    "sealed_batches"
+                )
+                == 3
+                and sequential_blind_public.get("methodology", {}).get("chains")
+                == 36
+                and sequential_blind_public.get("methodology", {}).get(
+                    "arm_observations"
+                )
+                == 540
+                and sequential_blind_public.get("methodology", {}).get(
+                    "target_episodes_per_arm"
+                )
+                == 144
+                and sequential_blind_public.get("methodology", {}).get(
+                    "candidate_label_fields"
+                )
+                == 0
+                and sequential_blind_public.get("methodology", {}).get(
+                    "candidate_process_opened_labels"
+                )
+                is False
+                and sequential_blind_public.get("methodology", {}).get(
+                    "scored_after_all_arms_and_batches"
+                )
+                is True
+                and all(
+                    int(value) >= 300
+                    for value in sequential_blind_public.get("methodology", {}).get(
+                        "observed_start_separations_seconds", []
+                    )
+                )
+                and len(
+                    sequential_blind_public.get("methodology", {}).get(
+                        "observed_start_separations_seconds", []
+                    )
+                )
+                == 2
+                and sequential_blind_public.get("gate", {}).get("status")
+                == "PASS"
+                and sequential_blind_public.get("arms", {})
+                .get("continuum", {})
+                .get("canonical_promotion_precision")
+                == 1.0
+                and sequential_blind_public.get("arms", {})
+                .get("continuum", {})
+                .get("false_canonical_promotions")
+                == 0
+                and sequential_blind_public.get("arms", {})
+                .get("continuum", {})
+                .get("cross_scope_leak_count")
+                == 0
+                and sequential_blind_public.get("arms", {})
+                .get("continuum", {})
+                .get("verified_memory_assisted_successes", 0)
+                > 0
+            )
+        ),
         "citation_grounding_failures_zero": grounding_failures == 0,
         "public_rls_checksum_matches_source": (
             database_policy_reference.get("rls_combined_sha256")
@@ -674,6 +790,18 @@ def build_envelope(
                     )
                 )
             )
+            and (
+                sequential_reference is None
+                or (
+                    release_reference.get("sequential_blind_asset_name")
+                    == SEQUENTIAL_BLIND_ASSET
+                    and release_reference.get("sequential_blind_asset_url")
+                    == (
+                        f"https://github.com/{repository}/releases/download/"
+                        f"{release_tag}/{SEQUENTIAL_BLIND_ASSET}"
+                    )
+                )
+            )
         ),
         "network_sign_once_contract_bound": (
             network_sign_once.get("schema_version") == 2
@@ -794,6 +922,15 @@ def build_envelope(
                 **(
                     {"blind_holdout": release_reference["blind_holdout_asset_url"]}
                     if blind_reference is not None
+                    else {}
+                ),
+                **(
+                    {
+                        "sequential_blind_campaign": release_reference[
+                            "sequential_blind_asset_url"
+                        ]
+                    }
+                    if sequential_reference is not None
                     else {}
                 ),
             },
@@ -1011,6 +1148,43 @@ def build_envelope(
             if blind_reference is not None and blind_holdout_public is not None
             else {}
         ),
+        **(
+            {
+                "sequential_blind_campaign": {
+                    "head_sha": sequential_reference["head_sha"],
+                    "workflow_run_id": sequential_reference["workflow_run_id"],
+                    "workflow_attempt": sequential_reference["workflow_attempt"],
+                    "workflow_url": sequential_reference["workflow_url"],
+                    "artifact_id": sequential_reference["artifact_id"],
+                    "artifact_name": sequential_reference["artifact_name"],
+                    "artifact_archive_sha256": sequential_reference[
+                        "artifact_archive_sha256"
+                    ],
+                    "public_sha256": sequential_blind_public_sha,
+                    "public_url": sequential_reference["public_url"],
+                    "page_url": sequential_reference["page_url"],
+                    "immutable_release_asset_url": release_reference[
+                        "sequential_blind_asset_url"
+                    ],
+                    "campaign_id": sequential_blind_public["campaign_id"],
+                    "campaign_manifest_sha256": sequential_blind_public[
+                        "campaign_manifest"
+                    ]["campaign_manifest_sha256"],
+                    "campaign_seal_receipt_sha256": sequential_blind_public[
+                        "campaign_seal_receipt"
+                    ]["receipt_sha256"],
+                    "methodology": sequential_blind_public["methodology"],
+                    "arms": sequential_blind_public["arms"],
+                    "paired_comparisons": sequential_blind_public[
+                        "paired_comparisons"
+                    ],
+                    "gate": sequential_blind_public["gate"],
+                }
+            }
+            if sequential_reference is not None
+            and sequential_blind_public is not None
+            else {}
+        ),
         "public_judge_evidence": {
             "url": judge["public_demo"]["evidence_url"],
             "sha256": judge_sha,
@@ -1049,6 +1223,7 @@ def main() -> None:
     parser.add_argument("--release-guardian-public", type=Path, required=True)
     parser.add_argument("--release-guardian-replication", type=Path)
     parser.add_argument("--blind-holdout-public", type=Path)
+    parser.add_argument("--sequential-blind-public", type=Path)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--repository", required=True)
     parser.add_argument("--commit-sha", required=True)
@@ -1076,6 +1251,11 @@ def main() -> None:
         if args.blind_holdout_public is not None
         else b""
     )
+    sequential_blind_public_bytes = (
+        args.sequential_blind_public.read_bytes()
+        if args.sequential_blind_public is not None
+        else b""
+    )
     envelope = build_envelope(
         json.loads(judge_bytes),
         json.loads(scale_bytes),
@@ -1096,6 +1276,11 @@ def main() -> None:
             if blind_holdout_public_bytes
             else None
         ),
+        (
+            json.loads(sequential_blind_public_bytes)
+            if sequential_blind_public_bytes
+            else None
+        ),
         judge_bytes=judge_bytes,
         scale_bytes=scale_bytes,
         pressure_bytes=pressure_bytes,
@@ -1107,6 +1292,7 @@ def main() -> None:
         release_guardian_public_bytes=release_guardian_public_bytes,
         release_guardian_replication_bytes=release_guardian_replication_bytes,
         blind_holdout_public_bytes=blind_holdout_public_bytes,
+        sequential_blind_public_bytes=sequential_blind_public_bytes,
         repo_root=args.repo_root.resolve(),
         repository=args.repository,
         commit_sha=args.commit_sha,
