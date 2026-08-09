@@ -184,7 +184,10 @@ class GitHubReleaseSandboxProvider:
         return f"sha256:{hashlib.sha256(body).hexdigest()}"
 
     def _tag(self, arm: AgentArmLike, case: ReleaseGuardianCase) -> str:
-        case_digest = hashlib.sha256(case.case_id.encode("utf-8")).hexdigest()[:16]
+        return self._tag_for_case(arm, case.case_id)
+
+    def _tag_for_case(self, arm: AgentArmLike, case_id: str) -> str:
+        case_digest = hashlib.sha256(case_id.encode("utf-8")).hexdigest()[:16]
         value = f"sandbox-guardian-{self.run_namespace}-{arm}-{case_digest}"
         if len(value) > 120 or re.fullmatch(r"[a-z0-9-]+", value) is None:
             raise ValueError("derived sandbox tag is invalid")
@@ -246,6 +249,42 @@ class GitHubReleaseSandboxProvider:
             release_id=release_id,
         )
         self._prepared[case.case_id] = prepared
+        return prepared
+
+    def prepare_fixture(
+        self, *, arm: str, case_id: str, fixture: str
+    ) -> PreparedReleaseSandbox:
+        """Prepare provider state from the candidate-readable fixture, not labels."""
+
+        supported = {
+            "missing-draft",
+            "missing-asset",
+            "lost-asset-ack",
+            "missing-receipt",
+            "conflicting-asset",
+            "cleanup-pending",
+        }
+        if fixture not in supported:
+            raise RuntimeError(f"unsupported GitHub holdout fixture: {fixture}")
+        tag = self._tag_for_case(arm, case_id)
+        self._remove_existing(tag)
+        release_id = None
+        if fixture != "missing-draft":
+            release = self.client.create_draft(tag=tag, target=self.release_target)
+            release_id = int(release["id"])
+            if fixture in {"lost-asset-ack", "missing-receipt", "cleanup-pending"}:
+                self.client.upload(release_id, PRIMARY_ASSET_NAME, PRIMARY_ASSET_BODY)
+            elif fixture == "conflicting-asset":
+                self.client.upload(release_id, PRIMARY_ASSET_NAME, CONFLICT_ASSET_BODY)
+            if fixture == "cleanup-pending":
+                self.client.upload(release_id, RECEIPT_ASSET_NAME, RECEIPT_ASSET_BODY)
+        prepared = PreparedReleaseSandbox(
+            case_id=case_id,
+            tag=tag,
+            expected_action_type="",
+            release_id=release_id,
+        )
+        self._prepared[case_id] = prepared
         return prepared
 
     def _state(
@@ -376,6 +415,102 @@ class GitHubReleaseSandboxProvider:
                 f"github-release:{prepared.tag}:{state_digest}"
                 if succeeded
                 else None
+            ),
+            verified_at=observed_at if succeeded else None,
+        )
+        self._receipts[idempotency_key] = outcome
+        self._effects[idempotency_key] = effect_count
+        return outcome
+
+    def execute_observed(
+        self,
+        *,
+        case_id: str,
+        proposal: ProposedAction,
+        idempotency_key: str,
+        observed_at: datetime,
+    ) -> ProviderOutcome:
+        """Execute and verify the proposed transition without an evaluation label."""
+
+        prior = self._receipts.get(idempotency_key)
+        if prior is not None:
+            return prior
+        prepared = self._prepared.get(case_id)
+        if prepared is None:
+            raise RuntimeError("release sandbox was not prepared")
+        before = self._state(prepared.tag, prepared.release_id)
+        action_type = proposal.action_type
+        effect_count = 0
+        execution_error = None
+        try:
+            if action_type == "create_sandbox_draft":
+                created = self.client.create_draft(
+                    tag=prepared.tag, target=self.release_target
+                )
+                prepared = PreparedReleaseSandbox(
+                    case_id=prepared.case_id,
+                    tag=prepared.tag,
+                    expected_action_type="",
+                    release_id=int(created["id"]),
+                )
+                self._prepared[case_id] = prepared
+                effect_count = 1
+            elif action_type == "upload_release_asset":
+                release = self._require_draft(prepared)
+                self.client.upload(int(release["id"]), PRIMARY_ASSET_NAME, PRIMARY_ASSET_BODY)
+                effect_count = 1
+            elif action_type == "adopt_existing_asset":
+                pass
+            elif action_type == "upload_reconciliation_receipt":
+                release = self._require_draft(prepared)
+                self.client.upload(
+                    int(release["id"]), RECEIPT_ASSET_NAME, RECEIPT_ASSET_BODY
+                )
+                effect_count = 1
+            elif action_type == "quarantine_conflicting_asset":
+                release = self._require_draft(prepared)
+                asset = next(
+                    item
+                    for item in self.client.assets(int(release["id"]))
+                    if item.get("name") == PRIMARY_ASSET_NAME
+                )
+                self.client.rename_asset(int(asset["id"]), QUARANTINED_ASSET_NAME)
+                effect_count = 1
+            elif action_type == "delete_sandbox_draft":
+                release = self._require_draft(prepared)
+                self.client.delete_release(int(release["id"]))
+                effect_count = 1
+            else:
+                execution_error = "ACTION_NOT_ALLOWLISTED"
+        except (GitHubProviderError, RuntimeError, StopIteration) as exc:
+            execution_error = type(exc).__name__
+        after = self._state(prepared.tag, prepared.release_id)
+        succeeded = execution_error is None and self._verify(action_type, after)
+        state_digest = hashlib.sha256(
+            json.dumps(after, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        evidence = {
+            "case_id": case_id,
+            "executed_action_type": action_type,
+            "provider_state_verified": succeeded,
+            "before_state_sha256": hashlib.sha256(
+                json.dumps(before, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ).hexdigest(),
+            "after_state_sha256": state_digest,
+            "effect_count": effect_count,
+            "execution_error": execution_error,
+            "capability_manifest": self.capability_manifest.as_evidence(),
+            "evaluation_label_accessed": False,
+            "sandbox_only": True,
+            "published": False,
+        }
+        outcome = ProviderOutcome(
+            provider="github-releases-disposable-sandbox-v1",
+            status=OutcomeStatus.SUCCEEDED if succeeded else OutcomeStatus.FAILED,
+            evidence=evidence,
+            observed_at=observed_at,
+            provider_receipt_id=(
+                f"github-release:{prepared.tag}:{state_digest}" if succeeded else None
             ),
             verified_at=observed_at if succeeded else None,
         )
