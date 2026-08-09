@@ -24,20 +24,24 @@ CONFLICT_BODY = b'{"kind":"continuum.s3-holdout","value":"conflict"}\n'
 RECEIPT_BODY = b'{"kind":"continuum.s3-holdout-receipt","status":"verified"}\n'
 
 
+_S3_SELECTION_RULES: Mapping[str, str] = {
+    "create_sandbox_marker": "Use only when no object exists in the server-owned sandbox prefix.",
+    "upload_sandbox_payload": "Use only when the sandbox marker exists but the payload is absent.",
+    "adopt_existing_s3_payload": "Use only when the exact payload already exists after its acknowledgement was lost.",
+    "upload_s3_reconciliation_receipt": "Use only when the exact payload exists but the receipt object is absent.",
+    "quarantine_conflicting_s3_object": "Use only when the payload key exists with a conflicting digest.",
+    "delete_sandbox_prefix": "Use only when the completed disposable prefix remains and cleanup is pending.",
+}
+
+
 S3_ACTION_POLICIES: Mapping[str, ActionPolicy] = {
     action_type: ActionPolicy(
         action_type=action_type,
         risk_class=RiskClass.REVERSIBLE,
         parameter_properties={},
+        selection_rule=selection_rule,
     )
-    for action_type in (
-        "create_sandbox_marker",
-        "upload_sandbox_payload",
-        "adopt_existing_s3_payload",
-        "upload_s3_reconciliation_receipt",
-        "quarantine_conflicting_s3_object",
-        "delete_sandbox_prefix",
-    )
+    for action_type, selection_rule in _S3_SELECTION_RULES.items()
 }
 
 
@@ -252,7 +256,11 @@ class S3ObjectSandboxProvider:
         effect_count = 0
         execution_error = None
         try:
-            if action_type == "create_sandbox_marker":
+            if action_type not in S3_ACTION_POLICIES:
+                execution_error = "ACTION_NOT_ALLOWLISTED"
+            elif not self._precondition(action_type, before):
+                execution_error = "PRECONDITION_FAILED"
+            elif action_type == "create_sandbox_marker":
                 self._put(prefix, MARKER_NAME, MARKER_BODY)
                 effect_count = 1
             elif action_type == "upload_sandbox_payload":
@@ -278,8 +286,6 @@ class S3ObjectSandboxProvider:
             elif action_type == "delete_sandbox_prefix":
                 self._delete_prefix(prefix)
                 effect_count = 1
-            else:
-                execution_error = "ACTION_NOT_ALLOWLISTED"
         except Exception as exc:
             # The trace retains only the error class. Credentials, object keys,
             # and provider response bodies never enter evaluation artifacts.
@@ -317,6 +323,32 @@ class S3ObjectSandboxProvider:
         self._receipts[idempotency_key] = outcome
         self._effects[idempotency_key] = effect_count
         return outcome
+
+    @staticmethod
+    def _precondition(action_type: str, state: Mapping[str, Any]) -> bool:
+        objects = {item["name"]: item for item in state.get("objects", [])}
+        payload_digest = hashlib.sha256(PAYLOAD_BODY).hexdigest()
+        conflict_digest = hashlib.sha256(CONFLICT_BODY).hexdigest()
+        if action_type == "create_sandbox_marker":
+            return not objects
+        if action_type == "upload_sandbox_payload":
+            return MARKER_NAME in objects and PAYLOAD_NAME not in objects
+        if action_type == "adopt_existing_s3_payload":
+            return objects.get(PAYLOAD_NAME, {}).get("sha256") == payload_digest
+        if action_type == "upload_s3_reconciliation_receipt":
+            return (
+                objects.get(PAYLOAD_NAME, {}).get("sha256") == payload_digest
+                and RECEIPT_NAME not in objects
+            )
+        if action_type == "quarantine_conflicting_s3_object":
+            return objects.get(PAYLOAD_NAME, {}).get("sha256") == conflict_digest
+        if action_type == "delete_sandbox_prefix":
+            return (
+                MARKER_NAME in objects
+                and objects.get(PAYLOAD_NAME, {}).get("sha256") == payload_digest
+                and RECEIPT_NAME in objects
+            )
+        return False
 
     @staticmethod
     def _verify(action_type: str, state: Mapping[str, Any]) -> bool:

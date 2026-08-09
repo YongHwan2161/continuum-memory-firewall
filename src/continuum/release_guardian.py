@@ -60,6 +60,16 @@ class ReleaseGuardianObservation:
     failure_cause: str | None = None
 
 
+_RELEASE_SELECTION_RULES: Mapping[str, str] = {
+    "create_sandbox_draft": "Use only when no disposable draft exists.",
+    "upload_release_asset": "Use only when a draft exists but its expected payload is absent.",
+    "adopt_existing_asset": "Use only when the exact payload already exists after its acknowledgement was lost.",
+    "upload_reconciliation_receipt": "Use only when the exact payload exists but its reconciliation receipt is absent.",
+    "quarantine_conflicting_asset": "Use only when the payload name exists with a conflicting digest.",
+    "delete_sandbox_draft": "Use only when the completed disposable draft remains and cleanup is pending.",
+}
+
+
 RELEASE_ACTION_POLICIES: Mapping[str, ActionPolicy] = {
     action_type: ActionPolicy(
         action_type=action_type,
@@ -67,15 +77,9 @@ RELEASE_ACTION_POLICIES: Mapping[str, ActionPolicy] = {
         # pre-state can be recreated. No published release or tag is mutable.
         risk_class=RiskClass.REVERSIBLE,
         parameter_properties={},
+        selection_rule=selection_rule,
     )
-    for action_type in (
-        "create_sandbox_draft",
-        "upload_release_asset",
-        "adopt_existing_asset",
-        "upload_reconciliation_receipt",
-        "quarantine_conflicting_asset",
-        "delete_sandbox_draft",
-    )
+    for action_type, selection_rule in _RELEASE_SELECTION_RULES.items()
 }
 
 
