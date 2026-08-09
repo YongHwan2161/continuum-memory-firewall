@@ -1,6 +1,9 @@
 from datetime import datetime, timedelta, timezone
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 from tempfile import TemporaryDirectory
 import unittest
 
@@ -72,6 +75,31 @@ class SequentialBlindLiveTests(unittest.TestCase):
             self.assertTrue(
                 all(item["write_once_condition"] == "If-None-Match:*" for item in seal_receipts)
             )
+
+    def test_packaged_sealers_support_direct_script_execution(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        for name in (
+            "seal_sequential_blind_batch.py",
+            "seal_sequential_blind_campaign.py",
+        ):
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    (
+                        "import runpy,sys;from pathlib import Path;"
+                        "sys.path.insert(0,str(Path(sys.argv[1]).parent));"
+                        "runpy.run_path(sys.argv[1])"
+                    ),
+                    str(root / "scripts" / name),
+                ],
+                cwd=Path(__file__).resolve().parent,
+                capture_output=True,
+                check=False,
+                env={**os.environ, "PYTHONPATH": str(root / "src")},
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_evaluator_opens_labels_after_all_campaign_candidates(self) -> None:
         batches = [self.contract.generate(index) for index in (1, 2, 3)]
