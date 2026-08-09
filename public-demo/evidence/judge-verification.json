@@ -280,9 +280,9 @@
   "submission": {
     "deadline_kst": "2026-08-19T06:00:00+09:00",
     "id": 1121568,
-    "project_updated_at": "2026-08-09T03:40:05.563-04:00",
+    "project_updated_at": "2026-08-09T09:25:06.869-04:00",
     "project_url": "https://devpost.com/software/continuum-memory-firewall",
-    "project_version": 18,
+    "project_version": 19,
     "status": "Submitted",
     "submitted_at": "2026-08-01T11:22:19.310-04:00",
     "video_duration_seconds": 99.53,
