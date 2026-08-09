@@ -186,3 +186,20 @@ The same 36 incident definitions recur in all five batches. Therefore the
 interval and five-batch direction consistency are the primary statistical
 evidence. See the
 [time-distributed receipt](evidence/2026-08-09-time-distributed-real-provider-replication.md).
+
+## Pre-registered blind multi-provider holdout
+
+The next evidence layer removes the recurring-case coupling left by the
+time-distributed guardian. An independent Bedrock job generates 60 new GitHub
+and S3 incident renderings and seals the label-free challenge plus separate
+labels in content-addressed S3 before either arm runs. The candidate AWS
+identity has an explicit deny on the labels object; raw-RAG and Continuum emit
+120 unscored traces from the same challenge. A separate evaluator opens labels
+only after both arms complete and requires an expected-action match, verified
+provider post-state, provider receipt digest, and outcome-evidence digest for
+success.
+
+The implementation and exact claim boundary are specified in
+[BLIND_HOLDOUT.md](BLIND_HOLDOUT.md). Live metrics remain HOLD until the
+main-only OIDC workflow succeeds and its exact-head artifact is bound into the
+release envelope.

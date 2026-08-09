@@ -186,6 +186,22 @@ class GitHubReleaseProviderTests(unittest.TestCase):
         self.assertEqual(outcome.status.value, "succeeded")
         self.assertEqual(release["assets"][0]["name"], QUARANTINED_ASSET_NAME)
 
+    def test_blind_execution_never_reads_an_expected_label(self) -> None:
+        case_id = "blind-case-missing-asset"
+        self.provider.prepare_fixture(
+            arm="continuum", case_id=case_id, fixture="missing-asset"
+        )
+        outcome = self.provider.execute_observed(
+            case_id=case_id,
+            proposal=self._proposal("upload_release_asset"),
+            idempotency_key="blind-github-observed",
+            observed_at=datetime(2026, 8, 9, tzinfo=timezone.utc),
+        )
+        self.assertEqual(outcome.status.value, "succeeded")
+        self.assertFalse(outcome.evidence["evaluation_label_accessed"])
+        self.assertNotIn("expected_action_type", outcome.evidence)
+        self.assertEqual(self.provider.cleanup(case_id)["residual_count"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

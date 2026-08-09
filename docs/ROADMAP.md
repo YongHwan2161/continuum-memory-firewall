@@ -130,12 +130,12 @@ Exit criteria:
 
 ## Cross-cutting engineering backlog
 
-### Next fundamental priority — preregistered blind generalization
+### In progress — preregistered blind generalization
 
 The largest remaining evidence risk is no longer missing security controls or
 missing repetition. It is evaluator coupling: the same 36 hand-designed case
-definitions are visible to the implementation and recur across time. Build a
-fully automated evaluation firewall before adding more product features:
+definitions are visible to the implementation and recur across time. The source
+now implements a fully automated evaluation firewall:
 
 - seal a checksum-addressed challenge manifest in S3 before any candidate run;
 - generate new provider-state families and paraphrases with an independent
@@ -146,10 +146,12 @@ fully automated evaluation firewall before adding more product features:
   artifact digest, and result to the immutable release envelope; and
 - fail closed if source, labels, or scoring policy change after preregistration.
 
-This human-free blind holdout is the shortest path from a strong engineered
-demo to a defensible generalization claim. A second real provider adapter should
-follow it; adding more controls to the existing GitHub-only case family should
-not precede it.
+The second real adapter is an encrypted, disposable S3 object provider with the
+same idempotency, receipt lookup, reconciliation-timeout, and cleanup contract
+as the GitHub draft adapter. Live metrics and release-envelope v13 remain HOLD
+until the source merges and the main-only production environment workflow
+passes. Adding more controls to the old GitHub-only case family does not precede
+that gate.
 
 The following items should be pulled into the milestone they block:
 

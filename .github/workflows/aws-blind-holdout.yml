@@ -1,0 +1,370 @@
+name: aws-blind-holdout
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: write
+
+concurrency:
+  group: continuum-blind-holdout
+  cancel-in-progress: false
+
+jobs:
+  preregistered-real-provider:
+    runs-on: ubuntu-latest
+    environment: continuum-production
+    timeout-minutes: 80
+    env:
+      AWS_REGION: ap-southeast-1
+      CONTINUUM_BEDROCK_REGION: ap-northeast-2
+      CONTINUUM_AGENT_BEDROCK_REGION: ap-southeast-2
+      CONTINUUM_MCP_STACK_NAME: continuum-authenticated-mcp
+      CONTINUUM_GITHUB_TOKEN_SECRET: continuum/github-release-guardian-token
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3, Node 24
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          role-session-name: continuum-blind-holdout
+      - name: Prove dedicated deployment role
+        run: ./scripts/assert_deployer_identity.sh
+      - name: Align judging-window budget alert to USD 20
+        shell: bash
+        run: |
+          parameter() {
+            aws cloudformation describe-stacks --region "$AWS_REGION" \
+              --stack-name continuum-hackathon-budget \
+              --query "Stacks[0].Parameters[?ParameterKey=='$1'].ParameterValue | [0]" \
+              --output text
+          }
+          export CONTINUUM_AWS_BUDGET_NAME="$(parameter BudgetName)"
+          export CONTINUUM_BUDGET_EMAIL="$(parameter BudgetEmail)"
+          export CONTINUUM_MONTHLY_BUDGET_USD=20
+          ./scripts/deploy_aws_budget.sh --apply
+          amount="$(aws budgets describe-budget \
+            --account-id "$(aws sts get-caller-identity --query Account --output text)" \
+            --budget-name "$CONTINUUM_AWS_BUDGET_NAME" \
+            --query 'Budget.BudgetLimit.Amount' --output text)"
+          test "$amount" = 20.0 || test "$amount" = 20
+      - name: Resolve fixed-egress runtime and exact evidence paths
+        shell: bash
+        run: |
+          parameter() {
+            aws cloudformation describe-stacks --region "$AWS_REGION" \
+              --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+              --query "Stacks[0].Parameters[?ParameterKey=='$1'].ParameterValue | [0]" \
+              --output text
+          }
+          output() {
+            aws cloudformation describe-stacks --region "$AWS_REGION" \
+              --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue | [0]" \
+              --output text
+          }
+          runtime_secret_arn="$(parameter RuntimeSecretArn)"
+          deploy_bucket="$(parameter PackageBucket)"
+          deploy_key="$(parameter PackageKey)"
+          instance_role_arn="$(output RuntimeRoleArn)"
+          instance_id="$(output InstanceId)"
+          evidence_prefix="evidence/blind-holdout/$GITHUB_SHA/$GITHUB_RUN_ID"
+          sandbox_prefix="blind-holdout-sandbox/blind-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          aws s3 cp "s3://$deploy_bucket/$deploy_key" /tmp/continuum-current.zip \
+            --region "$AWS_REGION" --only-show-errors
+          unzip -p /tmp/continuum-current.zip cockroach-ca.crt >/tmp/cockroach-ca.crt
+          chmod 0600 /tmp/cockroach-ca.crt
+          test -s /tmp/cockroach-ca.crt
+          echo "CONTINUUM_RUNTIME_SECRET_ARN=$runtime_secret_arn" >>"$GITHUB_ENV"
+          echo "CONTINUUM_DEPLOY_BUCKET=$deploy_bucket" >>"$GITHUB_ENV"
+          echo "CONTINUUM_MCP_DEPLOYMENT_KEY=$deploy_key" >>"$GITHUB_ENV"
+          echo "CONTINUUM_CA_CERT_PATH=/tmp/cockroach-ca.crt" >>"$GITHUB_ENV"
+          echo "CONTINUUM_INSTANCE_ROLE_NAME=${instance_role_arn##*/}" >>"$GITHUB_ENV"
+          echo "CONTINUUM_INSTANCE_ID=$instance_id" >>"$GITHUB_ENV"
+          echo "CONTINUUM_HOLDOUT_EVIDENCE_PREFIX=$evidence_prefix" >>"$GITHUB_ENV"
+          echo "CONTINUUM_HOLDOUT_SANDBOX_PREFIX=$sandbox_prefix" >>"$GITHUB_ENV"
+      - name: Deploy exact-head runtime
+        shell: bash
+        run: |
+          stack_status="$(aws cloudformation describe-stacks \
+            --region "$AWS_REGION" --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+            --query 'Stacks[0].StackStatus' --output text)"
+          if [[ "$stack_status" == "UPDATE_ROLLBACK_FAILED" || \
+                "$stack_status" == "UPDATE_ROLLBACK_COMPLETE" ]]; then
+            ./scripts/deploy_mcp_host_direct_recovery.sh
+          else
+            ./scripts/deploy_mcp_host.sh
+          fi
+          artifact_sha256="$(aws cloudformation describe-stacks \
+            --region "$AWS_REGION" --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='ArtifactSha256'].OutputValue | [0]" \
+            --output text)"
+          test "${#artifact_sha256}" = 64
+          echo "CONTINUUM_HOLDOUT_ARTIFACT_SHA256=$artifact_sha256" >>"$GITHUB_ENV"
+      - name: Stage ephemeral provider credential and exact one-run capabilities
+        env:
+          HOLDOUT_GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          umask 077
+          secret_file="$RUNNER_TEMP/blind-holdout-token.json"
+          jq -cn --arg token "$HOLDOUT_GITHUB_TOKEN" --arg run_id "$GITHUB_RUN_ID" \
+            '{token:$token,run_id:$run_id}' >"$secret_file"
+          if aws secretsmanager describe-secret --region "$AWS_REGION" \
+              --secret-id "$CONTINUUM_GITHUB_TOKEN_SECRET" >/dev/null 2>&1; then
+            aws secretsmanager put-secret-value --region "$AWS_REGION" \
+              --secret-id "$CONTINUUM_GITHUB_TOKEN_SECRET" \
+              --secret-string "file://$secret_file" >/dev/null
+          else
+            aws secretsmanager create-secret --region "$AWS_REGION" \
+              --name "$CONTINUUM_GITHUB_TOKEN_SECRET" \
+              --description "Ephemeral GitHub token for blind holdout" \
+              --tags Key=Project,Value=continuum-memory-firewall \
+              --secret-string "file://$secret_file" >/dev/null
+          fi
+          rm -f -- "$secret_file"
+          token_arn="$(aws secretsmanager describe-secret --region "$AWS_REGION" \
+            --secret-id "$CONTINUUM_GITHUB_TOKEN_SECRET" --query ARN --output text)"
+          migrator_arn="$(aws secretsmanager describe-secret --region "$AWS_REGION" \
+            --secret-id continuum/cockroach/sql-migrator --query ARN --output text)"
+          object_prefix="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_HOLDOUT_EVIDENCE_PREFIX/*"
+          sandbox_objects="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_HOLDOUT_SANDBOX_PREFIX/*"
+          bucket_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET"
+          policy="$(jq -cn --arg token "$token_arn" --arg migrator "$migrator_arn" \
+            --arg evidence "$object_prefix" --arg sandbox "$sandbox_objects" \
+            --arg bucket "$bucket_arn" --arg sandbox_prefix "$CONTINUUM_HOLDOUT_SANDBOX_PREFIX/*" \
+            '{Version:"2012-10-17",Statement:[
+              {Effect:"Allow",Action:"secretsmanager:GetSecretValue",Resource:[$token,$migrator]},
+              {Effect:"Allow",Action:["s3:GetObject","s3:PutObject"],Resource:$evidence},
+              {Effect:"Allow",Action:["s3:GetObject","s3:PutObject","s3:DeleteObject"],Resource:$sandbox},
+              {Effect:"Allow",Action:"s3:ListBucket",Resource:$bucket,Condition:{StringLike:{"s3:prefix":$sandbox_prefix}}}
+            ]}')"
+          aws iam put-role-policy --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+            --policy-name ContinuumBlindHoldoutOneRun \
+            --policy-document "$policy"
+          sleep 10
+      - name: Independent Bedrock generation and checksum-addressed S3 seal
+        shell: bash
+        run: |
+          command_text="set -eu
+          work=/run/continuum-blind-holdout
+          rm -rf -- \"\$work\"
+          install -d -m 0700 \"\$work\"
+          trap 'rm -rf -- \"\$work\"' EXIT
+          cd /opt/continuum
+          /opt/continuum/.venv/bin/python scripts/generate_blind_holdout.py \\
+            --region '$CONTINUUM_AGENT_BEDROCK_REGION' \\
+            --source-head '$GITHUB_SHA' \\
+            --generation-nonce 'workflow-$GITHUB_RUN_ID-attempt-$GITHUB_RUN_ATTEMPT' \\
+            --output-dir \"\$work\"
+          /opt/continuum/.venv/bin/python scripts/seal_blind_holdout.py \\
+            --region '$AWS_REGION' \\
+            --bucket '$CONTINUUM_DEPLOY_BUCKET' \\
+            --prefix '$CONTINUUM_HOLDOUT_EVIDENCE_PREFIX' \\
+            --challenge \"\$work/blind-holdout-challenge-v1.json\" \\
+            --labels \"\$work/blind-holdout-labels-v1.json\" \\
+            --commitment \"\$work/blind-holdout-commitment-v1.json\" \\
+            --output \"\$work/blind-holdout-seal-receipt-v1.json\" \\
+            --workflow-run-id '$GITHUB_RUN_ID' \\
+            --workflow-run-attempt '$GITHUB_RUN_ATTEMPT'
+          aws s3 cp \"\$work/blind-holdout-seal-receipt-v1.json\" \\
+            's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_HOLDOUT_EVIDENCE_PREFIX/blind-holdout-seal-receipt-v1.json' \\
+            --region '$AWS_REGION' --sse AES256 --only-show-errors"
+          parameters="$(jq -cn --arg command "$command_text" '{commands:[$command]}')"
+          command_id="$(aws ssm send-command --region "$AWS_REGION" \
+            --instance-ids "$CONTINUUM_INSTANCE_ID" --document-name AWS-RunShellScript \
+            --comment 'independent Bedrock holdout generation and S3 preregistration' \
+            --parameters "$parameters" --query 'Command.CommandId' --output text)"
+          status=Pending
+          for _attempt in $(seq 1 240); do
+            status="$(aws ssm get-command-invocation --region "$AWS_REGION" \
+              --command-id "$command_id" --instance-id "$CONTINUUM_INSTANCE_ID" \
+              --query Status --output text)"
+            case "$status" in Success|Failed|Cancelled|TimedOut) break ;; esac
+            sleep 5
+          done
+          aws ssm get-command-invocation --region "$AWS_REGION" \
+            --command-id "$command_id" --instance-id "$CONTINUUM_INSTANCE_ID" \
+            --query '{Status:Status,ResponseCode:ResponseCode,Output:StandardOutputContent,Error:StandardErrorContent}' \
+            --output table
+          test "$status" = Success
+      - name: Deny sealed labels to the candidate process
+        shell: bash
+        run: |
+          seal="$RUNNER_TEMP/blind-holdout-seal.json"
+          aws s3 cp \
+            "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_HOLDOUT_EVIDENCE_PREFIX/blind-holdout-seal-receipt-v1.json" \
+            "$seal" --region "$AWS_REGION" --only-show-errors
+          challenge_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$(jq -r '.objects.challenge.key' "$seal")"
+          labels_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$(jq -r '.objects.labels.key' "$seal")"
+          commitment_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$(jq -r '.objects.commitment.key' "$seal")"
+          seal_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_HOLDOUT_EVIDENCE_PREFIX/blind-holdout-seal-receipt-v1.json"
+          observations_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_HOLDOUT_EVIDENCE_PREFIX/blind-holdout-observations-v1.json"
+          token_arn="$(aws secretsmanager describe-secret --region "$AWS_REGION" \
+            --secret-id "$CONTINUUM_GITHUB_TOKEN_SECRET" --query ARN --output text)"
+          migrator_arn="$(aws secretsmanager describe-secret --region "$AWS_REGION" \
+            --secret-id continuum/cockroach/sql-migrator --query ARN --output text)"
+          bucket_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET"
+          sandbox_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_HOLDOUT_SANDBOX_PREFIX/*"
+          policy="$(jq -cn --arg token "$token_arn" --arg migrator "$migrator_arn" \
+            --arg challenge "$challenge_arn" --arg labels "$labels_arn" \
+            --arg commitment "$commitment_arn" --arg seal "$seal_arn" \
+            --arg observations "$observations_arn" --arg sandbox "$sandbox_arn" \
+            --arg bucket "$bucket_arn" --arg sandbox_prefix "$CONTINUUM_HOLDOUT_SANDBOX_PREFIX/*" \
+            '{Version:"2012-10-17",Statement:[
+              {Effect:"Deny",Action:"s3:GetObject",Resource:$labels},
+              {Effect:"Allow",Action:"secretsmanager:GetSecretValue",Resource:[$token,$migrator]},
+              {Effect:"Allow",Action:"s3:GetObject",Resource:[$challenge,$commitment,$seal]},
+              {Effect:"Allow",Action:"s3:PutObject",Resource:$observations},
+              {Effect:"Allow",Action:["s3:GetObject","s3:PutObject","s3:DeleteObject"],Resource:$sandbox},
+              {Effect:"Allow",Action:"s3:ListBucket",Resource:$bucket,Condition:{StringLike:{"s3:prefix":$sandbox_prefix}}}
+            ]}')"
+          aws iam put-role-policy --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+            --policy-name ContinuumBlindHoldoutOneRun --policy-document "$policy"
+          echo "CONTINUUM_HOLDOUT_LABELS_ARN_SHA256=$(printf '%s' "$labels_arn" | sha256sum | cut -d' ' -f1)" >>"$GITHUB_ENV"
+          sleep 10
+      - name: Run label-free candidates against real disposable providers
+        shell: bash
+        run: |
+          command_text="set -eu
+          work=/run/continuum-blind-holdout
+          rm -rf -- \"\$work\"
+          install -d -m 0700 \"\$work\"
+          trap 'rm -rf -- \"\$work\"' EXIT
+          cd /opt/continuum
+          aws s3 cp 's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_HOLDOUT_EVIDENCE_PREFIX/blind-holdout-seal-receipt-v1.json' \\
+            \"\$work/seal.json\" --region '$AWS_REGION' --only-show-errors
+          challenge_key=\"\$(jq -r '.objects.challenge.key' \"\$work/seal.json\")\"
+          commitment_key=\"\$(jq -r '.objects.commitment.key' \"\$work/seal.json\")\"
+          aws s3 cp \"s3://$CONTINUUM_DEPLOY_BUCKET/\$challenge_key\" \"\$work/challenge.json\" --region '$AWS_REGION' --only-show-errors
+          aws s3 cp \"s3://$CONTINUUM_DEPLOY_BUCKET/\$commitment_key\" \"\$work/commitment.json\" --region '$AWS_REGION' --only-show-errors
+          /opt/continuum/.venv/bin/python scripts/run_live_blind_holdout.py \\
+            --region '$AWS_REGION' \\
+            --embedding-region '$CONTINUUM_BEDROCK_REGION' \\
+            --agent-region '$CONTINUUM_AGENT_BEDROCK_REGION' \\
+            --migrator-secret-id continuum/cockroach/sql-migrator \\
+            --github-token-secret-id '$CONTINUUM_GITHUB_TOKEN_SECRET' \\
+            --repository '$GITHUB_REPOSITORY' \\
+            --s3-bucket '$CONTINUUM_DEPLOY_BUCKET' \\
+            --run-namespace 'blind-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT' \\
+            --ca-cert /opt/continuum/cockroach-ca.crt \\
+            --source-head '$GITHUB_SHA' \\
+            --deployment-artifact-sha256 '$CONTINUUM_HOLDOUT_ARTIFACT_SHA256' \\
+            --workflow-run-id '$GITHUB_RUN_ID' \\
+            --workflow-run-attempt '$GITHUB_RUN_ATTEMPT' \\
+            --challenge \"\$work/challenge.json\" \\
+            --commitment \"\$work/commitment.json\" \\
+            --seal-receipt \"\$work/seal.json\" \\
+            --output \"\$work/blind-holdout-observations-v1.json\"
+          aws s3 cp \"\$work/blind-holdout-observations-v1.json\" \\
+            's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_HOLDOUT_EVIDENCE_PREFIX/blind-holdout-observations-v1.json' \\
+            --region '$AWS_REGION' --sse AES256 --only-show-errors"
+          parameters="$(jq -cn --arg command "$command_text" '{commands:[$command]}')"
+          command_id="$(aws ssm send-command --region "$AWS_REGION" \
+            --instance-ids "$CONTINUUM_INSTANCE_ID" --document-name AWS-RunShellScript \
+            --comment 'pre-registered GitHub and S3 blind holdout' \
+            --parameters "$parameters" --query 'Command.CommandId' --output text)"
+          status=Pending
+          for _attempt in $(seq 1 900); do
+            status="$(aws ssm get-command-invocation --region "$AWS_REGION" \
+              --command-id "$command_id" --instance-id "$CONTINUUM_INSTANCE_ID" \
+              --query Status --output text)"
+            case "$status" in Success|Failed|Cancelled|TimedOut) break ;; esac
+            sleep 5
+          done
+          aws ssm get-command-invocation --region "$AWS_REGION" \
+            --command-id "$command_id" --instance-id "$CONTINUUM_INSTANCE_ID" \
+            --query '{Status:Status,ResponseCode:ResponseCode,Output:StandardOutputContent,Error:StandardErrorContent}' \
+            --output table
+          test "$status" = Success
+      - name: Open labels in a separate evaluator only after both arms finish
+        shell: bash
+        run: |
+          out="$RUNNER_TEMP/blind-holdout"
+          mkdir -p "$out"
+          for name in blind-holdout-seal-receipt-v1.json blind-holdout-observations-v1.json; do
+            aws s3 cp "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_HOLDOUT_EVIDENCE_PREFIX/$name" \
+              "$out/$name" --region "$AWS_REGION" --only-show-errors
+          done
+          challenge_key="$(jq -r '.objects.challenge.key' "$out/blind-holdout-seal-receipt-v1.json")"
+          labels_key="$(jq -r '.objects.labels.key' "$out/blind-holdout-seal-receipt-v1.json")"
+          commitment_key="$(jq -r '.objects.commitment.key' "$out/blind-holdout-seal-receipt-v1.json")"
+          aws s3 cp "s3://$CONTINUUM_DEPLOY_BUCKET/$challenge_key" "$out/blind-holdout-challenge-v1.json" --region "$AWS_REGION" --only-show-errors
+          aws s3 cp "s3://$CONTINUUM_DEPLOY_BUCKET/$labels_key" "$out/blind-holdout-labels-v1.json" --region "$AWS_REGION" --only-show-errors
+          aws s3 cp "s3://$CONTINUUM_DEPLOY_BUCKET/$commitment_key" "$out/blind-holdout-commitment-v1.json" --region "$AWS_REGION" --only-show-errors
+          PYTHONPATH=src python scripts/score_blind_holdout.py \
+            --challenge "$out/blind-holdout-challenge-v1.json" \
+            --labels "$out/blind-holdout-labels-v1.json" \
+            --commitment "$out/blind-holdout-commitment-v1.json" \
+            --observations "$out/blind-holdout-observations-v1.json" \
+            --output "$out/blind-holdout-report-v1.json" \
+            --public-output "$out/blind-holdout-public-v1.json"
+          jq -e '
+            .kind == "continuum.blind-holdout.report" and
+            .source_head == env.GITHUB_SHA and
+            .deployment_artifact_sha256 == env.CONTINUUM_HOLDOUT_ARTIFACT_SHA256 and
+            .methodology.paired_cases == 60 and
+            .methodology.arm_observations == 120 and
+            .methodology.candidate_label_fields == 0 and
+            .methodology.candidate_process_opened_labels == false and
+            .methodology.scored_after_both_arms == true and
+            .providers == ["github","s3"] and
+            (.observations | length) == 120 and
+            ([.observations[].candidate_label_fields] | add) == 0 and
+            .seal_receipt.commitment_sha256 == .commitment.commitment_sha256 and
+            .provider_capability_manifests.github.supports_idempotency == true and
+            .provider_capability_manifests.s3.supports_idempotency == true and
+            .arms.continuum.false_canonical_promotions == 0 and
+            .arms.continuum.cross_scope_leak_count == 0 and
+            .evaluator.opened_labels_after_candidate_completed == true and
+            .gate.status == "PASS"
+          ' "$out/blind-holdout-report-v1.json" >/dev/null
+          PYTHONPATH=src python - <<'PY'
+          import json
+          from pathlib import Path
+          from continuum.blind_holdout import build_public_blind_holdout, validate_blind_holdout
+          root = Path(__import__('os').environ['RUNNER_TEMP']) / 'blind-holdout'
+          challenge = json.loads((root / 'blind-holdout-challenge-v1.json').read_text())
+          labels = json.loads((root / 'blind-holdout-labels-v1.json').read_text())
+          commitment = json.loads((root / 'blind-holdout-commitment-v1.json').read_text())
+          report = json.loads((root / 'blind-holdout-report-v1.json').read_text())
+          public = json.loads((root / 'blind-holdout-public-v1.json').read_text())
+          validate_blind_holdout(challenge, labels, commitment)
+          if public != build_public_blind_holdout(report):
+              raise SystemExit('public blind holdout projection mismatch')
+          PY
+          sha256sum "$out"/*.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        with:
+          name: continuum-blind-holdout-${{ github.sha }}
+          path: ${{ runner.temp }}/blind-holdout/*.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Revoke temporary capabilities, tombstone token, and prove sandbox cleanup
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${CONTINUUM_INSTANCE_ROLE_NAME:-}" ]]; then
+            aws iam delete-role-policy --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+              --policy-name ContinuumBlindHoldoutOneRun || true
+          fi
+          if aws secretsmanager describe-secret --region "$AWS_REGION" \
+              --secret-id "$CONTINUUM_GITHUB_TOKEN_SECRET" >/dev/null 2>&1; then
+            umask 077
+            tombstone="$RUNNER_TEMP/blind-holdout-tombstone.json"
+            jq -cn --arg run_id "$GITHUB_RUN_ID" '{revoked:true,run_id:$run_id}' >"$tombstone"
+            aws secretsmanager put-secret-value --region "$AWS_REGION" \
+              --secret-id "$CONTINUUM_GITHUB_TOKEN_SECRET" \
+              --secret-string "file://$tombstone" >/dev/null || true
+            rm -f -- "$tombstone"
+          fi
+          if [[ -n "${CONTINUUM_DEPLOY_BUCKET:-}" && -n "${CONTINUUM_HOLDOUT_SANDBOX_PREFIX:-}" ]]; then
+            aws s3 rm "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_HOLDOUT_SANDBOX_PREFIX/" \
+              --recursive --region "$AWS_REGION" --only-show-errors || true
+            remaining="$(aws s3api list-objects-v2 --region "$AWS_REGION" \
+              --bucket "$CONTINUUM_DEPLOY_BUCKET" --prefix "$CONTINUUM_HOLDOUT_SANDBOX_PREFIX/" \
+              --query 'KeyCount' --output text 2>/dev/null || echo 0)"
+            test "$remaining" = 0
+          fi
+          rm -f -- /tmp/continuum-current.zip /tmp/cockroach-ca.crt

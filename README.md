@@ -231,6 +231,7 @@ production remediation systems.
 - [Database Migrations](docs/MIGRATIONS.md) — ordered DDL, drift, lease, adoption, and recovery contract
 - [MCP Contract](docs/MCP_CONTRACT.md) — tool schema, scope, transport, and deployment boundary
 - [Evaluation](docs/EVALUATION.md) — 60-query adversarial suite, metric definitions, and live gate
+- [Blind holdout firewall](docs/BLIND_HOLDOUT.md) — preregistration, label-denied candidate execution, and post-arm evaluation
 - [Devpost Checklist](docs/DEVPOST_CHECKLIST.md) — submission readiness SSOT
 - [Cost Safety](docs/COST_SAFETY.md) — spending assumptions and guardrails
 - [Cloud Deployment Runbook](docs/CLOUD_DEPLOYMENT_RUNBOOK.md) — participant-owned setup, guarded deployment, proof, and teardown
