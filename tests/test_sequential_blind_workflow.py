@@ -49,6 +49,10 @@ class SequentialBlindWorkflowTests(unittest.TestCase):
         self.assertIn(".methodology.arm_observations == 540", self.source)
         self.assertIn("observed_start_separations_seconds[] >= 300", self.source)
         self.assertIn("ContinuumSequentialBlindOneRun", self.source)
+        self.assertIn("CONTINUUM_SEQUENTIAL_SANDBOX_ACCESS_READY=1", self.source)
+        self.assertIn(
+            '${CONTINUUM_SEQUENTIAL_SANDBOX_ACCESS_READY:-0}', self.source
+        )
         self.assertIn("delete-role-policy", self.source)
         self.assertIn("cleanup_blind_holdout.py", self.source)
         self.assertIn("{revoked:true,run_id:$run_id}", self.source)
