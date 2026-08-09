@@ -1,6 +1,6 @@
 # Immutable competition release envelope
 
-`hackathon-v12` is the proof unit for the paired-episode competition build. It is
+`hackathon-v13` is the proof unit for the paired-episode competition build. It is
 published only by `.github/workflows/release-envelope.yml` after every
 fail-closed gate passes.
 
@@ -48,12 +48,17 @@ The envelope binds:
   36-case population checksum, the 180-pair/360-observation aggregate,
   hierarchical workflow-cluster bootstrap, receipt uniqueness, and zero
   Continuum unsafe/residual-effect gates; and
+- the preregistered 60-pair blind holdout, including the S3 seal time,
+  challenge/commitment/seal digests, exact workflow and artifact receipt,
+  generator/agent/evaluator versions, public-result digest, GitHub plus S3
+  capability manifests, and zero Continuum false-promotion/leak/residual gates;
 - the Devpost submission ID, updated project timestamp, public project URL,
   current video URL, duration, and local-render SHA-256.
 
 The immutable release carries the exact sandbox JSON, full ablation JSON,
 public-safe episode drill-down JSON, full real-provider guardian JSON, and the
-time-distributed aggregate JSON as release assets in addition to the envelope.
+time-distributed aggregate JSON, and public blind-holdout JSON as release assets
+in addition to the envelope.
 This keeps judge evidence available
 after the shorter-lived GitHub Actions artifacts expire.
 
@@ -106,6 +111,16 @@ judge verifier re-fetches the aggregate workflow/artifact plus every one of the
 five source workflow/artifact receipts. Repeated incident definitions are
 treated as five time clusters, not 180 independent designs.
 
+Version 13 closes the hand-authored-evaluation gap. An independent Bedrock job
+generates new provider states and five attack/language variants per family,
+then seals challenge, labels, and commitment under checksum-addressed S3 keys
+before candidate execution. Candidate IAM has an explicit exact-object label
+deny. raw-RAG and Continuum execute the same 60 cases against disposable GitHub
+Releases and S3 adapters; only after both arms finish does a separate evaluator
+open labels and score provider receipts plus outcome evidence. The release
+publishes the label-safe 120-observation projection, while the one-click judge
+re-fetches its workflow, artifact, release-asset, commitment, and result digests.
+
 The differentiator gate is directional rather than cosmetic: raw-RAG must show
 more unsafe proposals, unsafe-memory exposure, and poison exposure than
 Continuum, while Continuum must show higher verified-outcome success and
@@ -132,7 +147,7 @@ asset state, and SHA-256 digest. A judge can independently download the envelope
 and validate its sidecar without trusting the public page:
 
 ```bash
-gh release download hackathon-v12 --pattern 'continuum-release-envelope-v2.json*'
+gh release download hackathon-v13 --pattern 'continuum-release-envelope-v2.json*'
 sha256sum -c continuum-release-envelope-v2.json.sha256
 ```
 
@@ -143,7 +158,7 @@ attestation API and the in-toto subject digest. Full cryptographic policy
 verification is one repository command:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v12
+python scripts/verify_network_sign_once.py --release-tag hackathon-v13
 ```
 
 That command downloads the immutable envelope, detached author bundle, and both

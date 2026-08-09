@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://api.github.com; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+  <title>Continuum Blind Holdout Proof</title>
+  <style>
+    :root{color-scheme:dark;--bg:#07110f;--card:#0e1b18;--line:#21443a;--text:#eefcf7;--muted:#98b8ae;--mint:#64f5bd;--amber:#ffc96b;--red:#ff8793}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 75% 0,#123c31 0,transparent 38%),var(--bg);color:var(--text);font:15px/1.55 Inter,system-ui,sans-serif}main{width:min(1120px,calc(100% - 32px));margin:auto;padding:40px 0 70px}.top{display:flex;justify-content:space-between;gap:16px}.brand,.pass{color:var(--mint);font-weight:900;letter-spacing:.12em}.pill{border:1px solid var(--line);border-radius:99px;padding:7px 12px;color:var(--muted)}h1{font-size:clamp(40px,7vw,74px);line-height:1;margin:70px 0 20px;letter-spacing:-.05em}h1 em{color:var(--mint);font-style:normal}.lede{max-width:800px;color:var(--muted);font-size:19px}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:42px 0}.card{background:linear-gradient(145deg,#10211d,#0a1714);border:1px solid var(--line);border-radius:17px;padding:20px}.card span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.1em}.card strong{display:block;font-size:30px;margin-top:8px}.card small{color:var(--mint)}h2{margin-top:42px}.chain{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.chain .card strong{font-size:17px}.chain .card b{color:var(--mint)}.table{overflow:auto;border:1px solid var(--line);border-radius:17px}table{width:100%;border-collapse:collapse;min-width:820px}th,td{text-align:left;padding:11px 13px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-size:11px;letter-spacing:.08em;text-transform:uppercase}code{color:var(--mint);word-break:break-all}.links{display:flex;gap:18px;flex-wrap:wrap;margin-top:28px}.links a{color:var(--text);text-decoration:none;border-bottom:1px solid var(--mint)}.hold{color:var(--amber)}.fail{color:var(--red)}@media(max-width:800px){.metrics{grid-template-columns:repeat(2,1fr)}.chain{grid-template-columns:1fr}.top{flex-direction:column}}
+  </style>
+</head>
+<body><main>
+  <div class="top"><div class="brand">CONTINUUM · BLIND HOLDOUT</div><div class="pill">PREREGISTERED · LABEL-HIDDEN · REAL PROVIDERS</div></div>
+  <h1>The answer key was <em>sealed first.</em></h1>
+  <p class="lede">An independent Bedrock generator created 60 unseen provider-state and attack combinations. The challenge and labels were checksum-addressed in S3 before either arm ran. Only after raw-RAG and Continuum completed real disposable GitHub and S3 effects did a separate evaluator open the labels.</p>
+  <section class="metrics">
+    <div class="card"><span>Public gate</span><strong id="status">—</strong><small>unchanged preregistration</small></div>
+    <div class="card"><span>Paired cases</span><strong id="pairs">—</strong><small>120 arm observations</small></div>
+    <div class="card"><span>Continuum success</span><strong id="continuum-success">—</strong><small>verified provider outcome</small></div>
+    <div class="card"><span>Raw-RAG success</span><strong id="raw-success">—</strong><small>same hidden holdout</small></div>
+    <div class="card"><span>False promotions</span><strong id="false-promotions">—</strong><small>raw-RAG / Continuum</small></div>
+    <div class="card"><span>Memory exposure</span><strong id="exposures">—</strong><small>raw-RAG / Continuum</small></div>
+    <div class="card"><span>Citation adoption</span><strong id="adoptions">—</strong><small>raw-RAG / Continuum</small></div>
+    <div class="card"><span>Residual effects</span><strong id="residuals">—</strong><small>duplicate + cleanup</small></div>
+  </section>
+  <h2>Blind evaluation firewall</h2>
+  <section class="chain">
+    <div class="card"><b>01</b><strong>Generate</strong><span>Bedrock creates new paraphrase, poison, stale, and conflict variants.</span></div>
+    <div class="card"><b>02</b><strong>Seal</strong><span>Challenge, labels, and scoring commitment receive content-addressed S3 keys.</span></div>
+    <div class="card"><b>03</b><strong>Deny</strong><span>Candidate IAM is explicitly denied the sealed label object.</span></div>
+    <div class="card"><b>04</b><strong>Execute</strong><span>Both arms perform the same GitHub Releases and S3 sandbox incidents.</span></div>
+    <div class="card"><b>05</b><strong>Evaluate</strong><span>Labels open only after both arms finish; receipts and outcomes determine score.</span></div>
+  </section>
+  <h2>Checksum-bound lineage</h2>
+  <section class="table"><table><tbody>
+    <tr><th>Workflow</th><td><code id="workflow">—</code></td></tr>
+    <tr><th>Source SHA</th><td><code id="source">—</code></td></tr>
+    <tr><th>Challenge SHA-256</th><td><code id="challenge">—</code></td></tr>
+    <tr><th>Commitment SHA-256</th><td><code id="commitment">—</code></td></tr>
+    <tr><th>Seal receipt SHA-256</th><td><code id="seal">—</code></td></tr>
+    <tr><th>Public result SHA-256</th><td><code id="result">—</code></td></tr>
+    <tr><th>Models</th><td id="models">—</td></tr>
+  </tbody></table></section>
+  <div class="links"><a href="./verify.html">Run the complete one-click judge →</a><a id="workflow-link" target="_blank" rel="noreferrer">Open exact workflow ↗</a><a href="./evidence/blind-holdout-v1.json" target="_blank" rel="noreferrer">Inspect all 120 observations ↗</a></div>
+</main><script>
+const percent=value=>(Number(value)*100).toFixed(1)+'%';
+async function sha256(buffer){const digest=await crypto.subtle.digest('SHA-256',buffer);return [...new Uint8Array(digest)].map(value=>value.toString(16).padStart(2,'0')).join('')}
+async function boot(){try{const judge=await fetch('./evidence/judge-verification.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('judge evidence');return r.json()});const response=await fetch(judge.blind_holdout.public_url,{cache:'no-store'});if(!response.ok)throw new Error('blind report');const bytes=await response.arrayBuffer(),actual=await sha256(bytes),report=JSON.parse(new TextDecoder().decode(bytes)),raw=report.arms.raw_rag,continuum=report.arms.continuum;const bound=actual===judge.blind_holdout.public_sha256&&report.source_head===judge.blind_holdout.head_sha&&report.commitment.commitment_sha256===judge.blind_holdout.commitment_sha256&&report.seal_receipt.receipt_sha256===judge.blind_holdout.seal_receipt_sha256&&report.gate.status==='PASS'&&report.methodology.candidate_label_fields===0&&report.methodology.candidate_process_opened_labels===false&&report.methodology.scored_after_both_arms===true;document.querySelector('#status').textContent=bound?'PASS':'FAIL';document.querySelector('#status').className=bound?'pass':'fail';document.querySelector('#pairs').textContent=report.methodology.paired_cases;document.querySelector('#continuum-success').textContent=percent(continuum.provider_success_rate);document.querySelector('#raw-success').textContent=percent(raw.provider_success_rate);document.querySelector('#false-promotions').textContent=raw.false_canonical_promotions+' / '+continuum.false_canonical_promotions;document.querySelector('#exposures').textContent=raw.unsafe_memory_exposures+' / '+continuum.unsafe_memory_exposures;document.querySelector('#adoptions').textContent=raw.unsafe_memory_citation_adoptions+' / '+continuum.unsafe_memory_citation_adoptions;document.querySelector('#residuals').textContent=String(raw.duplicate_effect_count+continuum.duplicate_effect_count+raw.cleanup_residual_count+continuum.cleanup_residual_count);document.querySelector('#workflow').textContent='#'+judge.blind_holdout.workflow_run_id+' · attempt '+judge.blind_holdout.workflow_attempt;document.querySelector('#source').textContent=report.source_head;document.querySelector('#challenge').textContent=report.commitment.challenge_sha256;document.querySelector('#commitment').textContent=report.commitment.commitment_sha256;document.querySelector('#seal').textContent=report.seal_receipt.receipt_sha256;document.querySelector('#result').textContent=actual;document.querySelector('#models').textContent=report.generator_model+' generator · '+report.agent_model+' agent · '+report.evaluator.version;document.querySelector('#workflow-link').href=judge.blind_holdout.workflow_url}catch(error){document.querySelector('#status').textContent='HOLD';document.querySelector('#status').className='hold';console.error(error)}}boot();
+</script></body></html>

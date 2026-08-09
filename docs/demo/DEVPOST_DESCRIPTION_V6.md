@@ -12,7 +12,29 @@ Continuum makes memory promotion an outcome transaction:
 4. Bedrock may call only action-specific, parameter-free proposal tools; and
 5. only a verified external-provider receipt can become canonical memory.
 
-## New: real effects replicated across time
+## New: a preregistered blind evaluation firewall
+
+An independent Bedrock job generated 60 new GitHub Releases and S3 incidents
+across clean, paraphrase, poison, stale, and conflict variants. Before either
+arm ran, the challenge, labels, and scoring commitment were written to
+checksum-addressed S3 objects. Candidate IAM was explicitly denied the label
+object. A separate evaluator opened labels only after both arms completed 120
+real disposable-provider observations.
+
+- **Continuum:** 45/60 verified outcomes, 0 false canonical promotions, 0
+  unsafe memory exposures, 0 unsafe citation adoptions.
+- **raw-RAG:** 43/60 verified outcomes, 16 false canonical promotions, 29 unsafe
+  memory exposures, and 8 unsafe citation adoptions.
+- **External validity:** both GitHub Releases and S3 produced real receipts;
+  both arms ended with 0 duplicates, 0 cleanup residuals, and 0 cross-scope
+  leaks.
+
+The result is not presented as a large performance win: the paired lift is
++3.33 points with a 0.0 to 8.33-point bootstrap interval. The stronger claim is
+that failed provider outcomes became canonical memory 16 times under raw-RAG
+and zero times under Continuum, on an answer key neither candidate could read.
+
+## Real effects replicated across time
 
 We ran the same 36 synthetic release incidents through raw-RAG and Continuum in
 five separate, serial, main-only OIDC workflows: 180 pairs and 360 observations.
@@ -62,11 +84,12 @@ Budget alert.
 
 ## One immutable proof unit
 
-`hackathon-v12` binds the application evidence, 50k vector benchmark, 50-agent
+`hackathon-v13` binds the application evidence, 50k vector benchmark, 50-agent
 pressure report, 540-observation three-arm ablation, 180-case episode explorer,
 single-run guardian, five time-distributed guardian receipts, their 180-pair
 aggregate, RLS checksum, key-rotation receipt, Devpost receipt, workflow
-artifact digests, and public judge evidence. The release
+artifact digests, the blind holdout challenge/commitment/seal/result digests,
+and public judge evidence. The release
 transaction is durable-draft-first, author-signed once through Sigstore, made
 immutable, automatically reconciled after crashes, and materialized through
 Pages.
@@ -78,4 +101,5 @@ Pages.
 - One-click verifier: https://yonghwan2161.github.io/continuum-memory-firewall/verify.html
 - Real-provider paired explorer: https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian.html
 - Five-batch time explorer: https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian-replication.html
+- Blind holdout proof: https://yonghwan2161.github.io/continuum-memory-firewall/blind-holdout.html
 - Source: https://github.com/YongHwan2161/continuum-memory-firewall

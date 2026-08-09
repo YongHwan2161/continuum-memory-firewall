@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 from typing import Any, Mapping
 
+from continuum.blind_holdout import build_public_blind_holdout
 from continuum.drilldown import build_public_episode_drilldown
 from continuum.release_guardian import build_public_release_guardian
 from continuum.release_guardian_replication import (
@@ -41,6 +42,7 @@ ABLATION_ASSET = "agent-ablation-v3.json"
 DRILLDOWN_ASSET = "episode-drilldown-v1.json"
 RELEASE_GUARDIAN_ASSET = "release-guardian-v1.json"
 RELEASE_GUARDIAN_REPLICATION_ASSET = "release-guardian-replication-v1.json"
+BLIND_HOLDOUT_ASSET = "blind-holdout-v1.json"
 SIGNATURE_BUNDLE_ASSET = "continuum-release-envelope-v2.sigstore.jsonl"
 
 
@@ -130,6 +132,7 @@ def build_envelope(
     release_guardian: dict[str, Any],
     release_guardian_public: dict[str, Any],
     release_guardian_replication: dict[str, Any] | None = None,
+    blind_holdout_public: dict[str, Any] | None = None,
     *,
     judge_bytes: bytes,
     scale_bytes: bytes,
@@ -141,6 +144,7 @@ def build_envelope(
     release_guardian_bytes: bytes,
     release_guardian_public_bytes: bytes,
     release_guardian_replication_bytes: bytes = b"",
+    blind_holdout_public_bytes: bytes = b"",
     repo_root: Path,
     repository: str,
     commit_sha: str,
@@ -170,6 +174,7 @@ def build_envelope(
     drilldown_reference = judge["episode_drilldown"]
     guardian_reference = judge["release_guardian"]
     replication_reference = judge.get("time_distributed_replication")
+    blind_reference = judge.get("blind_holdout")
     database_policy_reference = judge["database_policy"]
     release_reference = judge["release_envelope"]
     network_sign_once = judge["network_sign_once"]
@@ -202,12 +207,22 @@ def build_envelope(
         if release_guardian_replication is not None
         else ""
     )
+    blind_holdout_public_sha = (
+        sha256_bytes(repository_text_bytes(blind_holdout_public_bytes))
+        if blind_holdout_public is not None
+        else ""
+    )
     public_ablation = build_public_ablation_aggregate(ablation)
     public_drilldown = build_public_episode_drilldown(ablation)
     public_guardian = build_public_release_guardian(release_guardian)
     public_replication = (
         build_public_release_guardian_replication(release_guardian_replication)
         if release_guardian_replication is not None
+        else None
+    )
+    public_blind_holdout = (
+        build_public_blind_holdout(blind_holdout_public)
+        if blind_holdout_public is not None
         else None
     )
     ablation_arms = ablation.get("arms", {})
@@ -456,6 +471,68 @@ def build_envelope(
                 .get("continuum", {})
                 .get("cleanup_residual_count")
                 == 0
+            )
+        ),
+        "blind_holdout_artifact_bound": (
+            blind_reference is None
+            or (
+                blind_holdout_public is not None
+                and int(blind_reference.get("workflow_run_id", 0)) > 0
+                and int(blind_reference.get("artifact_id", 0)) > 0
+                and blind_reference.get("head_sha")
+                == blind_holdout_public.get("source_head")
+                and blind_reference.get("artifact_name")
+                == "continuum-blind-holdout-" + blind_reference.get("head_sha", "")
+                and SHA256_PATTERN.fullmatch(
+                    str(blind_reference.get("artifact_archive_sha256", ""))
+                )
+                is not None
+                and blind_holdout_public_sha
+                == blind_reference.get("public_sha256")
+                and blind_holdout_public == public_blind_holdout
+            )
+        ),
+        "blind_holdout_passed": (
+            blind_reference is None
+            or (
+                blind_holdout_public is not None
+                and blind_holdout_public.get("real_external_provider") is True
+                and blind_holdout_public.get("providers") == ["github", "s3"]
+                and blind_holdout_public.get("methodology", {}).get("paired_cases")
+                == 60
+                and blind_holdout_public.get("methodology", {}).get(
+                    "arm_observations"
+                )
+                == 120
+                and blind_holdout_public.get("methodology", {}).get(
+                    "candidate_label_fields"
+                )
+                == 0
+                and blind_holdout_public.get("methodology", {}).get(
+                    "candidate_process_opened_labels"
+                )
+                is False
+                and blind_holdout_public.get("gate", {}).get("status") == "PASS"
+                and blind_holdout_public.get("arms", {})
+                .get("continuum", {})
+                .get("false_canonical_promotions")
+                == 0
+                and blind_holdout_public.get("arms", {})
+                .get("continuum", {})
+                .get("cross_scope_leak_count")
+                == 0
+                and blind_holdout_public.get("arms", {})
+                .get("continuum", {})
+                .get("cleanup_residual_count")
+                == 0
+                and blind_holdout_public.get("commitment", {}).get(
+                    "commitment_sha256"
+                )
+                == blind_reference.get("commitment_sha256")
+                and blind_holdout_public.get("seal_receipt", {}).get(
+                    "receipt_sha256"
+                )
+                == blind_reference.get("seal_receipt_sha256")
             )
         ),
         "citation_grounding_failures_zero": grounding_failures == 0,
@@ -714,6 +791,11 @@ def build_envelope(
                     if replication_reference is not None
                     else {}
                 ),
+                **(
+                    {"blind_holdout": release_reference["blind_holdout_asset_url"]}
+                    if blind_reference is not None
+                    else {}
+                ),
             },
         },
         "lineage": {
@@ -887,6 +969,48 @@ def build_envelope(
             and release_guardian_replication is not None
             else {}
         ),
+        **(
+            {
+                "blind_holdout": {
+                    "head_sha": blind_reference["head_sha"],
+                    "workflow_run_id": blind_reference["workflow_run_id"],
+                    "workflow_attempt": blind_reference["workflow_attempt"],
+                    "workflow_url": blind_reference["workflow_url"],
+                    "artifact_id": blind_reference["artifact_id"],
+                    "artifact_name": blind_reference["artifact_name"],
+                    "artifact_archive_sha256": blind_reference[
+                        "artifact_archive_sha256"
+                    ],
+                    "report_sha256": blind_reference["report_sha256"],
+                    "public_sha256": blind_holdout_public_sha,
+                    "public_url": blind_reference["public_url"],
+                    "immutable_release_asset_url": release_reference[
+                        "blind_holdout_asset_url"
+                    ],
+                    "challenge_sha256": blind_holdout_public["commitment"][
+                        "challenge_sha256"
+                    ],
+                    "commitment_sha256": blind_holdout_public["commitment"][
+                        "commitment_sha256"
+                    ],
+                    "seal_receipt_sha256": blind_holdout_public[
+                        "seal_receipt"
+                    ]["receipt_sha256"],
+                    "sealed_at": blind_holdout_public["seal_receipt"]["sealed_at"],
+                    "generator_model": blind_holdout_public["generator_model"],
+                    "agent_model": blind_holdout_public["agent_model"],
+                    "evaluator": blind_holdout_public["evaluator"],
+                    "methodology": blind_holdout_public["methodology"],
+                    "arms": blind_holdout_public["arms"],
+                    "paired_comparison": blind_holdout_public[
+                        "paired_comparison"
+                    ],
+                    "gate": blind_holdout_public["gate"],
+                }
+            }
+            if blind_reference is not None and blind_holdout_public is not None
+            else {}
+        ),
         "public_judge_evidence": {
             "url": judge["public_demo"]["evidence_url"],
             "sha256": judge_sha,
@@ -924,6 +1048,7 @@ def main() -> None:
     parser.add_argument("--release-guardian-evidence", type=Path, required=True)
     parser.add_argument("--release-guardian-public", type=Path, required=True)
     parser.add_argument("--release-guardian-replication", type=Path)
+    parser.add_argument("--blind-holdout-public", type=Path)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--repository", required=True)
     parser.add_argument("--commit-sha", required=True)
@@ -946,6 +1071,11 @@ def main() -> None:
         if args.release_guardian_replication is not None
         else b""
     )
+    blind_holdout_public_bytes = (
+        args.blind_holdout_public.read_bytes()
+        if args.blind_holdout_public is not None
+        else b""
+    )
     envelope = build_envelope(
         json.loads(judge_bytes),
         json.loads(scale_bytes),
@@ -961,6 +1091,11 @@ def main() -> None:
             if release_guardian_replication_bytes
             else None
         ),
+        (
+            json.loads(blind_holdout_public_bytes)
+            if blind_holdout_public_bytes
+            else None
+        ),
         judge_bytes=judge_bytes,
         scale_bytes=scale_bytes,
         pressure_bytes=pressure_bytes,
@@ -971,6 +1106,7 @@ def main() -> None:
         release_guardian_bytes=release_guardian_bytes,
         release_guardian_public_bytes=release_guardian_public_bytes,
         release_guardian_replication_bytes=release_guardian_replication_bytes,
+        blind_holdout_public_bytes=blind_holdout_public_bytes,
         repo_root=args.repo_root.resolve(),
         repository=args.repository,
         commit_sha=args.commit_sha,
