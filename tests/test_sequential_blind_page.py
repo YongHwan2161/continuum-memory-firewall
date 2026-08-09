@@ -42,6 +42,11 @@ class SequentialBlindPageTests(unittest.TestCase):
         self.assertIn("async function githubJson", verifier)
         self.assertIn("cache:'force-cache'", verifier)
         self.assertIn("GitHub anonymous API quota exhausted", verifier)
+        self.assertIn("}catch(error){setChecks();button.textContent=", verifier)
+        self.assertNotIn(
+            "catch(error){setChecks(Object.fromEntries",
+            verifier,
+        )
         self.assertNotIn(
             "headers:{Accept:'application/vnd.github+json'},cache:'no-store'",
             verifier,
