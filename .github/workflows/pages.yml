@@ -210,8 +210,10 @@ jobs:
               --input build-pages/evidence/release-transaction-receipt.json \
               --expected-state PAGES_MATERIALIZED
           else
-            echo "signed release is pending; verifier will remain fail-closed"
+            echo "::error::signed release is pending; refusing to publish an incomplete proof console"
+            exit 1
           fi
+          test -s build-pages/evidence/release-transaction-receipt.json
 
       - name: Upload public proof console
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0; embeds upload-artifact v7, Node 24
@@ -228,7 +230,7 @@ jobs:
           set -euo pipefail
           expected="$(sha256sum build-pages/evidence/release-transaction-receipt.json | cut -d' ' -f1)"
           url="https://yonghwan2161.github.io/continuum-memory-firewall/evidence/release-transaction-receipt.json?run=$GITHUB_RUN_ID"
-          for attempt in $(seq 1 12); do
+          for attempt in $(seq 1 36); do
             if curl --fail --silent --show-error "$url" \
                 --output "$RUNNER_TEMP/public-release-transaction-receipt.json" && \
                [ "$(sha256sum "$RUNNER_TEMP/public-release-transaction-receipt.json" | cut -d' ' -f1)" = "$expected" ]; then

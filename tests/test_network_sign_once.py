@@ -338,6 +338,15 @@ class NetworkSignOnceTests(unittest.TestCase):
         self.assertIn("coordinator_workflow_run_id", pages_workflow)
         self.assertIn("coordinator_artifact_digest", pages_workflow)
         self.assertIn("--expected-state IMMUTABLE", pages_workflow)
+        self.assertIn(
+            "refusing to publish an incomplete proof console",
+            pages_workflow,
+        )
+        self.assertIn(
+            "test -s build-pages/evidence/release-transaction-receipt.json",
+            pages_workflow,
+        )
+        self.assertIn("for attempt in $(seq 1 36)", pages_workflow)
         self.assertIn("steps.transaction-artifact.outputs.artifact-digest", release_workflow)
         self.assertIn("Verify the materialized transaction receipt", pages_workflow)
 
