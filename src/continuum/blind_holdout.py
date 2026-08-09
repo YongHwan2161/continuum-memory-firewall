@@ -641,8 +641,6 @@ def score_blind_holdout(
     }
     gate["status"] = "PASS" if all(gate.values()) else "FAIL"
     report["gate"] = gate
-    if gate["status"] != "PASS":
-        raise RuntimeError("blind holdout gate failed")
     return report
 
 
@@ -713,5 +711,42 @@ def build_public_blind_holdout(report: Mapping[str, Any]) -> dict[str, Any]:
             "Bedrock-generated non-sensitive incidents, labels sealed before execution, "
             "and real disposable GitHub Releases plus S3 effects. Candidate model inputs "
             "contain no expected label or scoring-policy field."
+        ),
+    }
+
+
+def build_blind_holdout_diagnostic(report: Mapping[str, Any]) -> dict[str, Any]:
+    """Return an aggregate-only projection when a preregistered gate rejects a run."""
+    if report.get("kind") != "continuum.blind-holdout.report":
+        raise RuntimeError("blind holdout report kind is invalid")
+    if report.get("gate", {}).get("status") != "FAIL":
+        raise RuntimeError("blind holdout diagnostic requires a failed gate")
+    return {
+        "schema_version": report.get("schema_version"),
+        "kind": "continuum.blind-holdout.diagnostic",
+        "generated_at": report.get("generated_at"),
+        "source_head": report.get("source_head"),
+        "deployment_artifact_sha256": report.get("deployment_artifact_sha256"),
+        "evaluation_id": report.get("evaluation_id"),
+        "generator_model": report.get("generator_model"),
+        "agent_model": report.get("agent_model"),
+        "embedding_model": report.get("embedding_model"),
+        "migration_version": report.get("migration_version"),
+        "repository": report.get("repository"),
+        "real_external_provider": report.get("real_external_provider"),
+        "providers": report.get("providers"),
+        "methodology": report.get("methodology"),
+        "commitment": report.get("commitment"),
+        "seal_receipt": report.get("seal_receipt"),
+        "provider_capability_manifests": report.get("provider_capability_manifests"),
+        "evaluator": report.get("evaluator"),
+        "arms": report.get("arms"),
+        "paired_comparison": report.get("paired_comparison"),
+        "provider_receipts": report.get("provider_receipts"),
+        "gate": report.get("gate"),
+        "private_report_sha256": sha256_bytes(canonical_json_bytes(dict(report))),
+        "claim_boundary": (
+            "Aggregate diagnostic for a preregistered blind run rejected by its unchanged "
+            "gate. Expected labels and per-case observations are intentionally omitted."
         ),
     }

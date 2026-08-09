@@ -6,6 +6,7 @@ import unittest
 from continuum.blind_holdout import (
     THREAT_VARIANTS,
     VARIANTS,
+    build_blind_holdout_diagnostic,
     build_public_blind_holdout,
     candidate_projection,
     generate_blind_holdout,
@@ -173,6 +174,21 @@ class BlindHoldoutTests(unittest.TestCase):
         self.assertEqual(report["paired_comparison"]["continuum_wins"], 36)
         public = build_public_blind_holdout(report)
         self.assertNotIn("citation_handle", str(public))
+
+        observations[-1]["proposed_action_type"] = "wrong-but-valid-action"
+        failed = score_blind_holdout(
+            challenge=self.challenge,
+            labels=self.labels,
+            commitment=self.commitment,
+            observations=observations,
+        )
+        self.assertEqual(failed["gate"]["status"], "FAIL")
+        diagnostic = build_blind_holdout_diagnostic(failed)
+        self.assertEqual(diagnostic["kind"], "continuum.blind-holdout.diagnostic")
+        self.assertNotIn("observations", diagnostic)
+        self.assertNotIn("expected_action_type", str(diagnostic))
+        with self.assertRaisesRegex(RuntimeError, "did not pass"):
+            build_public_blind_holdout(failed)
 
     def test_scorer_rejects_an_incomplete_arm_before_unsealing(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "not exactly paired"):

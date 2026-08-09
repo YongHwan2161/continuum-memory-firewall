@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from continuum.blind_holdout import (
+    build_blind_holdout_diagnostic,
     build_public_blind_holdout,
     canonical_json_bytes,
     score_blind_holdout,
@@ -112,8 +113,12 @@ def evaluate(
             )
         ).hexdigest(),
     }
-    public = build_public_blind_holdout(report)
-    return report, public
+    projection = (
+        build_public_blind_holdout(report)
+        if report["gate"]["status"] == "PASS"
+        else build_blind_holdout_diagnostic(report)
+    )
+    return report, projection
 
 
 def main() -> None:
@@ -125,14 +130,14 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--public-output", type=Path, required=True)
     args = parser.parse_args()
-    report, public = evaluate(
+    report, projection = evaluate(
         challenge=_load(args.challenge),
         labels=_load(args.labels),
         commitment=_load(args.commitment),
         observations=_load(args.observations),
     )
     _write(args.output, report)
-    _write(args.public_output, public)
+    _write(args.public_output, projection)
     print(
         json.dumps(
             {key: value for key, value in report.items() if key != "observations"},
@@ -140,6 +145,8 @@ def main() -> None:
             sort_keys=True,
         )
     )
+    if report["gate"]["status"] != "PASS":
+        raise SystemExit("blind holdout gate failed; aggregate diagnostic was preserved")
 
 
 if __name__ == "__main__":

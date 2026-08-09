@@ -1,0 +1,99 @@
+name: aws-blind-holdout-evaluator-replay
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_head:
+        description: Exact 40-hex candidate source SHA recorded by the sealed run
+        required: true
+        type: string
+      source_run_id:
+        description: Exact GitHub Actions run ID containing the sealed evidence prefix
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  read-only-evaluator-replay:
+    runs-on: ubuntu-latest
+    environment: continuum-production
+    timeout-minutes: 15
+    env:
+      AWS_REGION: ap-southeast-1
+      CONTINUUM_MCP_STACK_NAME: continuum-authenticated-mcp
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3, Node 24
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          role-session-name: continuum-blind-evaluator-replay
+      - name: Prove reviewed main evaluator and bounded evidence identity
+        shell: bash
+        env:
+          SOURCE_HEAD: ${{ inputs.source_head }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          ./scripts/assert_deployer_identity.sh
+          [[ "$GITHUB_REF" == refs/heads/main ]]
+          [[ "$SOURCE_HEAD" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$SOURCE_RUN_ID" =~ ^[1-9][0-9]{8,19}$ ]]
+          prefix="evidence/blind-holdout/$SOURCE_HEAD/$SOURCE_RUN_ID"
+          echo "CONTINUUM_HOLDOUT_EVIDENCE_PREFIX=$prefix" >>"$GITHUB_ENV"
+      - name: Download only the exact sealed run and score after both arms
+        id: score
+        continue-on-error: true
+        shell: bash
+        run: |
+          bucket="$(aws cloudformation describe-stacks --region "$AWS_REGION" \
+            --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+            --query "Stacks[0].Parameters[?ParameterKey=='PackageBucket'].ParameterValue | [0]" \
+            --output text)"
+          out="$RUNNER_TEMP/blind-holdout-replay"
+          install -d -m 0700 "$out"
+          for name in blind-holdout-seal-receipt-v1.json blind-holdout-observations-v1.json; do
+            aws s3 cp "s3://$bucket/$CONTINUUM_HOLDOUT_EVIDENCE_PREFIX/$name" \
+              "$out/$name" --region "$AWS_REGION" --only-show-errors
+          done
+          jq -e --arg prefix "$CONTINUUM_HOLDOUT_EVIDENCE_PREFIX/" '
+            .source_head == "${{ inputs.source_head }}" and
+            (.workflow_run_id | tostring) == "${{ inputs.source_run_id }}" and
+            ([.objects.challenge.key,.objects.labels.key,.objects.commitment.key]
+              | all(startswith($prefix)))
+          ' "$out/blind-holdout-seal-receipt-v1.json" >/dev/null
+          challenge_key="$(jq -r '.objects.challenge.key' "$out/blind-holdout-seal-receipt-v1.json")"
+          labels_key="$(jq -r '.objects.labels.key' "$out/blind-holdout-seal-receipt-v1.json")"
+          commitment_key="$(jq -r '.objects.commitment.key' "$out/blind-holdout-seal-receipt-v1.json")"
+          aws s3 cp "s3://$bucket/$challenge_key" "$out/blind-holdout-challenge-v1.json" --region "$AWS_REGION" --only-show-errors
+          aws s3 cp "s3://$bucket/$labels_key" "$out/blind-holdout-labels-v1.json" --region "$AWS_REGION" --only-show-errors
+          aws s3 cp "s3://$bucket/$commitment_key" "$out/blind-holdout-commitment-v1.json" --region "$AWS_REGION" --only-show-errors
+          set +e
+          PYTHONPATH=src python scripts/score_blind_holdout.py \
+            --challenge "$out/blind-holdout-challenge-v1.json" \
+            --labels "$out/blind-holdout-labels-v1.json" \
+            --commitment "$out/blind-holdout-commitment-v1.json" \
+            --observations "$out/blind-holdout-observations-v1.json" \
+            --output "$out/blind-holdout-report-v1.json" \
+            --public-output "$out/blind-holdout-public-or-diagnostic-v1.json"
+          status=$?
+          set -e
+          test -s "$out/blind-holdout-report-v1.json"
+          test -s "$out/blind-holdout-public-or-diagnostic-v1.json"
+          jq -e '.source_head == "${{ inputs.source_head }}" and .methodology.arm_observations == 120' \
+            "$out/blind-holdout-report-v1.json" >/dev/null
+          sha256sum "$out"/*.json
+          exit "$status"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        if: always()
+        with:
+          name: continuum-blind-holdout-replay-${{ inputs.source_run_id }}-${{ github.sha }}
+          path: ${{ runner.temp }}/blind-holdout-replay/*.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Preserve preregistered PASS or FAIL conclusion
+        if: always()
+        shell: bash
+        run: test '${{ steps.score.outcome }}' = success
