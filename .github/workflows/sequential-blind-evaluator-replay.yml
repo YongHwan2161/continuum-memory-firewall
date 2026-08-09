@@ -1,0 +1,178 @@
+name: sequential-blind-evaluator-replay
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_source_head:
+        description: Exact candidate source SHA bound by the sealed campaign
+        required: true
+        type: string
+      candidate_run_id:
+        description: Exact workflow run whose 540-candidate step succeeded
+        required: true
+        type: string
+      candidate_run_attempt:
+        description: Exact candidate workflow attempt
+        required: true
+        type: string
+      candidate_artifact_id:
+        description: Exact always-uploaded candidate artifact ID
+        required: true
+        type: string
+      candidate_artifact_name:
+        description: Exact source/run/attempt-bound candidate artifact name
+        required: true
+        type: string
+      candidate_artifact_archive_sha256:
+        description: GitHub artifact archive SHA-256 without the prefix
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: sequential-blind-evaluator-replay-${{ inputs.candidate_run_id }}-${{ inputs.candidate_run_attempt }}
+  cancel-in-progress: false
+
+jobs:
+  score-preserved-candidates:
+    runs-on: ubuntu-22.04
+    environment: continuum-production
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0, Node 24
+        with:
+          python-version: "3.12"
+      - name: Verify exact failed-run boundary, completed candidates, cleanup, and artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_SOURCE_HEAD: ${{ inputs.candidate_source_head }}
+          CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
+          CANDIDATE_RUN_ATTEMPT: ${{ inputs.candidate_run_attempt }}
+          CANDIDATE_ARTIFACT_ID: ${{ inputs.candidate_artifact_id }}
+          CANDIDATE_ARTIFACT_NAME: ${{ inputs.candidate_artifact_name }}
+          CANDIDATE_ARTIFACT_ARCHIVE_SHA256: ${{ inputs.candidate_artifact_archive_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main ]]
+          [[ "$CANDIDATE_SOURCE_HEAD" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$CANDIDATE_RUN_ID" =~ ^[1-9][0-9]{8,19}$ ]]
+          [[ "$CANDIDATE_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          [[ "$CANDIDATE_ARTIFACT_ID" =~ ^[1-9][0-9]{8,19}$ ]]
+          [[ "$CANDIDATE_ARTIFACT_ARCHIVE_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          expected_name="continuum-sequential-blind-$CANDIDATE_SOURCE_HEAD-$CANDIDATE_RUN_ID-$CANDIDATE_RUN_ATTEMPT"
+          test "$CANDIDATE_ARTIFACT_NAME" = "$expected_name"
+          run_receipt="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN_ID")"
+          test "$(jq -r '.head_sha' <<<"$run_receipt")" = "$CANDIDATE_SOURCE_HEAD"
+          test "$(jq -r '.run_attempt' <<<"$run_receipt")" = "$CANDIDATE_RUN_ATTEMPT"
+          test "$(jq -r '.head_branch' <<<"$run_receipt")" = main
+          test "$(jq -r '.conclusion' <<<"$run_receipt")" = failure
+          jobs_receipt="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN_ID/jobs?filter=all&per_page=100")"
+          for step in \
+            'Run three label-free batches with enforced start separation' \
+            'Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' \
+            'Revoke temporary capabilities, tombstone token, and prove sandbox cleanup'; do
+            test "$(jq --arg step "$step" '[.jobs[].steps[] | select(.name==$step and .conclusion=="success")] | length' <<<"$jobs_receipt")" = 1
+          done
+          test "$(jq '[.jobs[].steps[] | select(.name=="Open labels only after all 540 candidate observations finish" and .conclusion=="failure")] | length' <<<"$jobs_receipt")" = 1
+          artifact_receipt="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$CANDIDATE_ARTIFACT_ID")"
+          test "$(jq -r '.name' <<<"$artifact_receipt")" = "$CANDIDATE_ARTIFACT_NAME"
+          test "$(jq -r '.digest' <<<"$artifact_receipt")" = "sha256:$CANDIDATE_ARTIFACT_ARCHIVE_SHA256"
+          test "$(jq -r '.expired' <<<"$artifact_receipt")" = false
+          test "$(jq -r '.workflow_run.id' <<<"$artifact_receipt")" = "$CANDIDATE_RUN_ID"
+
+      - name: Download only the exact preserved candidate artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
+          CANDIDATE_ARTIFACT_NAME: ${{ inputs.candidate_artifact_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/sequential-blind-replay"
+          install -d -m 0700 "$out"
+          gh run download "$CANDIDATE_RUN_ID" --name "$CANDIDATE_ARTIFACT_NAME" --dir "$out"
+          required=(all-candidates-completed-at.txt campaign-manifest.json campaign-seal-receipt.json)
+          for batch in 1 2 3; do
+            for name in challenge commitment labels observations seal; do
+              required+=("batch-$batch/$name.json")
+            done
+          done
+          for path in "${required[@]}"; do test -s "$out/$path"; done
+          test ! -e "$out/campaign-report.json"
+          test ! -e "$out/campaign-public.json"
+
+      - name: Score once with reviewed Python and aggregate all three batches
+        id: score
+        continue-on-error: true
+        env:
+          CANDIDATE_SOURCE_HEAD: ${{ inputs.candidate_source_head }}
+          CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
+          CANDIDATE_RUN_ATTEMPT: ${{ inputs.candidate_run_attempt }}
+          CANDIDATE_ARTIFACT_ID: ${{ inputs.candidate_artifact_id }}
+          CANDIDATE_ARTIFACT_NAME: ${{ inputs.candidate_artifact_name }}
+          CANDIDATE_ARTIFACT_ARCHIVE_SHA256: ${{ inputs.candidate_artifact_archive_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/sequential-blind-replay"
+          all_completed="$(tr -d '\r\n' <"$out/all-candidates-completed-at.txt")"
+          campaign_args=()
+          for batch in 1 2 3; do
+            campaign_args+=(--campaign-commitment "$out/batch-$batch/commitment.json")
+          done
+          score_status=0
+          for batch in 1 2 3; do
+            PYTHONPATH=src:. python scripts/score_sequential_blind.py \
+              --challenge "$out/batch-$batch/challenge.json" \
+              --labels "$out/batch-$batch/labels.json" \
+              --commitment "$out/batch-$batch/commitment.json" \
+              "${campaign_args[@]}" \
+              --campaign-manifest "$out/campaign-manifest.json" \
+              --observations "$out/batch-$batch/observations.json" \
+              --all-candidates-completed-at "$all_completed" \
+              --output "$out/batch-$batch/report.json" \
+              --public-output "$out/batch-$batch/public-or-diagnostic.json" \
+              --receipt-output "$out/batch-$batch/artifact-receipt.json" || score_status=1
+          done
+          if [ "$score_status" -eq 0 ]; then
+            PYTHONPATH=src:. python scripts/aggregate_sequential_blind.py \
+              --report "$out/batch-1/report.json" \
+              --report "$out/batch-2/report.json" \
+              --report "$out/batch-3/report.json" \
+              --receipt "$out/batch-1/artifact-receipt.json" \
+              --receipt "$out/batch-2/artifact-receipt.json" \
+              --receipt "$out/batch-3/artifact-receipt.json" \
+              --manifest "$out/campaign-manifest.json" \
+              --campaign-seal-receipt "$out/campaign-seal-receipt.json" \
+              --workflow-run-id "$GITHUB_RUN_ID" \
+              --workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+              --candidate-workflow-run-id "$CANDIDATE_RUN_ID" \
+              --candidate-workflow-run-attempt "$CANDIDATE_RUN_ATTEMPT" \
+              --candidate-artifact-id "$CANDIDATE_ARTIFACT_ID" \
+              --candidate-artifact-name "$CANDIDATE_ARTIFACT_NAME" \
+              --candidate-artifact-archive-sha256 "$CANDIDATE_ARTIFACT_ARCHIVE_SHA256" \
+              --evaluator-source-head "$GITHUB_SHA" \
+              --replay-reason github_runner_python_3_10_missing_strenum_before_scoring \
+              --output "$out/campaign-report.json" \
+              --public-output "$out/campaign-public.json"
+          fi
+          find "$out" -type f -name '*.json' -print0 | sort -z | xargs -0 sha256sum
+          exit "$score_status"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        if: always()
+        with:
+          name: continuum-sequential-blind-evaluator-${{ inputs.candidate_run_id }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/sequential-blind-replay/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Preserve the preregistered evaluation conclusion
+        if: always()
+        shell: bash
+        run: test '${{ steps.score.outcome }}' = success

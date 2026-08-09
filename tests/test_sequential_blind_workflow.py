@@ -18,6 +18,7 @@ class SequentialBlindWorkflowTests(unittest.TestCase):
         self.assertIn("CONTINUUM_MONTHLY_BUDGET_USD=20", self.source)
         self.assertIn("# v7.0.1, Node 24", self.source)
         self.assertIn("# v6.2.3, Node 24", self.source)
+        self.assertIn('python-version: "3.12"', self.source)
 
     def test_all_three_batches_and_manifest_are_sealed_before_candidates(self) -> None:
         generation = self.source.index("generate_sequential_blind_batch.py")
@@ -60,6 +61,40 @@ class SequentialBlindWorkflowTests(unittest.TestCase):
         cleanup = self.source.index("Revoke temporary capabilities", artifact)
         self.assertLess(artifact, cleanup)
         self.assertIn("if: always()", self.source[artifact:cleanup])
+
+
+class SequentialBlindEvaluatorReplayWorkflowTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.path = (
+            ROOT / ".github/workflows/sequential-blind-evaluator-replay.yml"
+        )
+        self.source = self.path.read_text(encoding="utf-8")
+
+    def test_replay_is_main_only_python312_and_read_only(self) -> None:
+        self.assertIn("actions: read", self.source)
+        self.assertIn("contents: read", self.source)
+        self.assertNotIn("id-token: write", self.source)
+        self.assertIn('[[ "$GITHUB_REF" == refs/heads/main ]]', self.source)
+        self.assertIn('python-version: "3.12"', self.source)
+        self.assertIn("# v7.0.1, Node 24", self.source)
+        self.assertIn("# v7.0.0, Node 24", self.source)
+
+    def test_replay_binds_completed_candidate_cleanup_and_exact_artifact(self) -> None:
+        for phrase in (
+            "Run three label-free batches with enforced start separation",
+            "Open labels only after all 540 candidate observations finish",
+            "Revoke temporary capabilities, tombstone token, and prove sandbox cleanup",
+            "candidate_artifact_archive_sha256",
+            "artifact_receipt",
+            "workflow_run.id",
+        ):
+            self.assertIn(phrase, self.source)
+        download = self.source.index("Download only the exact preserved candidate artifact")
+        score = self.source.index("Score once with reviewed Python")
+        self.assertLess(download, score)
+        self.assertIn("test ! -e \"$out/campaign-report.json\"", self.source)
+        self.assertIn("--replay-reason github_runner_python_3_10_missing_strenum_before_scoring", self.source)
+        self.assertIn("if: always()", self.source)
 
 
 if __name__ == "__main__":

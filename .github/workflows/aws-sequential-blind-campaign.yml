@@ -24,6 +24,9 @@ jobs:
       CONTINUUM_GITHUB_TOKEN_SECRET: continuum/github-release-guardian-token
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0, Node 24
+        with:
+          python-version: "3.12"
       - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3, Node 24
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
