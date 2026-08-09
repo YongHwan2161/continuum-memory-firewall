@@ -39,6 +39,13 @@ class SequentialBlindPageTests(unittest.TestCase):
         self.assertIn("sequentialArtifact?.digest==='sha256:'", verifier)
         self.assertIn("sequentialCandidateArtifact?.digest==='sha256:'", verifier)
         self.assertIn("sequentialReleaseAsset?.digest==='sha256:'", verifier)
+        self.assertIn("async function githubJson", verifier)
+        self.assertIn("cache:'force-cache'", verifier)
+        self.assertIn("GitHub anonymous API quota exhausted", verifier)
+        self.assertNotIn(
+            "headers:{Accept:'application/vnd.github+json'},cache:'no-store'",
+            verifier,
+        )
 
 
 if __name__ == "__main__":
