@@ -11,6 +11,9 @@ class BlindHoldoutWorkflowTests(unittest.TestCase):
         self.sealer = (ROOT / "scripts/seal_blind_holdout.py").read_text(
             encoding="utf-8"
         )
+        self.replay = (
+            ROOT / ".github/workflows/aws-blind-holdout-evaluator-replay.yml"
+        ).read_text(encoding="utf-8")
     def test_workflow_is_main_environment_oidc_and_self_revoking(self) -> None:
         self.assertIn("permissions:\n  id-token: write\n  contents: write", self.source)
         self.assertIn("environment: continuum-production", self.source)
@@ -51,6 +54,18 @@ class BlindHoldoutWorkflowTests(unittest.TestCase):
         self.assertIn('name: continuum-blind-holdout-${{ github.sha }}', self.source)
         self.assertIn('.providers == ["github","s3"]', self.source)
         self.assertIn('retention-days: 90', self.source)
+        self.assertIn("if: always()", self.source[self.source.index("actions/upload-artifact") :])
+
+    def test_evaluator_replay_is_read_only_bounded_and_preserves_failed_evidence(self) -> None:
+        self.assertIn("contents: read", self.replay)
+        self.assertNotIn("contents: write", self.replay)
+        self.assertIn('[[ "$GITHUB_REF" == refs/heads/main ]]', self.replay)
+        self.assertIn('[[ "$SOURCE_HEAD" =~ ^[0-9a-f]{40}$ ]]', self.replay)
+        self.assertIn("evidence/blind-holdout/$SOURCE_HEAD/$SOURCE_RUN_ID", self.replay)
+        self.assertIn("all(startswith($prefix))", self.replay)
+        self.assertIn("continue-on-error: true", self.replay)
+        self.assertIn("blind-holdout-public-or-diagnostic-v1.json", self.replay)
+        self.assertIn("Preserve preregistered PASS or FAIL conclusion", self.replay)
 
 
 if __name__ == "__main__":

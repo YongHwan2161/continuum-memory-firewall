@@ -336,6 +336,7 @@ jobs:
           PY
           sha256sum "$out"/*.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        if: always()
         with:
           name: continuum-blind-holdout-${{ github.sha }}
           path: ${{ runner.temp }}/blind-holdout/*.json
