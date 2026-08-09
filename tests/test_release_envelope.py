@@ -571,14 +571,42 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         self.assertEqual(envelope["blind_holdout"]["arms"]["continuum"]["false_canonical_promotions"], 0)
 
     def test_v14_binds_sequential_blind_memory_compounding(self) -> None:
-        from tests.test_sequential_blind_judge import _public
+        from tests.test_sequential_blind_judge import (
+            CANDIDATE_ARCHIVE_SHA,
+            CANDIDATE_ARTIFACT_ID,
+            CANDIDATE_RUN_ID,
+            EVALUATOR_HEAD,
+            _public,
+        )
 
         sequential = _public()
-        sequential_bytes = (json.dumps(sequential, sort_keys=True) + "\n").encode()
         source = sequential["source_head"]
+        candidate_name = (
+            f"continuum-sequential-blind-{source}-{CANDIDATE_RUN_ID}-1"
+        )
+        sequential["evaluation_replay"] = {
+            "schema_version": 1,
+            "reason": "github_runner_python_3_10_missing_strenum_before_scoring",
+            "candidate_workflow": {
+                "run_id": CANDIDATE_RUN_ID,
+                "run_attempt": 1,
+                "conclusion": "failure",
+                "source_head": source,
+                "candidate_step_conclusion": "success",
+                "cleanup_step_conclusion": "success",
+            },
+            "candidate_artifact": {
+                "id": CANDIDATE_ARTIFACT_ID,
+                "name": candidate_name,
+                "archive_sha256": CANDIDATE_ARCHIVE_SHA,
+            },
+            "evaluator_source_head": EVALUATOR_HEAD,
+        }
+        sequential_bytes = (json.dumps(sequential, sort_keys=True) + "\n").encode()
         self.judge["schema_version"] = 9
         self.judge["sequential_blind_campaign"] = {
             "head_sha": source,
+            "evaluator_head_sha": EVALUATOR_HEAD,
             "workflow_run_id": 51,
             "workflow_attempt": 1,
             "workflow_url": "https://github.com/o/r/actions/runs/51",
@@ -595,6 +623,14 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             "campaign_seal_receipt_sha256": sequential[
                 "campaign_seal_receipt"
             ]["receipt_sha256"],
+            "candidate_workflow_run_id": CANDIDATE_RUN_ID,
+            "candidate_workflow_attempt": 1,
+            "candidate_workflow_url": (
+                f"https://github.com/o/r/actions/runs/{CANDIDATE_RUN_ID}"
+            ),
+            "candidate_artifact_id": CANDIDATE_ARTIFACT_ID,
+            "candidate_artifact_name": candidate_name,
+            "candidate_artifact_archive_sha256": CANDIDATE_ARCHIVE_SHA,
         }
         self.judge["release_envelope"]["sequential_blind_asset_name"] = (
             "sequential-blind-v1.json"
@@ -617,6 +653,14 @@ class ReleaseEnvelopeTests(unittest.TestCase):
                 "false_canonical_promotions"
             ],
             0,
+        )
+        self.assertEqual(
+            envelope["sequential_blind_campaign"]["candidate_artifact_id"],
+            CANDIDATE_ARTIFACT_ID,
+        )
+        self.assertEqual(
+            envelope["sequential_blind_campaign"]["evaluation_replay"],
+            sequential["evaluation_replay"],
         )
 
     def test_scale_checksum_and_leakage_fail_closed(self) -> None:
