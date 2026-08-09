@@ -169,7 +169,7 @@ receives a token or database credential. The executable database evidence is
 the integration suite and linked exact-head workflows in
 [Project Status](docs/PROJECT_STATUS.md).
 
-The v16 release envelope receives exactly one author-controlled signature in
+The v17 release envelope receives exactly one author-controlled signature in
 the same main-only workflow that publishes it. Its Fulcio/Rekor Sigstore bundle
 is an immutable release asset and a byte-identical Pages resource. GitHub also
 adds one distinguishable immutable-release countersignature; the verifier
@@ -178,8 +178,13 @@ a second author signing operation. Perform strict cryptographic policy
 verification of the author signature with:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v16
+python scripts/verify_network_sign_once.py --release-tag hackathon-v17
 ```
+
+Version 17 preserves the v16 browser fix and makes the scheduled read-only judge
+monitor load both repository scripts and the `src` package explicitly. The same
+credential-free verifier now runs interactively, from the documented CLI, and
+on the six-hour monitor without relying on an ambient Python import path.
 
 Version 16 preserves the v15 evidence and fixes the public self-receipt verifier
 to hash the original canonical JSON bytes. This keeps Python's `1.0` numeric

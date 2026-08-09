@@ -1,6 +1,6 @@
 # Immutable competition release envelope
 
-`hackathon-v16` is the proof unit for the receipt-compiled competition story. It is
+`hackathon-v17` is the proof unit for the receipt-compiled competition story. It is
 published only by `.github/workflows/release-envelope.yml` after every
 fail-closed gate passes.
 
@@ -161,6 +161,12 @@ numeric lexeme. The workflow, Python verifier, browser verifier, and immutable
 release therefore converge on the same receipt without weakening any source
 digest or claim gate.
 
+Version 17 closes the monitor import-path gap. Adding the story receipt verifier
+introduced a `src` package import into the standalone judge command; older
+scheduled successes predated that import. The workflow now executes the module
+with `PYTHONPATH=src:.`, and a repository contract test prevents regression.
+The public evidence, story, video, and Devpost receipts remain unchanged.
+
 The v14 sequential section binds two workflow planes. Candidate run
 `31311573511` completed the full 540-observation step and cleanup, then failed
 before scoring when the runner's Python 3.10 could not import `StrEnum`.
@@ -197,7 +203,7 @@ asset state, and SHA-256 digest. A judge can independently download the envelope
 and validate its sidecar without trusting the public page:
 
 ```bash
-gh release download hackathon-v16 --pattern 'continuum-release-envelope-v2.json*'
+gh release download hackathon-v17 --pattern 'continuum-release-envelope-v2.json*'
 sha256sum -c continuum-release-envelope-v2.json.sha256
 ```
 
@@ -208,7 +214,7 @@ attestation API and the in-toto subject digest. Full cryptographic policy
 verification is one repository command:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v16
+python scripts/verify_network_sign_once.py --release-tag hackathon-v17
 ```
 
 That command downloads the immutable envelope, detached author bundle, and both
