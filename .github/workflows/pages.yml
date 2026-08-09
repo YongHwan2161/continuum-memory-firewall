@@ -220,6 +220,24 @@ jobs:
         with:
           path: build-pages
 
+      - name: Wait for Pages artifact availability
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 15); do
+            count="$(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" \
+              --jq '[.artifacts[] | select(.name == "github-pages" and .expired == false)] | length')"
+            if [ "$count" = 1 ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::github-pages artifact did not become API-visible"
+          exit 1
+
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0, Node 24
