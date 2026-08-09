@@ -349,13 +349,11 @@ jobs:
           if [[ -n "${CONTINUUM_INSTANCE_ID:-}" && -n "${CONTINUUM_DEPLOY_BUCKET:-}" && \
                 -n "${CONTINUUM_HOLDOUT_SANDBOX_PREFIX:-}" ]]; then
             cleanup_command="set -eu
-            aws s3 rm 's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_HOLDOUT_SANDBOX_PREFIX/' \
-              --recursive --region '$AWS_REGION' --only-show-errors
-            remaining=\"\$(aws s3api list-objects-v2 --region '$AWS_REGION' \
+            cd /opt/continuum
+            /opt/continuum/.venv/bin/python scripts/cleanup_blind_holdout.py \
+              --region '$AWS_REGION' \
               --bucket '$CONTINUUM_DEPLOY_BUCKET' \
-              --prefix '$CONTINUUM_HOLDOUT_SANDBOX_PREFIX/' \
-              --query KeyCount --output text)\"
-            test \"\$remaining\" = 0"
+              --prefix '$CONTINUUM_HOLDOUT_SANDBOX_PREFIX'"
             parameters="$(jq -cn --arg command "$cleanup_command" '{commands:[$command]}')"
             if command_id="$(aws ssm send-command --region "$AWS_REGION" \
                 --instance-ids "$CONTINUUM_INSTANCE_ID" \

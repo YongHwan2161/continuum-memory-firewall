@@ -47,7 +47,7 @@ class BlindHoldoutWorkflowTests(unittest.TestCase):
 
     def test_github_and_s3_effects_are_disposable_and_artifact_bound(self) -> None:
         self.assertIn('CONTINUUM_HOLDOUT_SANDBOX_PREFIX', self.source)
-        self.assertIn("aws s3 rm 's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_HOLDOUT_SANDBOX_PREFIX/'", self.source)
+        self.assertIn("cleanup_blind_holdout.py", self.source)
         self.assertIn('name: continuum-blind-holdout-${{ github.sha }}', self.source)
         self.assertIn('.providers == ["github","s3"]', self.source)
         self.assertIn('retention-days: 90', self.source)
