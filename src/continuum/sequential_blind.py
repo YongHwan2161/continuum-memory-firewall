@@ -1036,6 +1036,7 @@ def build_public_sequential_blind(report: Mapping[str, Any]) -> dict[str, Any]:
         "provider_capability_manifests",
         "evaluator",
         "aggregation_workflow",
+        "evaluation_replay",
         "batch_receipts",
         "arms",
         "paired_comparisons",

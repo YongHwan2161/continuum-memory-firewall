@@ -135,3 +135,16 @@ def test_sequential_campaign_fails_closed_on_spacing_or_artifact_drift() -> None
         fetch_json=drifted,
         fetch_bytes=lambda _url: clean,
     )
+
+
+def test_public_projection_retains_evaluator_replay_provenance() -> None:
+    report = _public()
+    report["evaluation_replay"] = {
+        "schema_version": 1,
+        "reason": "github_runner_python_3_10_missing_strenum_before_scoring",
+        "candidate_workflow": {"run_id": 31311573511},
+        "candidate_artifact": {"id": 9038202621},
+        "evaluator_source_head": "e" * 40,
+    }
+    projection = build_public_sequential_blind(report)
+    assert projection["evaluation_replay"] == report["evaluation_replay"]
