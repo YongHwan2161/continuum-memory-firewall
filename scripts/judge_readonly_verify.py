@@ -167,16 +167,68 @@ def verify_sequential_blind_campaign(
         arms = report["arms"]
         continuum = arms["continuum"]
         comparisons = report["paired_comparisons"]
+        replay = report.get("evaluation_replay")
+        if replay is not None:
+            candidate_workflow = fetch_json(reference["candidate_workflow_api_url"])
+            candidate_artifact = fetch_json(reference["candidate_artifact_api_url"])
+        else:
+            candidate_workflow = {}
+            candidate_artifact = {}
     except (KeyError, RuntimeError, TypeError, ValueError, json.JSONDecodeError):
         return False
     receipt_ids = [str(item.get("receipt_sha256", "")) for item in receipts]
     commitment_ids = [str(item.get("commitment_sha256", "")) for item in receipts]
+    evaluator_head = reference.get("evaluator_head_sha", reference.get("head_sha"))
+    if replay is None:
+        replay_bound = (
+            "candidate_workflow_run_id" not in reference
+            and "candidate_artifact_id" not in reference
+            and workflow.get("head_sha") == reference.get("head_sha")
+        )
+    else:
+        replay_workflow = replay.get("candidate_workflow", {})
+        replay_artifact = replay.get("candidate_artifact", {})
+        replay_bound = (
+            replay.get("schema_version") == 1
+            and replay.get("reason")
+            == "github_runner_python_3_10_missing_strenum_before_scoring"
+            and replay.get("evaluator_source_head") == evaluator_head
+            and replay_workflow.get("run_id")
+            == reference.get("candidate_workflow_run_id")
+            and replay_workflow.get("run_attempt")
+            == reference.get("candidate_workflow_attempt")
+            and replay_workflow.get("source_head") == reference.get("head_sha")
+            and replay_workflow.get("conclusion") == "failure"
+            and replay_workflow.get("candidate_step_conclusion") == "success"
+            and replay_workflow.get("cleanup_step_conclusion") == "success"
+            and replay_artifact.get("id") == reference.get("candidate_artifact_id")
+            and replay_artifact.get("name")
+            == reference.get("candidate_artifact_name")
+            and replay_artifact.get("archive_sha256")
+            == reference.get("candidate_artifact_archive_sha256")
+            and candidate_workflow.get("id")
+            == reference.get("candidate_workflow_run_id")
+            and candidate_workflow.get("run_attempt")
+            == reference.get("candidate_workflow_attempt")
+            and candidate_workflow.get("head_sha") == reference.get("head_sha")
+            and candidate_workflow.get("conclusion") == "failure"
+            and candidate_artifact.get("id")
+            == reference.get("candidate_artifact_id")
+            and candidate_artifact.get("name")
+            == reference.get("candidate_artifact_name")
+            and candidate_artifact.get("digest")
+            == "sha256:"
+            + str(reference.get("candidate_artifact_archive_sha256", ""))
+            and candidate_artifact.get("expired") is False
+            and candidate_artifact.get("workflow_run", {}).get("id")
+            == reference.get("candidate_workflow_run_id")
+        )
     return (
         report == public_projection
         and workflow.get("id") == reference.get("workflow_run_id")
         and workflow.get("run_attempt") == reference.get("workflow_attempt")
         and workflow.get("conclusion") == "success"
-        and workflow.get("head_sha") == reference.get("head_sha")
+        and workflow.get("head_sha") == evaluator_head
         and artifact.get("id") == reference.get("artifact_id")
         and artifact.get("name") == reference.get("artifact_name")
         and artifact.get("digest")
@@ -186,6 +238,12 @@ def verify_sequential_blind_campaign(
         == reference.get("workflow_run_id")
         and public_sha == reference.get("public_sha256")
         and report.get("source_head") == reference.get("head_sha")
+        and report.get("aggregation_workflow")
+        == {
+            "run_id": reference.get("workflow_run_id"),
+            "run_attempt": reference.get("workflow_attempt"),
+        }
+        and replay_bound
         and report.get("campaign_id") == reference.get("campaign_id")
         and report.get("real_external_provider") is True
         and report.get("providers") == ["github", "s3"]

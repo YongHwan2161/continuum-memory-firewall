@@ -1152,6 +1152,9 @@ def build_envelope(
             {
                 "sequential_blind_campaign": {
                     "head_sha": sequential_reference["head_sha"],
+                    "evaluator_head_sha": sequential_reference.get(
+                        "evaluator_head_sha", sequential_reference["head_sha"]
+                    ),
                     "workflow_run_id": sequential_reference["workflow_run_id"],
                     "workflow_attempt": sequential_reference["workflow_attempt"],
                     "workflow_url": sequential_reference["workflow_url"],
@@ -1173,6 +1176,33 @@ def build_envelope(
                     "campaign_seal_receipt_sha256": sequential_blind_public[
                         "campaign_seal_receipt"
                     ]["receipt_sha256"],
+                    **(
+                        {
+                            "candidate_workflow_run_id": sequential_reference[
+                                "candidate_workflow_run_id"
+                            ],
+                            "candidate_workflow_attempt": sequential_reference[
+                                "candidate_workflow_attempt"
+                            ],
+                            "candidate_workflow_url": sequential_reference[
+                                "candidate_workflow_url"
+                            ],
+                            "candidate_artifact_id": sequential_reference[
+                                "candidate_artifact_id"
+                            ],
+                            "candidate_artifact_name": sequential_reference[
+                                "candidate_artifact_name"
+                            ],
+                            "candidate_artifact_archive_sha256": sequential_reference[
+                                "candidate_artifact_archive_sha256"
+                            ],
+                            "evaluation_replay": sequential_blind_public[
+                                "evaluation_replay"
+                            ],
+                        }
+                        if "evaluation_replay" in sequential_blind_public
+                        else {}
+                    ),
                     "methodology": sequential_blind_public["methodology"],
                     "arms": sequential_blind_public["arms"],
                     "paired_comparisons": sequential_blind_public[

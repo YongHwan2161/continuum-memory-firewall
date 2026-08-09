@@ -17,6 +17,10 @@ RUN_ID = 31320000000
 ARTIFACT_ID = 9040000000
 ARTIFACT_NAME = f"continuum-sequential-blind-{SOURCE_HEAD}-{RUN_ID}-1"
 ARCHIVE_SHA = "c" * 64
+CANDIDATE_RUN_ID = 31311573511
+CANDIDATE_ARTIFACT_ID = 9038202621
+CANDIDATE_ARCHIVE_SHA = "4" * 64
+EVALUATOR_HEAD = "e" * 40
 
 
 def _public() -> dict:
@@ -148,3 +152,95 @@ def test_public_projection_retains_evaluator_replay_provenance() -> None:
     }
     projection = build_public_sequential_blind(report)
     assert projection["evaluation_replay"] == report["evaluation_replay"]
+
+
+def test_replayed_campaign_binds_candidate_and_evaluator_receipts() -> None:
+    report = _public()
+    candidate_name = (
+        f"continuum-sequential-blind-{SOURCE_HEAD}-{CANDIDATE_RUN_ID}-1"
+    )
+    evaluator_name = (
+        f"continuum-sequential-blind-evaluator-{CANDIDATE_RUN_ID}-"
+        f"{EVALUATOR_HEAD}-{RUN_ID}-1"
+    )
+    report["evaluation_replay"] = {
+        "schema_version": 1,
+        "reason": "github_runner_python_3_10_missing_strenum_before_scoring",
+        "candidate_workflow": {
+            "run_id": CANDIDATE_RUN_ID,
+            "run_attempt": 1,
+            "conclusion": "failure",
+            "source_head": SOURCE_HEAD,
+            "candidate_step_conclusion": "success",
+            "cleanup_step_conclusion": "success",
+        },
+        "candidate_artifact": {
+            "id": CANDIDATE_ARTIFACT_ID,
+            "name": candidate_name,
+            "archive_sha256": CANDIDATE_ARCHIVE_SHA,
+        },
+        "evaluator_source_head": EVALUATOR_HEAD,
+    }
+    public_bytes = canonical_json_bytes(report)
+    evidence = _evidence(public_bytes)
+    reference = evidence["sequential_blind_campaign"]
+    reference.update(
+        {
+            "evaluator_head_sha": EVALUATOR_HEAD,
+            "artifact_name": evaluator_name,
+            "candidate_workflow_run_id": CANDIDATE_RUN_ID,
+            "candidate_workflow_attempt": 1,
+            "candidate_workflow_api_url": "https://api.example.test/runs/candidate",
+            "candidate_artifact_id": CANDIDATE_ARTIFACT_ID,
+            "candidate_artifact_name": candidate_name,
+            "candidate_artifact_archive_sha256": CANDIDATE_ARCHIVE_SHA,
+            "candidate_artifact_api_url": "https://api.example.test/artifacts/candidate",
+        }
+    )
+
+    def fetch(url: str) -> dict:
+        if url.endswith("/runs/sequential"):
+            return {
+                "id": RUN_ID,
+                "run_attempt": 1,
+                "conclusion": "success",
+                "head_sha": EVALUATOR_HEAD,
+            }
+        if url.endswith("/artifacts/sequential"):
+            return {
+                "id": ARTIFACT_ID,
+                "name": evaluator_name,
+                "digest": "sha256:" + ARCHIVE_SHA,
+                "expired": False,
+                "workflow_run": {"id": RUN_ID},
+            }
+        if url.endswith("/runs/candidate"):
+            return {
+                "id": CANDIDATE_RUN_ID,
+                "run_attempt": 1,
+                "conclusion": "failure",
+                "head_sha": SOURCE_HEAD,
+            }
+        if url.endswith("/artifacts/candidate"):
+            return {
+                "id": CANDIDATE_ARTIFACT_ID,
+                "name": candidate_name,
+                "digest": "sha256:" + CANDIDATE_ARCHIVE_SHA,
+                "expired": False,
+                "workflow_run": {"id": CANDIDATE_RUN_ID},
+            }
+        raise AssertionError(url)
+
+    assert verify_sequential_blind_campaign(
+        evidence,
+        fetch_json=fetch,
+        fetch_bytes=lambda _url: public_bytes,
+    )
+    evidence["sequential_blind_campaign"]["candidate_artifact_archive_sha256"] = (
+        "0" * 64
+    )
+    assert not verify_sequential_blind_campaign(
+        evidence,
+        fetch_json=fetch,
+        fetch_bytes=lambda _url: public_bytes,
+    )

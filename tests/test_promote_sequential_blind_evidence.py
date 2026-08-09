@@ -10,6 +10,10 @@ from tests.test_sequential_blind_judge import (
     ARCHIVE_SHA,
     ARTIFACT_ID,
     ARTIFACT_NAME,
+    CANDIDATE_ARCHIVE_SHA,
+    CANDIDATE_ARTIFACT_ID,
+    CANDIDATE_RUN_ID,
+    EVALUATOR_HEAD,
     RUN_ID,
     _public,
 )
@@ -137,6 +141,107 @@ class PromoteSequentialBlindEvidenceTests(unittest.TestCase):
                     repository="o/r",
                     release_tag="hackathon-v14",
                 )
+
+    def test_promotes_replay_with_both_provider_receipt_planes(self) -> None:
+        public = _public()
+        source = public["source_head"]
+        candidate_name = (
+            f"continuum-sequential-blind-{source}-{CANDIDATE_RUN_ID}-1"
+        )
+        evaluator_name = (
+            f"continuum-sequential-blind-evaluator-{CANDIDATE_RUN_ID}-"
+            f"{EVALUATOR_HEAD}-{RUN_ID}-1"
+        )
+        public["evaluation_replay"] = {
+            "schema_version": 1,
+            "reason": "github_runner_python_3_10_missing_strenum_before_scoring",
+            "candidate_workflow": {
+                "run_id": CANDIDATE_RUN_ID,
+                "run_attempt": 1,
+                "conclusion": "failure",
+                "source_head": source,
+                "candidate_step_conclusion": "success",
+                "cleanup_step_conclusion": "success",
+            },
+            "candidate_artifact": {
+                "id": CANDIDATE_ARTIFACT_ID,
+                "name": candidate_name,
+                "archive_sha256": CANDIDATE_ARCHIVE_SHA,
+            },
+            "evaluator_source_head": EVALUATOR_HEAD,
+        }
+        evaluator_workflow = {
+            "id": RUN_ID,
+            "run_attempt": 1,
+            "conclusion": "success",
+            "head_sha": EVALUATOR_HEAD,
+        }
+        evaluator_artifact = {
+            "id": ARTIFACT_ID,
+            "name": evaluator_name,
+            "digest": "sha256:" + ARCHIVE_SHA,
+            "expired": False,
+            "workflow_run": {"id": RUN_ID},
+        }
+        candidate_workflow = {
+            "id": CANDIDATE_RUN_ID,
+            "run_attempt": 1,
+            "conclusion": "failure",
+            "head_sha": source,
+        }
+        candidate_artifact = {
+            "id": CANDIDATE_ARTIFACT_ID,
+            "name": candidate_name,
+            "digest": "sha256:" + CANDIDATE_ARCHIVE_SHA,
+            "expired": False,
+            "workflow_run": {"id": CANDIDATE_RUN_ID},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            paths = {name: root / f"{name}.json" for name in (
+                "judge", "campaign", "workflow", "artifact",
+                "candidate-workflow", "candidate-artifact",
+            )}
+            output = root / "public.json"
+            paths["judge"].write_text(
+                json.dumps(
+                    {
+                        "schema_version": 8,
+                        "public_demo": {"url": "https://demo.example.test/"},
+                        "release_envelope": {},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            paths["campaign"].write_bytes(canonical_json_bytes(public))
+            for name, value in (
+                ("workflow", evaluator_workflow),
+                ("artifact", evaluator_artifact),
+                ("candidate-workflow", candidate_workflow),
+                ("candidate-artifact", candidate_artifact),
+            ):
+                paths[name].write_text(json.dumps(value), encoding="utf-8")
+            promoted = promote(
+                judge_path=paths["judge"],
+                campaign_report_path=paths["campaign"],
+                public_output_path=output,
+                workflow_receipt_path=paths["workflow"],
+                artifact_receipt_path=paths["artifact"],
+                candidate_workflow_receipt_path=paths["candidate-workflow"],
+                candidate_artifact_receipt_path=paths["candidate-artifact"],
+                repository="o/r",
+                release_tag="hackathon-v14",
+            )
+            reference = promoted["sequential_blind_campaign"]
+            self.assertEqual(reference["head_sha"], source)
+            self.assertEqual(reference["evaluator_head_sha"], EVALUATOR_HEAD)
+            self.assertEqual(
+                reference["candidate_workflow_run_id"], CANDIDATE_RUN_ID
+            )
+            self.assertEqual(
+                reference["candidate_artifact_archive_sha256"],
+                CANDIDATE_ARCHIVE_SHA,
+            )
 
 
 if __name__ == "__main__":

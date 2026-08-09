@@ -114,7 +114,7 @@ jobs:
                 ;;
               sequential_blind_campaign)
                 run_id="$(jq -r '.sequential_blind_campaign.workflow_run_id' "$judge")"
-                expected_head="$(jq -r '.sequential_blind_campaign.head_sha' "$judge")"
+                expected_head="$(jq -r '.sequential_blind_campaign.evaluator_head_sha // .sequential_blind_campaign.head_sha' "$judge")"
                 ;;
             esac
             provider_receipt="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
@@ -123,6 +123,15 @@ jobs:
               test "$(jq -r '.head_sha' <<<"$provider_receipt")" = "$expected_head"
             fi
           done
+          candidate_run_id="$(jq -r '.sequential_blind_campaign.candidate_workflow_run_id // empty' "$judge")"
+          if [ -n "$candidate_run_id" ]; then
+            candidate_receipt="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$candidate_run_id")"
+            test "$(jq -r '.run_attempt' <<<"$candidate_receipt")" = \
+              "$(jq -r '.sequential_blind_campaign.candidate_workflow_attempt' "$judge")"
+            test "$(jq -r '.head_sha' <<<"$candidate_receipt")" = \
+              "$(jq -r '.sequential_blind_campaign.head_sha' "$judge")"
+            test "$(jq -r '.conclusion' <<<"$candidate_receipt")" = failure
+          fi
 
       - name: Download and bind exact sandbox, ablation, guardian, replication, and blind artifacts
         if: steps.transaction.outputs.mode == 'new'
