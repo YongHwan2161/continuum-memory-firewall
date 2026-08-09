@@ -11,7 +11,12 @@ from typing import Any
 
 from continuum.blind_holdout import canonical_json_bytes, write_canonical_json
 from continuum.sequential_blind import build_campaign_manifest
-from scripts.seal_blind_holdout import _load, _seal_object, _write_private
+try:
+    from scripts.seal_blind_holdout import _load, _seal_object, _write_private
+except ModuleNotFoundError as exc:
+    if exc.name != "scripts" and not str(exc.name).startswith("scripts."):
+        raise
+    from seal_blind_holdout import _load, _seal_object, _write_private  # type: ignore[no-redef]
 
 
 def seal_campaign(
