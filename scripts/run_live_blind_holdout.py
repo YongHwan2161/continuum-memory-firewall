@@ -6,7 +6,6 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
-import os
 from pathlib import Path
 import re
 import time
@@ -19,6 +18,7 @@ from continuum.blind_holdout import (
     candidate_projection,
     canonical_json_bytes,
     validate_candidate_bundle,
+    write_canonical_json,
 )
 from continuum.episode import AgentArm, CockroachEpisodeStore, OutcomeStatus, payload_digest
 from continuum.github_release_provider import GitHubReleaseClient, GitHubReleaseSandboxProvider
@@ -65,15 +65,6 @@ def _load(path: Path) -> dict[str, Any]:
     if data.replace(b"\r\n", b"\n") != canonical_json_bytes(value):
         raise RuntimeError(f"{path.name} is not canonical JSON")
     return value
-
-
-def _write_canonical(path: Path, value: Mapping[str, Any]) -> None:
-    """Write the exact codec enforced by the post-run blind evaluator."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(descriptor, "wb") as handle:
-        handle.write(canonical_json_bytes(dict(value)))
-    os.chmod(path, 0o600)
 
 
 def _cases(challenge: Mapping[str, Any]) -> tuple[ReleaseGuardianCase, ...]:
@@ -470,7 +461,7 @@ def main() -> None:
             },
             "observations": traces,
         }
-    _write_canonical(args.output, observations)
+    write_canonical_json(args.output, observations)
     print(
         json.dumps(
             {key: value for key, value in observations.items() if key != "observations"},

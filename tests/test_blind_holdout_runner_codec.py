@@ -3,8 +3,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from continuum.blind_holdout import canonical_json_bytes
-from scripts.run_live_blind_holdout import _load, _write_canonical
+from continuum.blind_holdout import canonical_json_bytes, write_canonical_json
+from scripts.score_blind_holdout import _load
 
 
 class BlindHoldoutRunnerCodecTests(unittest.TestCase):
@@ -16,7 +16,7 @@ class BlindHoldoutRunnerCodecTests(unittest.TestCase):
         }
         with TemporaryDirectory() as directory:
             path = Path(directory, "observations.json")
-            _write_canonical(path, value)
+            write_canonical_json(path, value)
 
             self.assertEqual(path.read_bytes(), canonical_json_bytes(value))
             self.assertEqual(_load(path), value)
