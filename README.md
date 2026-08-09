@@ -152,13 +152,15 @@ The logged-out browser proof console is available at:
 
 <https://yonghwan2161.github.io/continuum-memory-firewall/>
 
-The current 99.53-second real-provider demo is public at
-<https://youtu.be/OEPYF7cVpbs>. It leads with the failed-action memory problem,
-runs the same 36 incidents against real GitHub draft-release effects, compares
-36/36 Continuum outcomes with 31/36 raw-RAG outcomes, documents the failed-first
-provider-identity repair, and ends at the public read-only PASS. Its publication
-and final Devpost refresh are recorded in
-[the v6 delivery receipt](docs/evidence/2026-08-08-real-provider-video-devpost-v6.md).
+The current receipt-compiled 97.02-second judge demo is public at
+<https://youtu.be/QQxfQaDVz9c>. Its nine scenes are generated from the immutable
+v14 sequential receipt rather than copied from hand-edited metric text. It shows
+the failed-outcome memory problem, the same 144 future target episodes per arm,
+48 raw-RAG false promotions versus zero for Continuum, exact-artifact evaluator
+reconciliation, the CockroachDB/AWS architecture, and the public PASS. The
+[evidence-story page](https://yonghwan2161.github.io/continuum-memory-firewall/evidence-story.html)
+exposes the story receipt and claim boundaries used by both the video and the
+one-click verifier.
 
 The policy-replay interactions are simulations, while the live metric cards and
 read-only verifier load exact public receipts for the participant deployment,
@@ -167,7 +169,7 @@ receives a token or database credential. The executable database evidence is
 the integration suite and linked exact-head workflows in
 [Project Status](docs/PROJECT_STATUS.md).
 
-The v14 release envelope receives exactly one author-controlled signature in
+The v15 release envelope receives exactly one author-controlled signature in
 the same main-only workflow that publishes it. Its Fulcio/Rekor Sigstore bundle
 is an immutable release asset and a byte-identical Pages resource. GitHub also
 adds one distinguishable immutable-release countersignature; the verifier
@@ -176,8 +178,15 @@ a second author signing operation. Perform strict cryptographic policy
 verification of the author signature with:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v14
+python scripts/verify_network_sign_once.py --release-tag hackathon-v15
 ```
+
+Version 15 preserves the immutable v14 evaluation unchanged and adds a
+fail-closed evidence-to-story receipt. That receipt binds the exact v14 envelope
+and sequential-asset digests, nine ordered scenes, statistical claim boundaries,
+the 97.02-second video and English subtitle SHA-256 values, and Devpost project
+version 20. The release workflow refuses publication if any story number,
+source receipt, media digest, or submission receipt diverges.
 
 Version 14 preserves the time-distributed v12 and blind-holdout v13 proofs, and
 additionally binds a three-batch sequential blind campaign that tests whether a

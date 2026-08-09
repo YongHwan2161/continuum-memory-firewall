@@ -1,6 +1,6 @@
 # Immutable competition release envelope
 
-`hackathon-v14` is the proof unit for the paired-episode competition build. It is
+`hackathon-v15` is the proof unit for the receipt-compiled competition story. It is
 published only by `.github/workflows/release-envelope.yml` after every
 fail-closed gate passes.
 
@@ -57,14 +57,19 @@ The envelope binds:
   receipts, paired hierarchical bootstrap and sequential e-process, verified
   memory-assisted successes, and zero Continuum false-promotion/leak/residual
   gates;
+- the canonical evidence-story receipt, including its self-addressed digest,
+  exact v14 envelope and sequential-asset inputs, nine ordered scenes, bounded
+  statistical claims, and public story page; and
 - the Devpost submission ID, updated project timestamp, public project URL,
-  current video URL, duration, and local-render SHA-256.
+  current video URL, duration, local-render SHA-256, and English subtitle
+  SHA-256.
 
 The immutable release carries the exact sandbox JSON, full ablation JSON,
 public-safe episode drill-down JSON, full real-provider guardian JSON, the
 time-distributed aggregate JSON, public blind-holdout JSON, and public
 sequential-campaign JSON as release assets
-in addition to the envelope.
+in addition to the envelope. Version 15 also carries
+`evidence-story-v1.json` and its SHA-256 sidecar.
 This keeps judge evidence available
 after the shorter-lived GitHub Actions artifacts expire.
 
@@ -138,6 +143,15 @@ manifest, S3 seal receipt, public aggregate digest, and immutable release asset.
 The evidence is described as three time clusters, not three independent people
 or calendar days.
 
+Version 15 closes the evidence-to-story drift gap. The compiler accepts only the
+immutable v14 sequential aggregate, its terminal release-transaction receipt,
+and the current public judge record. It rejects source-digest, methodology,
+paired-statistics, replay-lineage, safety-gate, Devpost, video, subtitle, or
+claim-boundary drift. The resulting canonical JSON has a self-addressed receipt
+and is the only metric source for the nine-scene narration, public story page,
+and v15 envelope. It confirms the paired raw-RAG comparison, keeps the stateless
+comparison directional, and explicitly does not claim latency superiority.
+
 The v14 sequential section binds two workflow planes. Candidate run
 `31311573511` completed the full 540-observation step and cleanup, then failed
 before scoring when the runner's Python 3.10 could not import `StrEnum`.
@@ -174,7 +188,7 @@ asset state, and SHA-256 digest. A judge can independently download the envelope
 and validate its sidecar without trusting the public page:
 
 ```bash
-gh release download hackathon-v14 --pattern 'continuum-release-envelope-v2.json*'
+gh release download hackathon-v15 --pattern 'continuum-release-envelope-v2.json*'
 sha256sum -c continuum-release-envelope-v2.json.sha256
 ```
 
@@ -185,7 +199,7 @@ attestation API and the in-toto subject digest. Full cryptographic policy
 verification is one repository command:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v14
+python scripts/verify_network_sign_once.py --release-tag hackathon-v15
 ```
 
 That command downloads the immutable envelope, detached author bundle, and both

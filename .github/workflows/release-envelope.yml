@@ -6,7 +6,7 @@ on:
       release_tag:
         description: New or resumable immutable GitHub Release tag
         required: true
-        default: hackathon-v14
+        default: hackathon-v15
       release_target:
         description: Exact existing release target to reconcile; blank uses the workflow SHA
         required: false
@@ -231,6 +231,7 @@ jobs:
             --release-guardian-replication build/evidence/replication/release-guardian-replication-v1.json \
             --blind-holdout-public public-demo/evidence/blind-holdout-v1.json \
             --sequential-blind-public public-demo/evidence/sequential-blind-v1.json \
+            --evidence-story public-demo/evidence/evidence-story-v1.json \
             --repo-root . \
             --repository "$GITHUB_REPOSITORY" \
             --commit-sha "$RELEASE_TARGET" \
@@ -252,6 +253,8 @@ jobs:
             build/release/blind-holdout-v1.json
           cp public-demo/evidence/sequential-blind-v1.json \
             build/release/sequential-blind-v1.json
+          cp public-demo/evidence/evidence-story-v1.json \
+            build/release/evidence-story-v1.json
           (
             cd build/release
             sha256sum sandbox-provider-proof.json >sandbox-provider-proof.json.sha256
@@ -261,6 +264,7 @@ jobs:
             sha256sum release-guardian-replication-v1.json >release-guardian-replication-v1.json.sha256
             sha256sum blind-holdout-v1.json >blind-holdout-v1.json.sha256
             sha256sum sequential-blind-v1.json >sequential-blind-v1.json.sha256
+            sha256sum evidence-story-v1.json >evidence-story-v1.json.sha256
           )
 
       - name: Create the durable draft before author signing
@@ -288,6 +292,8 @@ jobs:
             build/release/blind-holdout-v1.json.sha256 \
             build/release/sequential-blind-v1.json \
             build/release/sequential-blind-v1.json.sha256 \
+            build/release/evidence-story-v1.json \
+            build/release/evidence-story-v1.json.sha256 \
             --target "$RELEASE_TARGET" \
             --draft \
             --title "Continuum Memory Firewall evidence envelope" \
@@ -365,6 +371,8 @@ jobs:
               "blind-holdout-v1.json.sha256",
               "sequential-blind-v1.json",
               "sequential-blind-v1.json.sha256",
+              "evidence-story-v1.json",
+              "evidence-story-v1.json.sha256",
           )
           root = Path("build/release")
           print(json.dumps({name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}, sort_keys=True))
@@ -560,6 +568,8 @@ jobs:
               "blind-holdout-v1.json.sha256",
               "sequential-blind-v1.json",
               "sequential-blind-v1.json.sha256",
+              "evidence-story-v1.json",
+              "evidence-story-v1.json.sha256",
           )
           root = Path("build/release")
           print(json.dumps({name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}, sort_keys=True))

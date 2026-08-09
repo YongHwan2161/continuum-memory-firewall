@@ -13,6 +13,7 @@ from urllib.request import Request, urlopen
 
 from scripts.release_transaction_coordinator import verify_receipt
 from continuum.blind_holdout import build_public_blind_holdout
+from continuum.evidence_story import verify_evidence_story_receipt
 from continuum.release_guardian import build_public_release_guardian
 from continuum.release_guardian_replication import (
     EXPECTED_REPLICATION_IDS,
@@ -289,6 +290,60 @@ def verify_sequential_blind_campaign(
     )
 
 
+def verify_evidence_story(
+    evidence: dict[str, Any],
+    *,
+    fetch_bytes: Callable[[str], bytes],
+) -> bool:
+    """Bind the competition narrative and video receipt to immutable inputs."""
+
+    reference = evidence.get("evidence_story")
+    if reference is None:
+        return True
+    try:
+        story_bytes = fetch_bytes(reference["public_url"])
+        story_sha = hashlib.sha256(
+            story_bytes.replace(b"\r\n", b"\n")
+        ).hexdigest()
+        story = json.loads(story_bytes.decode("utf-8"))
+        if not isinstance(story, dict):
+            return False
+        source_release = story["source_release"]
+        boundary = story["claim_boundary"]
+        submission = evidence["submission"]
+        sequential = evidence["sequential_blind_campaign"]
+    except (KeyError, RuntimeError, TypeError, ValueError, json.JSONDecodeError):
+        return False
+    return (
+        story_sha == reference.get("public_sha256")
+        and verify_evidence_story_receipt(story)
+        and story.get("receipt_sha256")
+        == reference.get("story_receipt_sha256")
+        and story.get("gate", {}).get("status") == "PASS"
+        and all(story.get("gate", {}).get("checks", {}).values())
+        and len(story.get("story", {}).get("scenes", [])) == 9
+        and source_release.get("tag") == reference.get("source_release_tag")
+        and source_release.get("target")
+        == reference.get("source_release_target")
+        and source_release.get("envelope_sha256")
+        == reference.get("source_release_envelope_sha256")
+        and source_release.get("sequential_asset_sha256")
+        == reference.get("source_sequential_sha256")
+        == sequential.get("public_sha256")
+        and boundary.get("continuum_vs_raw_rag")
+        == "confirmed_paired_advantage"
+        and boundary.get("continuum_vs_stateless")
+        == "directional_not_confirmatory"
+        and boundary.get("latency") == "measured_not_claimed_as_superior"
+        and reference.get("video_url") == submission.get("video_url")
+        and reference.get("video_sha256") == submission.get("video_sha256")
+        and reference.get("video_duration_seconds")
+        == submission.get("video_duration_seconds")
+        and reference.get("subtitles_sha256")
+        == submission.get("video_subtitles_sha256")
+    )
+
+
 def verify_time_distributed_replication(
     evidence: dict[str, Any],
     *,
@@ -449,7 +504,7 @@ def verify_evidence(
             and runtime["control_plane_and_migrator_role_options_empty"] is True
         ),
         "representative_scale_gate": (
-            schema_version in {4, 5, 6, 7, 8, 9}
+            schema_version in {4, 5, 6, 7, 8, 9, 10}
             and scale_report.get("gate", {}).get("status") == "PASS"
             and [scale.get("row_count") for scale in scales] == [10_000, 50_000]
         ),
@@ -515,6 +570,11 @@ def verify_evidence(
                 fetch_bytes=fetch_bytes,
             )
         )
+    if "evidence_story" in evidence:
+        checks["receipt_compiled_evidence_story"] = verify_evidence_story(
+            evidence,
+            fetch_bytes=fetch_bytes,
+        )
     if schema_version >= 5:
         lineage = evidence["lineage"]
         sandbox_reference = evidence["sandbox_provider"]
@@ -572,6 +632,7 @@ def verify_evidence(
         replication_asset: dict[str, Any] = {}
         blind_asset: dict[str, Any] = {}
         sequential_asset: dict[str, Any] = {}
+        evidence_story_asset: dict[str, Any] = {}
         if schema_version >= 8:
             guardian_reference = evidence["release_guardian"]
             guardian_workflow = fetch_json(
@@ -617,6 +678,11 @@ def verify_evidence(
             if "sequential_blind_campaign" in evidence:
                 sequential_asset = release_assets.get(
                     release_reference["sequential_blind_asset_name"],
+                    {},
+                )
+            if "evidence_story" in evidence:
+                evidence_story_asset = release_assets.get(
+                    release_reference["evidence_story_asset_name"],
                     {},
                 )
         network_reference: dict[str, Any] = {}
@@ -930,6 +996,12 @@ def verify_evidence(
                         == "sha256:"
                         + evidence["sequential_blind_campaign"]["public_sha256"]
                     )
+                    and (
+                        "evidence_story" not in evidence
+                        or evidence_story_asset.get("digest")
+                        == "sha256:"
+                        + evidence["evidence_story"]["public_sha256"]
+                    )
                 ),
                 "release_envelope_gate": (
                     envelope.get("schema_version") == 2
@@ -988,6 +1060,25 @@ def verify_evidence(
                             == evidence["sequential_blind_campaign"].get(
                                 "campaign_manifest_sha256"
                             )
+                        )
+                    )
+                    and (
+                        "evidence_story" not in evidence
+                        or (
+                            envelope.get("evidence_story", {}).get(
+                                "public_sha256"
+                            )
+                            == evidence["evidence_story"].get("public_sha256")
+                            and envelope.get("evidence_story", {}).get(
+                                "receipt_sha256"
+                            )
+                            == evidence["evidence_story"].get(
+                                "story_receipt_sha256"
+                            )
+                            and envelope.get("evidence_story", {})
+                            .get("video", {})
+                            .get("sha256")
+                            == evidence["submission"].get("video_sha256")
                         )
                     )
                 ),
