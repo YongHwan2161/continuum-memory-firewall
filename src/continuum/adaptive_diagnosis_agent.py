@@ -392,9 +392,10 @@ class AdaptiveDiagnosisAgent:
                             "adaptive proposal evidence fields are invalid"
                         )
                     policy.validate_parameters(value.get("parameters"))
-                    verified_support = any(
-                        handle in fetched_handles
-                        and handle in cited
+                    admissible_citations = {
+                        handle
+                        for handle in cited
+                        if handle in fetched_handles
                         and self._memory_authorizes_patch(
                             arm=arm,
                             hit=handles[handle],
@@ -406,8 +407,22 @@ class AdaptiveDiagnosisAgent:
                             ),
                             patch_id=proposed_patch_id,
                         )
-                        for handle in handles
-                    )
+                    }
+                    if set(cited) != admissible_citations:
+                        messages.append(
+                            self._tool_result(
+                                tool_use_id,
+                                {
+                                    "error": (
+                                        "citation handles must be fetched, server-admitted, "
+                                        "and authorize the proposed patch"
+                                    )
+                                },
+                                error=True,
+                            )
+                        )
+                        continue
+                    verified_support = bool(admissible_citations)
                     if not diagnostic_receipts and not verified_support:
                         messages.append(
                             self._tool_result(
@@ -589,7 +604,14 @@ class AdaptiveDiagnosisAgent:
 
         tools: list[Mapping[str, Any]] = []
         available_handles = [
-            handle for handle in handles if handle not in fetched_handles
+            handle
+            for handle in handles
+            if handle not in fetched_handles
+            and not (
+                transfer_contract == TRANSFER_CONTRACT
+                and arm is AgentArm.CONTINUUM
+                and handle not in verified_handles
+            )
         ]
         if available_handles:
             tools.append(self._fetch_tool(available_handles))
