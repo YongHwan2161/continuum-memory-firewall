@@ -1,0 +1,93 @@
+name: transfer-firewall-child
+run-name: transfer-firewall / ${{ inputs.correlation_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      case_id:
+        description: Opaque preregistered target identity
+        required: true
+        type: string
+      patch_id:
+        description: Bounded attestation, probe, or remediation identity
+        required: true
+        type: string
+      phase:
+        description: Source calibration, target attestation, diagnostic, or remediation
+        required: true
+        type: string
+      correlation_id:
+        description: Server-issued dispatch correlation
+        required: true
+        type: string
+      source_head:
+        description: Exact benchmark source head
+        required: true
+        type: string
+      fixture_id:
+        description: Controller-owned sealed fixture route
+        required: true
+        type: string
+      environment_profile_id:
+        description: Controller-owned environment profile
+        required: true
+        type: string
+      environment_fingerprint:
+        description: Opaque source or target environment identity
+        required: true
+        type: string
+      commitment_sha256:
+        description: Exact preregistration commitment
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: transfer-firewall-${{ inputs.correlation_id }}
+  cancel-in-progress: false
+
+jobs:
+  exercise:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v6.2.0, Node 24
+        with:
+          python-version: "3.12"
+      - name: Execute one sealed cross-environment provider exercise
+        env:
+          CASE_ID: ${{ inputs.case_id }}
+          OPERATION_ID: ${{ inputs.patch_id }}
+          OPERATION_KIND: ${{ inputs.phase }}
+          CORRELATION_ID: ${{ inputs.correlation_id }}
+          EXPECTED_SOURCE_HEAD: ${{ inputs.source_head }}
+          FIXTURE_ID: ${{ inputs.fixture_id }}
+          ENVIRONMENT_PROFILE_ID: ${{ inputs.environment_profile_id }}
+          ENVIRONMENT_FINGERPRINT: ${{ inputs.environment_fingerprint }}
+          COMMITMENT_SHA256: ${{ inputs.commitment_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_SHA" = "$EXPECTED_SOURCE_HEAD"
+          PYTHONPATH=src:. python scripts/transfer_firewall_fixture.py \
+            --case-id "$CASE_ID" \
+            --fixture-id "$FIXTURE_ID" \
+            --environment-profile-id "$ENVIRONMENT_PROFILE_ID" \
+            --environment-fingerprint "$ENVIRONMENT_FINGERPRINT" \
+            --operation-kind "$OPERATION_KIND" \
+            --operation-id "$OPERATION_ID" \
+            --correlation-id "$CORRELATION_ID" \
+            --source-head "$EXPECTED_SOURCE_HEAD" \
+            --commitment-sha256 "$COMMITMENT_SHA256" \
+            --receipt "$RUNNER_TEMP/transfer-firewall-receipt.json"
+      - name: Preserve provider receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        with:
+          name: transfer-firewall-${{ inputs.correlation_id }}
+          path: ${{ runner.temp }}/transfer-firewall-receipt.json
+          if-no-files-found: error
+          retention-days: 30
