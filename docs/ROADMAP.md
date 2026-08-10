@@ -94,14 +94,26 @@ Exit criteria:
 
 **Goal:** turn the implementation into a judge-friendly, measurable submission.
 
-**P0 on 2026-08-10 — real CI closed-loop recovery:** the source now registers
-six bounded CI fault families, preserves actual failed GitHub Actions runs as
-provider evidence, dispatches separate green recovery runs, and compares the
-same twelve incidents across stateless, raw-RAG, and Continuum. The live claim
-remains HOLD until this source is reviewed on `main`, the main-only OIDC parent
-workflow produces all 54 unique child receipts, and the result is promoted into
-the public judge/release evidence. See
+**Completed P0 on 2026-08-10 — real CI closed-loop recovery:** reviewed source
+produced 54 unique GitHub workflow/artifact receipts across six calibrated
+fault families. Continuum and stateless recovered 12/12; raw-RAG recovered
+11/12 and falsely promoted its one failed recurrence. Exact-head, provider,
+artifact, public projection, no-mutation, and cleanup gates are bound into the
+public judge and v18 release evidence. See
 [CI_RECOVERY_BENCHMARK.md](CI_RECOVERY_BENCHMARK.md).
+
+**Next P0 — sealed adaptive CI diagnosis:** the current explicit diagnostics
+make the stateless arm perfect, so adding more source-defined repair families
+would repeat safety evidence without proving the causal value of memory. The
+next benchmark should preregister disposable repository variants whose first
+red log is deliberately non-identifying. Each arm receives the same tool and
+time budget and must choose provider-backed diagnostic probes before proposing
+a patch. Hidden variant labels open only after all arms finish. Primary metrics
+are verified recovery within budget, unnecessary diagnostic calls and cost,
+recurrence MTTR, false promotion, and cleanup residual. The hard product claim
+is admitted only if Continuum improves the paired recovery/cost frontier over
+stateless while preserving false promotion 0. This is the shortest path from
+“safe memory” to “memory supplies otherwise unavailable information.”
 
 **Current:** the 540-observation synthetic ablation and the real-provider
 guardian are separate evidence layers. In five serial, main-only OIDC workflow

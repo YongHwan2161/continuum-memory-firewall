@@ -106,3 +106,49 @@ workflow_dispatch: aws-ci-recovery-benchmark.yml
 The workflow creates no AWS infrastructure and keeps the existing USD 20
 budget alert unchanged. The only incremental AWS use is bounded Nova Micro
 inference.
+
+## Live result — 2026-08-10
+
+The reviewed parent workflow
+[`31389008324`](https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31389008324)
+completed on source `3a77fa7575d6b324ae367995bd398fbd0b758ca1`.
+Its exact artifact is ID `9062964949`, name
+`continuum-ci-recovery-3a77fa7575d6b324ae367995bd398fbd0b758ca1-31389008324-1`,
+archive SHA-256
+`08d5d0d0cc7b3719fcdea306221924d2db6687580c42e3b980fccdcb3a8a274f`,
+and public-result SHA-256
+`8d0f6ac85c22f052f2f3968deeb3f86c311164773d06def3e9f87977cb4e9236`.
+
+All 54 child workflow run IDs and artifact IDs were unique. Every child ran at
+the exact source head, reported no repository mutation, and left zero cleanup
+residuals. The six calibrations each produced the registered red, wrong-red,
+and green conclusions.
+
+| Arm | Verified recovery | Recurrence | False promotion | Canonical precision | Provider p95 | End-to-end p95 |
+|---|---:|---:|---:|---:|---:|---:|
+| Stateless | 12/12 | 6/6 | 0 | n/a | 19.0 s | 19.64 s |
+| Raw-RAG | 11/12 | 5/6 | 1 | 0.916667 | 86.0 s | 87.25 s |
+| Continuum | 12/12 | 6/6 | 0 | 1.0 | 52.0 s | 53.32 s |
+
+The one raw-RAG failure was `matrix-axis-02-recurrence`. Append-all history
+exposed and adopted the failed `set_python_312` memory, although the required
+tool was `repair_matrix_axis`; child run
+[`31389172556`](https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31389172556)
+ended red. Continuum exposed no failed memory and promoted only successful
+provider receipts.
+
+Continuum's descriptive lift over raw-RAG was +8.3333 percentage points, with
+one win, no losses, eleven ties, bootstrap 95% interval 0 to +25 points, and
+paired exact p = 1.0. It had no lift over stateless: all twelve pairs tied.
+Therefore the supported claim is failed-memory isolation under a real
+closed-loop provider, not general recovery superiority or a statistically
+confirmatory treatment effect.
+
+The first parent attempt
+[`31388545383`](https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31388545383)
+failed closed after GitHub changed the artifact-download media contract. The
+reviewed fix switched the API request to JSON media type, followed only the
+unsigned HTTPS location without forwarding the bearer token, and verified the
+downloaded archive against GitHub's advertised digest. Main CI and the second
+parent run then passed. This incident is retained because it is itself an
+observed recovery boundary, not deleted from the narrative.

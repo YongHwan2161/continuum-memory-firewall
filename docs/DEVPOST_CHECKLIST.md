@@ -85,6 +85,12 @@ complete attestations and organizer agreements.
       +14.58 and sequential e-value 637.15. The stateless comparison remains
       directional because its interval crossed zero. Public explorer:
       <https://yonghwan2161.github.io/continuum-memory-firewall/sequential-blind.html>
+- [x] Real closed-loop CI benchmark completed 54 unique GitHub Actions child
+      runs across six calibrated fault families. Continuum and stateless each
+      recovered 12/12; raw-RAG recovered 11/12 and promoted one failed outcome.
+      Exact parent/artifact/public digests, zero repository mutation, and zero
+      cleanup residual are judge-verifiable at
+      <https://yonghwan2161.github.io/continuum-memory-firewall/ci-recovery.html>.
 - [x] Network-visible sign-once release flow refuses a second author
       attestation, attaches the one verified Fulcio/Rekor author bundle before
       release immutability, serves identical bundle bytes through Pages, and

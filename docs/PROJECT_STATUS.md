@@ -32,6 +32,15 @@ The Devpost entry is submitted to the CockroachDB x AWS hackathon as submission
 `1121568`. The submission remains editable while submissions are open; the
 current deadline is 2026-08-19 06:00 KST.
 
+The real GitHub Actions closed-loop recovery run is also complete. Across six
+fault families, 18 calibration and 36 paired evaluation children produced 54
+unique run/artifact receipts with zero repository mutation and zero cleanup
+residual. Continuum and stateless each recovered 12/12; raw-RAG recovered
+11/12 after failed append-all history poisoned one recurrence. Continuum kept
+canonical precision 1.0 and false promotion 0 versus raw-RAG precision
+0.916667 and one false promotion. Because stateless also reached 12/12, the
+evidence is explicitly bounded to receipt closure and failed-memory isolation.
+
 This document is the single source of truth for current capability, verification
 evidence, and explicit non-claims.
 
@@ -52,7 +61,7 @@ evidence, and explicit non-claims.
 | Outcome-gated three-arm ablation | 180 identical paired cases per arm completed live | Five isolated replications of 36 stale/poison/conflict-aware cases produced 540 observations. Verified provider outcomes: stateless 80/180, raw-RAG 95/180, Continuum 180/180. Continuum beat raw-RAG by 47.222 points (paired cluster-bootstrap 95% +30.556 to +63.889); Continuum retained zero unsafe proposals, poison exposure, cross-scope rows, false promotions, and ambiguous outcomes |
 | Real-provider release guardian | 36 exact paired incidents per arm completed live | Run `31245814421` produced 72 Bedrock/CockroachDB/GitHub observations. Continuum: 36/36 verified outcomes and zero unsafe proposals, exposure, false promotions, duplicate effects, cleanup residuals, and scope leaks. raw-RAG: 31/36, five unsafe proposals, 23 unsafe exposures, and five false promotions. The +13.889-point lift has paired bootstrap 95% +2.778 to +25.0; exact p = 0.0625 is reported without overclaiming. |
 | Time-distributed real-provider replication | Five exact workflows and artifacts completed live | Runs `31262805258`, `31263400941`, `31264011991`, `31264600483`, and `31265192522` replayed one checksum-bound 36-case population. Aggregate run `31265768185`: Continuum 180/180 versus raw-RAG 150/180 (+16.67 pp), cluster bootstrap 95% +10.0 to +24.44 pp, positive lift in 5/5 batches, 330/330 unique successful receipt fingerprints, and zero Continuum unsafe proposals, exposures, false promotions, duplicate effects, residuals, or leaks. The repeated-case statistical boundary is explicit. |
-| Closed-loop CI recovery | Source, child workflow, coordinator, metrics, and fail-closed tests implemented; live provider run pending reviewed `main` | Six source-defined fault families produce separate GitHub Actions red/wrong-red/green calibration receipts, followed by twelve exact three-arm evaluation incidents. Child failures remain real failed workflow runs and still upload immutable receipts. Continuum publication requires at least 75% verified recovery, precision 1.0, zero false promotion, unique run/artifact receipts, no repository mutation, and zero cleanup residual. See [CI_RECOVERY_BENCHMARK.md](CI_RECOVERY_BENCHMARK.md). |
+| Closed-loop CI recovery | Live GitHub Actions benchmark complete; public projection and immutable release bound | Parent run `31389008324` produced 18 calibration plus 36 evaluation children: 54 unique workflow/artifact receipts, exact head `3a77fa7`, no repository mutation, and zero cleanup residual. Continuum 12/12, stateless 12/12, raw-RAG 11/12; raw-RAG admitted one false canonical promotion while Continuum admitted zero. Public SHA-256 `8d0f6ac8…9236`. The result proves failed-memory isolation, not superiority over stateless. See [CI_RECOVERY_BENCHMARK.md](CI_RECOVERY_BENCHMARK.md). |
 | Pre-registered blind multi-provider holdout | Source and fail-closed workflow implemented; main-only live run HOLD | An independent Bedrock generator creates 60 new GitHub/S3 incidents, seals challenge/labels/commitment to content-addressed S3, then an explicit IAM deny prevents the candidate process from opening labels. A separate evaluator scores 120 observations only after both arms finish. Real GitHub draft and encrypted S3 effects, receipt/evidence digests, cleanup, and cross-scope gates are implemented. Metrics are not claimed until the exact source is merged and its production-environment OIDC run passes. |
 | Per-episode paired drill-down | Implemented, live-generated, and checksum-bound | The exact-head `2ef2247` rerun projects 540 observations into 180 three-arm incidents. Each arm exposes scoped search results, SHA-256 citation-handle fingerprints, typed proposal, provider outcome evidence, and promotion decision. Projection gates: exact pairing PASS, issued handles only PASS, Continuum unsafe proposals 0, cross-scope rows 0, private identifier keys 0 |
 | Network-visible sign-once | Implemented and publicly verifiable | `hackathon-v10` is durable-draft-first, author-signed, and published in one main-only workflow. It emits exactly one Fulcio/Rekor author bundle, verifies exact workflow/ref/source/runner policy, includes the bundle before immutability, and serves the two-authority network bundle through Pages. The gate separately requires GitHub's one immutable-release countersignature, so platform signing is not misreported as an author replay. |
@@ -149,6 +158,11 @@ evidence, and explicit non-claims.
   [2026-08-02-control-plane-eval-pooling-live.md](evidence/2026-08-02-control-plane-eval-pooling-live.md)
 - One-click public judge verifier:
   <https://yonghwan2161.github.io/continuum-memory-firewall/verify.html>
+- Public closed-loop CI recovery explorer and exact parent workflow:
+  <https://yonghwan2161.github.io/continuum-memory-firewall/ci-recovery.html>
+  and <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31389008324>
+- Redacted closed-loop CI recovery evidence:
+  [2026-08-10-ci-recovery-live.md](evidence/2026-08-10-ci-recovery-live.md)
 - Exact-head 10k/50k vector benchmark workflow:
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30735058404>
 - Byte-identical vector-scale evidence summary:

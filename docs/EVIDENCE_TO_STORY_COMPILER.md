@@ -1,6 +1,6 @@
 # Evidence-to-story compiler
 
-The v17 judge delivery is generated from immutable receipts. It is not an editable
+The v18 judge delivery is generated from immutable receipts. It is not an editable
 second copy of the evaluation result.
 
 ## Purpose
@@ -59,7 +59,7 @@ any post-compilation edit.
 
 ## Delivery binding
 
-The v17 promotion step binds the story to:
+The v18 promotion step binds the story to:
 
 - public video <https://youtu.be/QQxfQaDVz9c>;
 - 97.02-second local H.264/AAC render SHA-256
@@ -67,7 +67,7 @@ The v17 promotion step binds the story to:
 - English SRT SHA-256
   `f95c60536851fd6cfa8f05441e15ed069da35457aba779977e91024835bbd98b`;
 - Devpost project version 20 and its authenticated update timestamp;
-- immutable `hackathon-v17` envelope and story release assets.
+- immutable `hackathon-v18` envelope, story, and CI recovery release assets.
 
 The release builder recomputes the story receipt and public file digest, checks
 the source v14 lineage, then compares its video, subtitle, and Devpost fields to
@@ -106,7 +106,7 @@ After publication, use the logged-out page or strict command:
 
 ```bash
 PYTHONPATH=src:. python -m scripts.judge_readonly_verify
-python scripts/verify_network_sign_once.py --release-tag hackathon-v17
+python scripts/verify_network_sign_once.py --release-tag hackathon-v18
 ```
 
 The scheduled judge monitor uses the same explicit module and import-path

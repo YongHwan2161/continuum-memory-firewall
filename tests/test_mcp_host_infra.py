@@ -172,7 +172,8 @@ class McpHostInfrastructureTests(unittest.TestCase):
         workflow = (
             ROOT / ".github" / "workflows" / "release-envelope.yml"
         ).read_text(encoding="utf-8")
-        self.assertIn("default: hackathon-v17", workflow)
+        self.assertIn("default: hackathon-v18", workflow)
+        self.assertIn("ci-recovery-v1.json", workflow)
         self.assertIn(
             "for plane in source vector_scale agent_pressure managed_mcp "
             "sandbox_provider agent_ablation release_guardian "

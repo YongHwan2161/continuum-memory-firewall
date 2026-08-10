@@ -463,6 +463,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         blind_holdout_public=None,
         sequential_blind_public=None,
         evidence_story=None,
+        ci_recovery_public=None,
     ):
         blind_bytes = (
             (json.dumps(blind_holdout_public, sort_keys=True) + "\n").encode()
@@ -479,6 +480,11 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             if evidence_story is not None
             else b""
         )
+        ci_recovery_bytes = (
+            (json.dumps(ci_recovery_public, sort_keys=True) + "\n").encode()
+            if ci_recovery_public is not None
+            else b""
+        )
         return build_envelope(
             self.judge,
             self.scale,
@@ -492,6 +498,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             blind_holdout_public=blind_holdout_public,
             sequential_blind_public=sequential_blind_public,
             evidence_story=evidence_story,
+            ci_recovery_public=ci_recovery_public,
             judge_bytes=self.judge_bytes,
             scale_bytes=self.scale_bytes,
             pressure_bytes=self.pressure_bytes,
@@ -504,6 +511,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             blind_holdout_public_bytes=blind_bytes,
             sequential_blind_public_bytes=sequential_bytes,
             evidence_story_bytes=story_bytes,
+            ci_recovery_public_bytes=ci_recovery_bytes,
             repo_root=Path(__file__).parents[1],
             repository="o/r",
             commit_sha="d" * 40,
@@ -548,6 +556,39 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             envelope["release_transaction"]["required_terminal_state"],
             "PAGES_MATERIALIZED",
         )
+
+    def test_binds_real_ci_closed_loop_public_projection(self) -> None:
+        root = Path(__file__).parents[1]
+        ci_recovery = json.loads(
+            (root / "public-demo/evidence/ci-recovery-v1.json").read_bytes()
+        )
+        live_judge = json.loads(
+            (root / "public-demo/evidence/judge-verification.json").read_bytes()
+        )
+        self.judge["ci_recovery"] = live_judge["ci_recovery"]
+        ci_recovery_bytes = (json.dumps(ci_recovery, sort_keys=True) + "\n").encode()
+        self.judge["ci_recovery"]["public_sha256"] = sha256_bytes(
+            ci_recovery_bytes
+        )
+        self.judge["release_envelope"].update(
+            {
+                "ci_recovery_asset_name": "ci-recovery-v1.json",
+                "ci_recovery_asset_url": (
+                    "https://github.com/o/r/releases/download/hackathon-v1/"
+                    "ci-recovery-v1.json"
+                ),
+            }
+        )
+        self.judge_bytes = (json.dumps(self.judge, sort_keys=True) + "\n").encode()
+        envelope = self.build(ci_recovery_public=ci_recovery)
+        self.assertEqual(envelope["gates"]["status"], "PASS")
+        self.assertEqual(envelope["ci_recovery"]["workflow_run_id"], 31389008324)
+        self.assertEqual(envelope["ci_recovery"]["arms"]["continuum"]["verified_recoveries"], 12)
+        self.assertEqual(envelope["ci_recovery"]["arms"]["stateless"]["verified_recoveries"], 12)
+
+        ci_recovery["arms"]["raw_rag"]["verified_recoveries"] = 12
+        with self.assertRaisesRegex(RuntimeError, "ci_recovery"):
+            self.build(ci_recovery_public=ci_recovery)
 
     def test_binds_preregistered_blind_holdout(self) -> None:
         blind = json.loads(

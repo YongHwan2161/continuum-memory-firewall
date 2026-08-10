@@ -214,7 +214,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
                     release_tag="hackathon-v5",
                 )
 
-    def test_repository_public_evidence_has_v17_story_closure(self) -> None:
+    def test_repository_public_evidence_has_v18_ci_recovery_closure(self) -> None:
         judge_path = self.repo_root / "public-demo/evidence/judge-verification.json"
         aggregate_path = self.repo_root / "public-demo/evidence/agent-ablation-v3.json"
         drilldown_path = (
@@ -244,8 +244,13 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         story_bytes = story_path.read_bytes()
         story = json.loads(story_bytes)
 
-        self.assertEqual(judge["schema_version"], 10)
-        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v17")
+        self.assertEqual(judge["schema_version"], 11)
+        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v18")
+        self.assertEqual(
+            judge["release_envelope"]["ci_recovery_asset_name"],
+            "ci-recovery-v1.json",
+        )
+        self.assertEqual(judge["ci_recovery"]["workflow_run_id"], 31389008324)
         self.assertEqual(
             judge["network_sign_once"]["required_total_attestation_count"],
             2,
