@@ -1,0 +1,107 @@
+name: aws-ci-recovery-benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      campaign_prefix:
+        description: Stable benchmark campaign prefix
+        required: true
+        default: ci-recovery-v1
+        type: string
+
+permissions:
+  actions: write
+  contents: read
+  id-token: write
+
+concurrency:
+  group: continuum-ci-recovery-benchmark
+  cancel-in-progress: false
+
+jobs:
+  closed-loop:
+    runs-on: ubuntu-latest
+    environment: continuum-production
+    timeout-minutes: 45
+    env:
+      AWS_REGION: ap-southeast-1
+      CONTINUUM_AGENT_BEDROCK_REGION: ap-southeast-2
+      CONTINUUM_AGENT_MODEL: amazon.nova-micro-v1:0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v6.2.0, Node 24
+        with:
+          python-version: "3.12"
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3, Node 24
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          role-session-name: continuum-ci-recovery
+      - name: Prove reviewed main-only deployment identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          ./scripts/assert_deployer_identity.sh
+      - name: Install the exact-head benchmark runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check \
+            "boto3>=1.40,<2" -e .
+      - name: Run actual red-to-green GitHub Actions recovery loops
+        env:
+          CI_RECOVERY_GITHUB_TOKEN: ${{ github.token }}
+          CAMPAIGN_PREFIX: ${{ inputs.campaign_prefix }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          campaign_id="${CAMPAIGN_PREFIX}-${GITHUB_RUN_ID}"
+          PYTHONPATH=src:. python scripts/run_live_ci_recovery.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --source-head "$GITHUB_SHA" \
+            --ref main \
+            --campaign-id "$campaign_id" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --agent-region "$CONTINUUM_AGENT_BEDROCK_REGION" \
+            --agent-model "$CONTINUUM_AGENT_MODEL" \
+            --server-url "$GITHUB_SERVER_URL" \
+            --output-dir build/evidence/ci-recovery
+      - name: Validate the publishable receipt boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          report=build/evidence/ci-recovery/ci-recovery-v1.json
+          jq -e '
+            .schema_version == 1 and
+            .kind == "continuum-ci-recovery-benchmark" and
+            .source_head == env.GITHUB_SHA and
+            .workflow_run_id == (env.GITHUB_RUN_ID | tonumber) and
+            .real_external_provider == true and
+            .provider == "github-actions" and
+            .methodology.fault_families == 6 and
+            .methodology.cases_per_arm == 12 and
+            .methodology.arm_observations == 36 and
+            .methodology.total_child_workflow_runs == 54 and
+            (.calibration | length) == 6 and
+            (.observations | length) == 36 and
+            (.arms | keys | sort) == ["continuum","raw_rag","stateless"] and
+            ([.calibration[] | .baseline_receipt.conclusion] | all(. == "failure")) and
+            ([.calibration[] | .wrong_patch_receipt.conclusion] | all(. == "failure")) and
+            ([.calibration[] | .green_receipt.conclusion] | all(. == "success")) and
+            ([.observations[].provider_receipt.artifact_digest] | all(test("^sha256:[0-9a-f]{64}$"))) and
+            ([.observations[].provider_receipt.cleanup_residual_count] | all(. == 0)) and
+            .arms.continuum.false_canonical_promotions == 0 and
+            .arms.continuum.canonical_promotion_precision == 1 and
+            .gate.status == "PASS"
+          ' "$report" >/dev/null
+          sha256sum build/evidence/ci-recovery/*.json
+      - name: Upload immutable raw and public benchmark receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        with:
+          name: continuum-ci-recovery-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/evidence/ci-recovery
+          if-no-files-found: error
+          retention-days: 90

@@ -80,6 +80,7 @@ of truth for whether the promotion and action claim committed.
 - `src/continuum/migrations/` — versioned durable schema SSOT
 - `src/continuum/migrate.py` — checksum, lease, retry, adoption, and validation runner
 - `src/continuum/db_smoke.py` — synthetic live-database promotion/retrieval smoke path
+- `src/continuum/ci_recovery.py` — real GitHub Actions red-to-green recovery contract and metrics
 - `infra/aws/` — cost-bounded CloudFormation and Lambda dependency manifest
 - `scripts/` — dry-by-default CockroachDB/AWS preflight, packaging, and deployment
 - `tests/` — policy, retry, promotion, replay, retrieval, MCP, and concurrency tests
@@ -275,6 +276,7 @@ production remediation systems.
 - [Evaluation](docs/EVALUATION.md) — 60-query adversarial suite, metric definitions, and live gate
 - [Blind holdout firewall](docs/BLIND_HOLDOUT.md) — preregistration, label-denied candidate execution, and post-arm evaluation
 - [Sequential blind evaluation](docs/SEQUENTIAL_BLIND.md) — sealed three-arm episode chains, paired inference, and future-episode promotion proof
+- [Closed-loop CI recovery](docs/CI_RECOVERY_BENCHMARK.md) — actual failed/green GitHub Actions receipts and three-arm recovery metrics
 - [Devpost Checklist](docs/DEVPOST_CHECKLIST.md) — submission readiness SSOT
 - [Cost Safety](docs/COST_SAFETY.md) — spending assumptions and guardrails
 - [Cloud Deployment Runbook](docs/CLOUD_DEPLOYMENT_RUNBOOK.md) — participant-owned setup, guarded deployment, proof, and teardown

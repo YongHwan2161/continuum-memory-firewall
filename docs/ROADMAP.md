@@ -94,6 +94,15 @@ Exit criteria:
 
 **Goal:** turn the implementation into a judge-friendly, measurable submission.
 
+**P0 on 2026-08-10 — real CI closed-loop recovery:** the source now registers
+six bounded CI fault families, preserves actual failed GitHub Actions runs as
+provider evidence, dispatches separate green recovery runs, and compares the
+same twelve incidents across stateless, raw-RAG, and Continuum. The live claim
+remains HOLD until this source is reviewed on `main`, the main-only OIDC parent
+workflow produces all 54 unique child receipts, and the result is promoted into
+the public judge/release evidence. See
+[CI_RECOVERY_BENCHMARK.md](CI_RECOVERY_BENCHMARK.md).
+
 **Current:** the 540-observation synthetic ablation and the real-provider
 guardian are separate evidence layers. In five serial, main-only OIDC workflow
 clusters, the guardian repeated the same 36 incident definitions for 180 paired
