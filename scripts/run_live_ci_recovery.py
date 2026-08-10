@@ -14,8 +14,8 @@ import re
 import time
 from typing import Any, Mapping, Sequence
 from urllib.error import HTTPError
-from urllib.parse import quote
-from urllib.request import Request, urlopen
+from urllib.parse import quote, urlparse
+from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 import zipfile
 
 from continuum.ci_recovery import (
@@ -73,6 +73,12 @@ class GitHubAPIError(RuntimeError):
     pass
 
 
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        del req, fp, code, msg, headers, newurl
+        return None
+
+
 class GitHubActionsProvider:
     """Dispatch and reconcile exact child workflow and artifact receipts."""
 
@@ -108,7 +114,6 @@ class GitHubActionsProvider:
         url: str,
         *,
         body: Mapping[str, Any] | None = None,
-        binary: bool = False,
     ) -> Any:
         encoded = (
             None
@@ -120,11 +125,7 @@ class GitHubActionsProvider:
             data=encoded,
             method=method,
             headers={
-                "Accept": (
-                    "application/octet-stream"
-                    if binary
-                    else "application/vnd.github+json"
-                ),
+                "Accept": "application/vnd.github+json",
                 "Authorization": f"Bearer {self.__token}",
                 "Content-Type": "application/json",
                 "User-Agent": "continuum-ci-recovery-benchmark",
@@ -137,11 +138,45 @@ class GitHubActionsProvider:
         except HTTPError as exc:
             message = exc.read().decode("utf-8", errors="replace")[:500]
             raise GitHubAPIError(f"GitHub API HTTP {exc.code}: {message}") from exc
-        if binary:
-            return payload
         if not payload:
             return None
         return json.loads(payload)
+
+    def _download_artifact_archive(self, artifact_id: int) -> bytes:
+        """Follow GitHub's signed redirect without forwarding the bearer token."""
+
+        request = Request(
+            self._api(f"actions/artifacts/{artifact_id}/zip"),
+            method="GET",
+            headers={
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"Bearer {self.__token}",
+                "User-Agent": "continuum-ci-recovery-benchmark",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+        )
+        opener = build_opener(_NoRedirect())
+        try:
+            opener.open(request, timeout=45)
+        except HTTPError as exc:
+            if exc.code not in {302, 307}:
+                message = exc.read().decode("utf-8", errors="replace")[:500]
+                raise GitHubAPIError(
+                    f"GitHub artifact redirect HTTP {exc.code}: {message}"
+                ) from exc
+            location = exc.headers.get("Location", "")
+        else:
+            raise GitHubAPIError("GitHub artifact download did not redirect")
+        parsed = urlparse(location)
+        if parsed.scheme != "https" or not parsed.hostname or parsed.username:
+            raise GitHubAPIError("GitHub artifact redirect URL is invalid")
+        unsigned = Request(
+            location,
+            method="GET",
+            headers={"User-Agent": "continuum-ci-recovery-benchmark"},
+        )
+        with urlopen(unsigned, timeout=45) as response:
+            return response.read()
 
     def _dispatch(self, request: WorkflowRequest) -> None:
         self._request(
@@ -263,11 +298,7 @@ class GitHubActionsProvider:
     def _read_child_receipt(
         self, artifact: Mapping[str, Any]
     ) -> tuple[Mapping[str, Any], str, str]:
-        archive = self._request(
-            "GET",
-            self._api(f"actions/artifacts/{int(artifact['id'])}/zip"),
-            binary=True,
-        )
+        archive = self._download_artifact_archive(int(artifact["id"]))
         archive_sha = hashlib.sha256(archive).hexdigest()
         advertised = str(artifact.get("digest", ""))
         if advertised != f"sha256:{archive_sha}":
