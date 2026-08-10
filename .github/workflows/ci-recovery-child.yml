@@ -1,0 +1,69 @@
+name: ci-recovery-child
+run-name: ci-recovery / ${{ inputs.correlation_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      case_id:
+        description: Registered synthetic fault case
+        required: true
+        type: string
+      patch_id:
+        description: Reviewed remediation proposal or no_patch
+        required: true
+        type: string
+      phase:
+        description: Calibration or paired evaluation phase
+        required: true
+        type: string
+      correlation_id:
+        description: Server-issued dispatch correlation
+        required: true
+        type: string
+      source_head:
+        description: Exact benchmark source head
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-recovery-${{ inputs.correlation_id }}
+  cancel-in-progress: false
+
+jobs:
+  exercise:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v6.2.0, Node 24
+        with:
+          python-version: "3.12"
+      - name: Prove exact source and execute the synthetic CI contract
+        env:
+          CASE_ID: ${{ inputs.case_id }}
+          PATCH_ID: ${{ inputs.patch_id }}
+          PHASE: ${{ inputs.phase }}
+          CORRELATION_ID: ${{ inputs.correlation_id }}
+          EXPECTED_SOURCE_HEAD: ${{ inputs.source_head }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_SHA" = "$EXPECTED_SOURCE_HEAD"
+          PYTHONPATH=src:. python scripts/ci_recovery_fixture.py \
+            --case-id "$CASE_ID" \
+            --patch-id "$PATCH_ID" \
+            --phase "$PHASE" \
+            --correlation-id "$CORRELATION_ID" \
+            --source-head "$EXPECTED_SOURCE_HEAD" \
+            --receipt "$RUNNER_TEMP/ci-recovery-receipt.json"
+      - name: Preserve the provider outcome receipt on red and green runs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        with:
+          name: ci-recovery-${{ inputs.correlation_id }}
+          path: ${{ runner.temp }}/ci-recovery-receipt.json
+          if-no-files-found: error
+          retention-days: 30

@@ -12,6 +12,7 @@ changing status, dates, or priorities.
 | Promotion, replay, and retry semantics | [TRANSACTION_MODEL.md](TRANSACTION_MODEL.md) |
 | Database migration format, guarantees, and failure handling | [MIGRATIONS.md](MIGRATIONS.md) |
 | MCP tools, scope, transport, and deployment contract | [MCP_CONTRACT.md](MCP_CONTRACT.md) |
+| Real GitHub Actions red-to-green recovery evaluation | [CI_RECOVERY_BENCHMARK.md](CI_RECOVERY_BENCHMARK.md) |
 | Devpost readiness and participant-owned blockers | [DEVPOST_CHECKLIST.md](DEVPOST_CHECKLIST.md) |
 | Cost assumptions and spending controls | [COST_SAFETY.md](COST_SAFETY.md) |
 | CockroachDB Cloud/AWS provisioning, proof, and teardown procedure | [CLOUD_DEPLOYMENT_RUNBOOK.md](CLOUD_DEPLOYMENT_RUNBOOK.md) |
