@@ -32,7 +32,11 @@ class FakeTransferModel:
         if names == ["search_memory"]:
             name = "search_memory"
             value = {"query": "provider verified cross environment memory", "limit": 5}
-        elif isinstance(last_json, dict) and "hits" in last_json:
+        elif (
+            isinstance(last_json, dict)
+            and "hits" in last_json
+            and "fetch_memory" in names
+        ):
             name = "fetch_memory"
             value = {"citation_handle": last_json["hits"][0]["citation_handle"]}
         elif proposals:
@@ -65,6 +69,35 @@ class FakeTransferModel:
             "output": {"message": message},
             "usage": {"inputTokens": 10, "outputTokens": 5},
         }
+
+
+class StaleCitationTransferModel(FakeTransferModel):
+    """Attempt to retain a rejected search handle after current evidence wins."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.rejected_handle: str | None = None
+        self.sent_stale_citation = False
+
+    def converse(self, **kwargs):
+        messages = kwargs["messages"]
+        if messages and "toolResult" in messages[-1].get("content", [{}])[0]:
+            last_json = messages[-1]["content"][0]["toolResult"]["content"][0][
+                "json"
+            ]
+            if isinstance(last_json, dict) and "hits" in last_json:
+                self.rejected_handle = last_json["hits"][0]["citation_handle"]
+
+        response = super().converse(**kwargs)
+        tool_use = response["output"]["message"]["content"][0]["toolUse"]
+        if (
+            tool_use["name"].startswith("propose_")
+            and self.rejected_handle is not None
+            and not self.sent_stale_citation
+        ):
+            tool_use["input"]["citation_handles"] = [self.rejected_handle]
+            self.sent_stale_citation = True
+        return response
 
 
 def probe_receipt() -> dict:
@@ -150,6 +183,24 @@ class TransferFirewallAgentTests(unittest.TestCase):
         self.assertEqual(result.proposed_patch_id, "set_python_312")
         self.assertEqual(result.selected_memory_ids, ())
         self.assertEqual(len(result.diagnostic_receipts), 1)
+        self.assertNotIn(
+            "fetch_memory",
+            {name for turn in model.tool_name_history for name in turn},
+        )
+
+    def test_continuum_rejects_stale_incompatible_citation_after_probe(self) -> None:
+        incident, label = self.items["near-neighbor-rejection"]
+        model = StaleCitationTransferModel()
+        result = AdaptiveDiagnosisAgent(model=model, model_id="fake").run(
+            arm=AgentArm.CONTINUUM,
+            incident=incident,
+            memory_hits=(self.memory(incident, label, False),),
+            run_probe=lambda _: probe_receipt(),
+        )
+        self.assertTrue(model.sent_stale_citation)
+        self.assertEqual(result.proposed_patch_id, "set_python_312")
+        self.assertEqual(result.selected_memory_ids, ())
+        self.assertEqual(result.model_turns, 4)
 
     def test_raw_rag_reuses_cross_environment_memory_without_attestation(self) -> None:
         incident, label = self.items["near-neighbor-rejection"]
