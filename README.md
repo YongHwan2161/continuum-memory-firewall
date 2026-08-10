@@ -10,7 +10,8 @@ deterministic, and transactionally durable.
 [inspect the same 180 incidents across all three memory policies](https://yonghwan2161.github.io/continuum-memory-firewall/episodes.html),
 or [inspect 36 paired incidents with real GitHub effects](https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian.html),
 then [inspect all five time-distributed real-provider batches](https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian-replication.html)
-and the [three-batch sequential blind memory-compounding proof](https://yonghwan2161.github.io/continuum-memory-firewall/sequential-blind.html).
+and the [three-batch sequential blind memory-compounding proof](https://yonghwan2161.github.io/continuum-memory-firewall/sequential-blind.html),
+or inspect the [S3-preregistered ambiguity-first adaptive diagnosis proof](https://yonghwan2161.github.io/continuum-memory-firewall/adaptive-diagnosis.html).
 In the incident-response story, trusted telemetry becomes durable memory,
 poisoned model output remains quarantined, a later agent retrieves the accepted
 resolution, and CockroachDB grants exactly one action owner.
@@ -160,6 +161,17 @@ recurrence; stateless also recovered 12/12. The explicit stateless result keeps
 the claim honest: the benchmark proves failed-memory isolation and provider
 receipt closure, not general repair superiority.
 
+The [ambiguity-first adaptive diagnosis proof](https://yonghwan2161.github.io/continuum-memory-firewall/adaptive-diagnosis.html)
+starts every arm from the same non-identifying red summary and seals challenge,
+labels, and commitment in S3 before the first model call. Across twelve paired
+cases and 84 unique GitHub Actions child receipts, all three arms recovered
+12/12. Continuum reused exact provider-verified memory on all six recurrences,
+reducing diagnostic workflows from 12 to 6 and reaching zero probes on 6/6
+recurrences (two-sided exact paired `p=0.03125`) with canonical precision 1.0,
+zero false promotions, zero repository mutations, and zero cleanup residuals.
+The claim is deliberately bounded: input-token cost increased, and this exact-
+fingerprint benchmark does not prove transfer to changed environments.
+
 The current receipt-compiled 97.02-second judge demo is public at
 <https://youtu.be/QQxfQaDVz9c>. Its nine scenes are generated from the immutable
 v14 sequential receipt rather than copied from hand-edited metric text. It shows
@@ -177,7 +189,7 @@ receives a token or database credential. The executable database evidence is
 the integration suite and linked exact-head workflows in
 [Project Status](docs/PROJECT_STATUS.md).
 
-The v18 release envelope receives exactly one author-controlled signature in
+The v19 release envelope receives exactly one author-controlled signature in
 the same main-only workflow that publishes it. Its Fulcio/Rekor Sigstore bundle
 is an immutable release asset and a byte-identical Pages resource. GitHub also
 adds one distinguishable immutable-release countersignature; the verifier
@@ -186,8 +198,15 @@ a second author signing operation. Perform strict cryptographic policy
 verification of the author signature with:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v18
+python scripts/verify_network_sign_once.py --release-tag hackathon-v19
 ```
+
+Version 19 preserves the v18 recovery proof and adds the S3-sealed adaptive
+diagnosis parent, artifact archive digest, challenge/labels/commitment/seal
+receipts, deterministic public projection, 84 unique provider receipts, paired
+information-value statistics, bounded non-transfer claim, judge page, and
+immutable release asset. The one-click verifier independently re-reads the
+parent workflow, Actions artifact, public bytes, and release-asset digest.
 
 Version 18 preserves the v17 story delivery and additionally binds the exact
 closed-loop CI parent workflow, artifact archive digest, deterministic public
@@ -273,6 +292,9 @@ case boundary are recorded in
 The 54-run GitHub Actions recovery benchmark, first-parent fail-closed incident,
 and bounded three-arm interpretation are recorded in
 [closed-loop CI recovery evidence](docs/evidence/2026-08-10-ci-recovery-live.md).
+The sealed challenge, failed predecessor, 84-receipt PASS run, and bounded
+information-value interpretation are recorded in
+[adaptive diagnosis evidence](docs/evidence/2026-08-11-adaptive-diagnosis-live.md).
 
 ## Safety boundary
 
@@ -292,7 +314,7 @@ production remediation systems.
 - [Blind holdout firewall](docs/BLIND_HOLDOUT.md) — preregistration, label-denied candidate execution, and post-arm evaluation
 - [Sequential blind evaluation](docs/SEQUENTIAL_BLIND.md) — sealed three-arm episode chains, paired inference, and future-episode promotion proof
 - [Closed-loop CI recovery](docs/CI_RECOVERY_BENCHMARK.md) — actual failed/green GitHub Actions receipts and three-arm recovery metrics
-- [Ambiguity-first adaptive diagnosis](docs/ADAPTIVE_DIAGNOSIS_BENCHMARK.md) — preregistered label-free red summaries, actual read-only probes, and a paired memory information-value gate (live evidence pending)
+- [Ambiguity-first adaptive diagnosis](docs/ADAPTIVE_DIAGNOSIS_BENCHMARK.md) — preregistered label-free red summaries, 84 actual provider receipts, and a paired memory information-value gate
 - [Devpost Checklist](docs/DEVPOST_CHECKLIST.md) — submission readiness SSOT
 - [Cost Safety](docs/COST_SAFETY.md) — spending assumptions and guardrails
 - [Cloud Deployment Runbook](docs/CLOUD_DEPLOYMENT_RUNBOOK.md) — participant-owned setup, guarded deployment, proof, and teardown

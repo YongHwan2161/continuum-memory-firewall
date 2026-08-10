@@ -1,6 +1,6 @@
 # Project status
 
-**Status date:** 2026-08-10
+**Status date:** 2026-08-11
 **Current milestone:** P2C — authenticated managed-cloud slice submitted; iterative hardening open
 **Overall state:** the local promotion-to-retrieval vertical slice and repository
 MCP contract are implemented and tested. A private, cost-bounded AWS Lambda
@@ -41,6 +41,14 @@ canonical precision 1.0 and false promotion 0 versus raw-RAG precision
 0.916667 and one false promotion. Because stateless also reached 12/12, the
 evidence is explicitly bounded to receipt closure and failed-memory isolation.
 
+The preregistered ambiguity-first follow-up is also complete. Parent run
+`31400622882` sealed challenge and labels before the first model call and bound
+84 unique GitHub workflow/artifact receipts. Stateless, raw-RAG, and Continuum
+all recovered 12/12, while Continuum reduced diagnostic child workflows from
+12 to 6 and used zero probes in all six recurrence pairs (`p=0.03125`) with
+canonical precision 1.0 and false promotion 0. The admitted claim is exact-
+fingerprint information value, not semantic transfer or lower token cost.
+
 This document is the single source of truth for current capability, verification
 evidence, and explicit non-claims.
 
@@ -62,7 +70,8 @@ evidence, and explicit non-claims.
 | Real-provider release guardian | 36 exact paired incidents per arm completed live | Run `31245814421` produced 72 Bedrock/CockroachDB/GitHub observations. Continuum: 36/36 verified outcomes and zero unsafe proposals, exposure, false promotions, duplicate effects, cleanup residuals, and scope leaks. raw-RAG: 31/36, five unsafe proposals, 23 unsafe exposures, and five false promotions. The +13.889-point lift has paired bootstrap 95% +2.778 to +25.0; exact p = 0.0625 is reported without overclaiming. |
 | Time-distributed real-provider replication | Five exact workflows and artifacts completed live | Runs `31262805258`, `31263400941`, `31264011991`, `31264600483`, and `31265192522` replayed one checksum-bound 36-case population. Aggregate run `31265768185`: Continuum 180/180 versus raw-RAG 150/180 (+16.67 pp), cluster bootstrap 95% +10.0 to +24.44 pp, positive lift in 5/5 batches, 330/330 unique successful receipt fingerprints, and zero Continuum unsafe proposals, exposures, false promotions, duplicate effects, residuals, or leaks. The repeated-case statistical boundary is explicit. |
 | Closed-loop CI recovery | Live GitHub Actions benchmark complete; public projection and immutable release bound | Parent run `31389008324` produced 18 calibration plus 36 evaluation children: 54 unique workflow/artifact receipts, exact head `3a77fa7`, no repository mutation, and zero cleanup residual. Continuum 12/12, stateless 12/12, raw-RAG 11/12; raw-RAG admitted one false canonical promotion while Continuum admitted zero. Public SHA-256 `8d0f6ac8…9236`. The result proves failed-memory isolation, not superiority over stateless. See [CI_RECOVERY_BENCHMARK.md](CI_RECOVERY_BENCHMARK.md). |
-| Pre-registered blind multi-provider holdout | Source and fail-closed workflow implemented; main-only live run HOLD | An independent Bedrock generator creates 60 new GitHub/S3 incidents, seals challenge/labels/commitment to content-addressed S3, then an explicit IAM deny prevents the candidate process from opening labels. A separate evaluator scores 120 observations only after both arms finish. Real GitHub draft and encrypted S3 effects, receipt/evidence digests, cleanup, and cross-scope gates are implemented. Metrics are not claimed until the exact source is merged and its production-environment OIDC run passes. |
+| Ambiguity-first adaptive diagnosis | Live S3-preregistered three-arm benchmark complete; v19 publication-gated | Exact-head run `31400622882` produced 18 calibration, 30 read-only diagnostic, and 36 remediation receipts: 84 unique run/artifact identities, no repository mutation, and zero cleanup residual. Every arm recovered 12/12. Continuum used 6 diagnostics versus 12 for stateless and skipped all 6 recurrence probes; paired exact `p=0.03125`, canonical precision 1.0, false promotion 0. Public SHA-256 `29014436…d635c7`; transfer and lower-token-cost claims remain excluded. See [ADAPTIVE_DIAGNOSIS_BENCHMARK.md](ADAPTIVE_DIAGNOSIS_BENCHMARK.md). |
+| Pre-registered blind multi-provider holdout | Live label-denied GitHub/S3 benchmark complete and release-bound | Run `31300283080` scored 60 pairs/120 observations only after both arms finished. Candidate label fields were zero and the candidate process did not open labels. Continuum completed 45/60 versus raw-RAG 43/60, with zero Continuum false promotion, cross-scope leak, duplicate effect, or cleanup residual; raw-RAG recorded 16 false promotions. Public SHA-256 `0a0791b1…abba2e74`. |
 | Per-episode paired drill-down | Implemented, live-generated, and checksum-bound | The exact-head `2ef2247` rerun projects 540 observations into 180 three-arm incidents. Each arm exposes scoped search results, SHA-256 citation-handle fingerprints, typed proposal, provider outcome evidence, and promotion decision. Projection gates: exact pairing PASS, issued handles only PASS, Continuum unsafe proposals 0, cross-scope rows 0, private identifier keys 0 |
 | Network-visible sign-once | Implemented and publicly verifiable | `hackathon-v10` is durable-draft-first, author-signed, and published in one main-only workflow. It emits exactly one Fulcio/Rekor author bundle, verifies exact workflow/ref/source/runner policy, includes the bundle before immutability, and serves the two-authority network bundle through Pages. The gate separately requires GitHub's one immutable-release countersignature, so platform signing is not misreported as an author replay. |
 | Release transaction coordinator | Implemented, fault-injection tested, and publicly gated | A hash-chained receipt advances through `PREPARED`, `AUTHOR_ATTESTED`, `ASSETS_UPLOADED`, `IMMUTABLE`, and `PAGES_MATERIALIZED`. Reruns adopt the exact draft and existing author attestation; changed target/digest or duplicate signatures become fail-closed `AMBIGUOUS`. The judge path binds the terminal receipt, Pages run, release target, and public attestation-bundle digest. |
@@ -163,6 +172,11 @@ evidence, and explicit non-claims.
   and <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31389008324>
 - Redacted closed-loop CI recovery evidence:
   [2026-08-10-ci-recovery-live.md](evidence/2026-08-10-ci-recovery-live.md)
+- Public adaptive diagnosis explorer and exact parent workflow:
+  <https://yonghwan2161.github.io/continuum-memory-firewall/adaptive-diagnosis.html>
+  and <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31400622882>
+- Preregistered adaptive diagnosis evidence:
+  [2026-08-11-adaptive-diagnosis-live.md](evidence/2026-08-11-adaptive-diagnosis-live.md)
 - Exact-head 10k/50k vector benchmark workflow:
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/30735058404>
 - Byte-identical vector-scale evidence summary:

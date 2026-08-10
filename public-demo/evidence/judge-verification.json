@@ -1,4 +1,28 @@
 {
+  "adaptive_diagnosis": {
+    "agent_model": "amazon.nova-micro-v1:0",
+    "artifact_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/artifacts/9067731798",
+    "artifact_archive_sha256": "7164eb8e07a0ebe600004c80b848ebe32fedfabda12f14ccbdbac978a45b7485",
+    "artifact_id": 9067731798,
+    "artifact_name": "continuum-adaptive-diagnosis-a8274319e548c91a6eb2910ca8345011aa6f2c3e-31400622882-1",
+    "campaign_id": "adaptive-diagnosis-v1-31400622882",
+    "challenge_sha256": "7140741f3511691f8ad5e7182e0dd20358f21f6f2cc55f9aeefe94584010a40a",
+    "child_workflow_runs": 84,
+    "commitment_sha256": "98d022d629c484de36aea2e62a18d871a84b323d2b5202591f696f18d548bd84",
+    "head_sha": "a8274319e548c91a6eb2910ca8345011aa6f2c3e",
+    "labels_sha256": "de1c9bf0e05a88eeb0c00fd79696feef77bd0c8b90299f34333042cd1f9b2ef2",
+    "page_url": "https://yonghwan2161.github.io/continuum-memory-firewall/adaptive-diagnosis.html",
+    "paired_cases": 12,
+    "provider": "github-actions",
+    "public_sha256": "290144361304edc08484d8ba2cef1df4013d12c84b717520ae22a7dac0d635c7",
+    "public_url": "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/adaptive-diagnosis-v1.json",
+    "schema_version": 1,
+    "seal_receipt_sha256": "10e25917d38fb53e2f3b10d76c94c8d285e0ee7e3ed5d773552c2eb919f88356",
+    "workflow_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/runs/31400622882",
+    "workflow_attempt": 1,
+    "workflow_run_id": 31400622882,
+    "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31400622882"
+  },
   "agent_ablation": {
     "artifact_archive_sha256": "4a383dac9070dc201021f03121a865a6d3a40fd3282cf4e9c207534a0476f500",
     "artifact_id": 8988330323,
@@ -74,7 +98,7 @@
     "workflow_run_id": 31389008324,
     "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31389008324"
   },
-  "claim_boundary": "Read-only verification of live identity-bound memory, real GitHub Actions closed-loop red-to-green recovery over twelve source-defined synthetic fixtures, a label-hidden three-batch sequential GitHub and S3 campaign, prior CockroachDB vector/RLS evidence, AWS receipts, an immutable release, and Devpost lineage. The CI benchmark proves receipt-bound recovery and failed-memory isolation, not arbitrary-code repair or superiority over a stateless arm.",
+  "claim_boundary": "Read-only verification of live identity-bound memory, an S3-preregistered ambiguity-first three-arm diagnosis benchmark over twelve synthetic CI fixtures, real GitHub Actions probe and remediation receipts, prior CockroachDB vector/RLS evidence, AWS receipts, an immutable release, and Devpost lineage. The adaptive result proves exact-fingerprint verified memory can remove one diagnostic step on this registered population at equal 12/12 recovery; it does not prove broad repository generalization.",
   "database_policy": {
     "rls_combined_sha256": "69a168e1e55440bf563483947f5438855e93a715a56eb702f49a845d360b4e02"
   },
@@ -191,7 +215,7 @@
     "video_sha256": "30518452bf16d46ad33d3500d98731f89273789d4b3b7b75bddd032194a7bed4",
     "video_url": "https://youtu.be/QQxfQaDVz9c"
   },
-  "generated_at": "2026-08-10T12:42:39.028661+00:00",
+  "generated_at": "2026-08-10T15:01:15.673632+00:00",
   "lineage": {
     "baseline_documentation_sha": "2a94b4653ab0efe6f2ddeb8701ab05bdbaf403e1",
     "baseline_runtime_sha": "1291e2707880700492fe1d7cd431bcba03d68b4c",
@@ -247,28 +271,30 @@
   },
   "release_envelope": {
     "ablation_asset_name": "agent-ablation-v3.json",
-    "ablation_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v18/agent-ablation-v3.json",
+    "ablation_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v19/agent-ablation-v3.json",
+    "adaptive_diagnosis_asset_name": "adaptive-diagnosis-v1.json",
+    "adaptive_diagnosis_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v19/adaptive-diagnosis-v1.json",
     "asset_name": "continuum-release-envelope-v2.json",
-    "asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v18/continuum-release-envelope-v2.json",
+    "asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v19/continuum-release-envelope-v2.json",
     "blind_holdout_asset_name": "blind-holdout-v1.json",
-    "blind_holdout_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v18/blind-holdout-v1.json",
+    "blind_holdout_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v19/blind-holdout-v1.json",
     "ci_recovery_asset_name": "ci-recovery-v1.json",
-    "ci_recovery_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v18/ci-recovery-v1.json",
+    "ci_recovery_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v19/ci-recovery-v1.json",
     "drilldown_asset_name": "episode-drilldown-v1.json",
-    "drilldown_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v18/episode-drilldown-v1.json",
+    "drilldown_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v19/episode-drilldown-v1.json",
     "evidence_story_asset_name": "evidence-story-v1.json",
-    "evidence_story_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v18/evidence-story-v1.json",
+    "evidence_story_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v19/evidence-story-v1.json",
     "guardian_asset_name": "release-guardian-v1.json",
-    "guardian_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v18/release-guardian-v1.json",
-    "release_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/releases/tags/hackathon-v18",
-    "release_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v18",
+    "guardian_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v19/release-guardian-v1.json",
+    "release_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/releases/tags/hackathon-v19",
+    "release_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v19",
     "replication_asset_name": "release-guardian-replication-v1.json",
-    "replication_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v18/release-guardian-replication-v1.json",
+    "replication_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v19/release-guardian-replication-v1.json",
     "sandbox_asset_name": "sandbox-provider-proof.json",
-    "sandbox_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v18/sandbox-provider-proof.json",
+    "sandbox_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v19/sandbox-provider-proof.json",
     "sequential_blind_asset_name": "sequential-blind-v1.json",
-    "sequential_blind_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v18/sequential-blind-v1.json",
-    "tag": "hackathon-v18"
+    "sequential_blind_asset_url": "https://github.com/YongHwan2161/continuum-memory-firewall/releases/download/hackathon-v19/sequential-blind-v1.json",
+    "tag": "hackathon-v19"
   },
   "release_guardian": {
     "arm_observations": 72,
@@ -350,7 +376,7 @@
     "workflow_run_id": 31112544426,
     "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31112544426"
   },
-  "schema_version": 11,
+  "schema_version": 12,
   "sequential_blind_campaign": {
     "artifact_api_url": "https://api.github.com/repos/YongHwan2161/continuum-memory-firewall/actions/artifacts/9038325962",
     "artifact_archive_sha256": "f3c196a4283eee546db032b8b136a34e07c0c6672aea1183e053c8dd2245052f",

@@ -464,6 +464,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         sequential_blind_public=None,
         evidence_story=None,
         ci_recovery_public=None,
+        adaptive_diagnosis_public=None,
     ):
         blind_bytes = (
             (json.dumps(blind_holdout_public, sort_keys=True) + "\n").encode()
@@ -485,6 +486,11 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             if ci_recovery_public is not None
             else b""
         )
+        adaptive_diagnosis_bytes = (
+            (json.dumps(adaptive_diagnosis_public, sort_keys=True) + "\n").encode()
+            if adaptive_diagnosis_public is not None
+            else b""
+        )
         return build_envelope(
             self.judge,
             self.scale,
@@ -499,6 +505,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             sequential_blind_public=sequential_blind_public,
             evidence_story=evidence_story,
             ci_recovery_public=ci_recovery_public,
+            adaptive_diagnosis_public=adaptive_diagnosis_public,
             judge_bytes=self.judge_bytes,
             scale_bytes=self.scale_bytes,
             pressure_bytes=self.pressure_bytes,
@@ -512,6 +519,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             sequential_blind_public_bytes=sequential_bytes,
             evidence_story_bytes=story_bytes,
             ci_recovery_public_bytes=ci_recovery_bytes,
+            adaptive_diagnosis_public_bytes=adaptive_diagnosis_bytes,
             repo_root=Path(__file__).parents[1],
             repository="o/r",
             commit_sha="d" * 40,
@@ -589,6 +597,51 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         ci_recovery["arms"]["raw_rag"]["verified_recoveries"] = 12
         with self.assertRaisesRegex(RuntimeError, "ci_recovery"):
             self.build(ci_recovery_public=ci_recovery)
+
+    def test_binds_preregistered_adaptive_diagnosis_projection(self) -> None:
+        root = Path(__file__).parents[1]
+        adaptive = json.loads(
+            (root / "public-demo/evidence/adaptive-diagnosis-v1.json").read_bytes()
+        )
+        live_judge = json.loads(
+            (root / "public-demo/evidence/judge-verification.json").read_bytes()
+        )
+        self.judge["adaptive_diagnosis"] = live_judge["adaptive_diagnosis"]
+        adaptive_bytes = (json.dumps(adaptive, sort_keys=True) + "\n").encode()
+        self.judge["adaptive_diagnosis"]["public_sha256"] = sha256_bytes(
+            adaptive_bytes
+        )
+        self.judge["release_envelope"].update(
+            {
+                "adaptive_diagnosis_asset_name": "adaptive-diagnosis-v1.json",
+                "adaptive_diagnosis_asset_url": (
+                    "https://github.com/o/r/releases/download/hackathon-v1/"
+                    "adaptive-diagnosis-v1.json"
+                ),
+            }
+        )
+        self.judge_bytes = (json.dumps(self.judge, sort_keys=True) + "\n").encode()
+        envelope = self.build(adaptive_diagnosis_public=adaptive)
+        self.assertEqual(envelope["gates"]["status"], "PASS")
+        self.assertEqual(
+            envelope["adaptive_diagnosis"]["workflow_run_id"], 31400622882
+        )
+        self.assertEqual(
+            envelope["adaptive_diagnosis"]["arms"]["continuum"][
+                "recurrence_zero_probe_cases"
+            ],
+            6,
+        )
+        self.assertEqual(
+            envelope["adaptive_diagnosis"]["paired_comparisons"][
+                "continuum_vs_stateless"
+            ]["recurrence"]["diagnostic_probe_exact_p_value"],
+            0.03125,
+        )
+
+        adaptive["arms"]["continuum"]["recurrence_zero_probe_cases"] = 5
+        with self.assertRaisesRegex(RuntimeError, "adaptive_diagnosis"):
+            self.build(adaptive_diagnosis_public=adaptive)
 
     def test_binds_preregistered_blind_holdout(self) -> None:
         blind = json.loads(

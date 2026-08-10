@@ -172,8 +172,9 @@ class McpHostInfrastructureTests(unittest.TestCase):
         workflow = (
             ROOT / ".github" / "workflows" / "release-envelope.yml"
         ).read_text(encoding="utf-8")
-        self.assertIn("default: hackathon-v18", workflow)
+        self.assertIn("default: hackathon-v19", workflow)
         self.assertIn("ci-recovery-v1.json", workflow)
+        self.assertIn("adaptive-diagnosis-v1.json", workflow)
         self.assertIn(
             "for plane in source vector_scale agent_pressure managed_mcp "
             "sandbox_provider agent_ablation release_guardian "
@@ -194,6 +195,8 @@ class McpHostInfrastructureTests(unittest.TestCase):
         self.assertIn("evidence-story-v1.json.sha256", workflow)
         self.assertIn("--sequential-blind-public", workflow)
         self.assertIn("build_public_sequential_blind", workflow)
+        self.assertIn("--adaptive-diagnosis-public", workflow)
+        self.assertIn("build_public_adaptive_diagnosis", workflow)
 
     def test_judge_monitor_loads_repository_and_src_packages(self):
         workflow = (

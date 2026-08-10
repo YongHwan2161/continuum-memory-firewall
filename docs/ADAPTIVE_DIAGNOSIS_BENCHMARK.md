@@ -123,9 +123,48 @@ aws-adaptive-diagnosis-benchmark.yml
   -> post-run scoring and fail-closed public projection
 ```
 
-The implementation contract and deterministic tests are complete. Live metrics,
-public judge integration, and a release-envelope claim remain HOLD until the
-main-only workflow produces a passing artifact.
+The reviewed main-only workflow has now produced a passing artifact. Parent run
+[31400622882](https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31400622882)
+at source `a8274319e548c91a6eb2910ca8345011aa6f2c3e` is the admitted candidate.
+Its Actions artifact is `9067731798`, with archive SHA-256
+`7164eb8e07a0ebe600004c80b848ebe32fedfabda12f14ccbdbac978a45b7485`.
+
+## Live result
+
+The campaign created 18 calibration, 30 diagnostic, and 36 remediation child
+workflows: 84 unique run IDs and 84 unique artifact IDs, all exact-source, all
+non-mutating, and all with zero cleanup residual. The result was:
+
+| Metric | Stateless | raw-RAG | Continuum |
+|---|---:|---:|---:|
+| verified recovery | 12/12 | 12/12 | 12/12 |
+| diagnostic workflows | 12 | 12 | 6 |
+| recurrence diagnostic workflows | 6/6 | 6/6 | 0/6 |
+| recurrence zero-probe cases | 0/6 | 0/6 | 6/6 |
+| false canonical promotions | 0 | 0 | 0 |
+| input tokens | 22,711 | 46,411 | 34,487 |
+| observed end-to-end p50 / p95 | 39,119 / 48,369 ms | 38,071 / 144,128 ms | 21,711 / 42,236 ms |
+
+Continuum saved a mean `0.5` diagnostic workflows per case versus stateless;
+the paired bootstrap 95% interval is `[0.25, 0.75]`. In the six registered
+recurrence pairs, all six favored Continuum, none favored stateless, and the
+two-sided exact sign-test is `p=0.03125`. Recovery lift is zero because all arms
+recovered every case. Continuum canonical promotion precision is `1.0`.
+
+This proves bounded information value for exact provider-verified environment
+fingerprints. It does not prove semantic transfer across changed repository
+layouts, tool versions, or near-neighbor faults. It also does not prove lower
+total model cost: Continuum used 11,776 more input tokens than stateless because
+memory search and fetch replaced external diagnostic workflows. Latency values
+are reported as observed measurements, not as an independently powered latency
+superiority claim.
+
+The public projection has SHA-256
+`290144361304edc08484d8ba2cef1df4013d12c84b717520ae22a7dac0d635c7`.
+The public [adaptive diagnosis page](https://yonghwan2161.github.io/continuum-memory-firewall/adaptive-diagnosis.html)
+and [one-click verifier](https://yonghwan2161.github.io/continuum-memory-firewall/verify.html)
+bind the parent, artifact, commitment, S3 seal, all receipt identities, metrics,
+and immutable v19 release asset.
 
 ## Fail-closed validation history
 
