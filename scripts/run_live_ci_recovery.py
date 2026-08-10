@@ -6,6 +6,7 @@ import argparse
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 import hashlib
+from http.client import RemoteDisconnected
 import io
 import json
 import os
@@ -13,7 +14,7 @@ from pathlib import Path
 import re
 import time
 from typing import Any, Mapping, Sequence
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 import zipfile
@@ -167,38 +168,59 @@ class GitHubActionsProvider:
     def _download_artifact_archive(self, artifact_id: int) -> bytes:
         """Follow GitHub's signed redirect without forwarding the bearer token."""
 
-        request = Request(
-            self._api(f"actions/artifacts/{artifact_id}/zip"),
-            method="GET",
-            headers={
-                "Accept": "application/vnd.github+json",
-                "Authorization": f"Bearer {self.__token}",
-                "User-Agent": "continuum-ci-recovery-benchmark",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
-        )
-        opener = build_opener(_NoRedirect())
-        try:
-            opener.open(request, timeout=45)
-        except HTTPError as exc:
-            if exc.code not in {302, 307}:
-                message = exc.read().decode("utf-8", errors="replace")[:500]
-                raise GitHubAPIError(
-                    f"GitHub artifact redirect HTTP {exc.code}: {message}"
-                ) from exc
-            location = exc.headers.get("Location", "")
-        else:
-            raise GitHubAPIError("GitHub artifact download did not redirect")
-        parsed = urlparse(location)
-        if parsed.scheme != "https" or not parsed.hostname or parsed.username:
-            raise GitHubAPIError("GitHub artifact redirect URL is invalid")
-        unsigned = Request(
-            location,
-            method="GET",
-            headers={"User-Agent": "continuum-ci-recovery-benchmark"},
-        )
-        with urlopen(unsigned, timeout=45) as response:
-            return response.read()
+        for attempt in range(1, 4):
+            try:
+                request = Request(
+                    self._api(f"actions/artifacts/{artifact_id}/zip"),
+                    method="GET",
+                    headers={
+                        "Accept": "application/vnd.github+json",
+                        "Authorization": f"Bearer {self.__token}",
+                        "User-Agent": "continuum-ci-recovery-benchmark",
+                        "X-GitHub-Api-Version": "2022-11-28",
+                    },
+                )
+                opener = build_opener(_NoRedirect())
+                try:
+                    opener.open(request, timeout=45)
+                except HTTPError as exc:
+                    if exc.code not in {302, 307}:
+                        message = exc.read().decode(
+                            "utf-8", errors="replace"
+                        )[:500]
+                        raise GitHubAPIError(
+                            f"GitHub artifact redirect HTTP {exc.code}: {message}"
+                        ) from exc
+                    location = exc.headers.get("Location", "")
+                else:
+                    raise GitHubAPIError(
+                        "GitHub artifact download did not redirect"
+                    )
+                parsed = urlparse(location)
+                if (
+                    parsed.scheme != "https"
+                    or not parsed.hostname
+                    or parsed.username
+                ):
+                    raise GitHubAPIError(
+                        "GitHub artifact redirect URL is invalid"
+                    )
+                unsigned = Request(
+                    location,
+                    method="GET",
+                    headers={"User-Agent": "continuum-ci-recovery-benchmark"},
+                )
+                with urlopen(unsigned, timeout=45) as response:
+                    return response.read()
+            except (RemoteDisconnected, TimeoutError, URLError) as exc:
+                if attempt == 3:
+                    raise GitHubAPIError(
+                        "GitHub artifact read failed after three attempts"
+                    ) from exc
+                # Receipt lookup is read-only. Never retry workflow dispatch or
+                # provider effects; only reacquire and read the signed archive.
+                time.sleep(2 ** (attempt - 1))
+        raise AssertionError("bounded artifact read loop did not terminate")
 
     def _dispatch(self, request: WorkflowRequest) -> None:
         reserved = {
