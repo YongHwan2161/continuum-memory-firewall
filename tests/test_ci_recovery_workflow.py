@@ -31,6 +31,15 @@ class CIRecoveryWorkflowTests(unittest.TestCase):
         self.assertIn(".arms.continuum.false_canonical_promotions == 0", workflow)
         self.assertIn("retention-days: 90", workflow)
 
+    def test_artifact_redirect_never_forwards_the_github_bearer(self) -> None:
+        controller = (ROOT / "scripts/run_live_ci_recovery.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('"Accept": "application/vnd.github+json"', controller)
+        self.assertIn("class _NoRedirect", controller)
+        self.assertIn("unsigned = Request(", controller)
+        self.assertNotIn("application/octet-stream", controller)
+
 
 if __name__ == "__main__":
     unittest.main()
