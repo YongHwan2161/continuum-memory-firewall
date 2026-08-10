@@ -214,7 +214,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
                     release_tag="hackathon-v5",
                 )
 
-    def test_repository_public_evidence_has_v19_adaptive_diagnosis_closure(
+    def test_repository_public_evidence_has_v20_transfer_firewall_closure(
         self,
     ) -> None:
         judge_path = self.repo_root / "public-demo/evidence/judge-verification.json"
@@ -250,9 +250,14 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         )
         adaptive_bytes = adaptive_path.read_bytes()
         adaptive = json.loads(adaptive_bytes)
+        transfer_path = (
+            self.repo_root / "public-demo/evidence/transfer-firewall-v1.json"
+        )
+        transfer_bytes = transfer_path.read_bytes()
+        transfer = json.loads(transfer_bytes)
 
-        self.assertEqual(judge["schema_version"], 12)
-        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v19")
+        self.assertEqual(judge["schema_version"], 13)
+        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v20")
         self.assertEqual(
             judge["release_envelope"]["ci_recovery_asset_name"],
             "ci-recovery-v1.json",
@@ -276,6 +281,25 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
             adaptive["arms"]["continuum"]["recurrence_zero_probe_cases"], 6
         )
         self.assertEqual(adaptive["gate"]["status"], "PASS")
+        self.assertEqual(
+            judge["release_envelope"]["transfer_firewall_asset_name"],
+            "transfer-firewall-v1.json",
+        )
+        self.assertEqual(
+            hashlib.sha256(transfer_bytes.replace(b"\r\n", b"\n")).hexdigest(),
+            judge["transfer_firewall"]["public_sha256"],
+        )
+        self.assertEqual(
+            transfer["workflow_run_id"],
+            judge["transfer_firewall"]["workflow_run_id"],
+        )
+        self.assertEqual(transfer["methodology"]["total_child_workflow_runs"], 84)
+        self.assertEqual(transfer["arms"]["continuum"]["verified_recoveries"], 12)
+        self.assertEqual(
+            transfer["arms"]["continuum"]["near_neighbor_false_transfers"], 0
+        )
+        self.assertEqual(transfer["arms"]["raw_rag"]["near_neighbor_false_transfers"], 6)
+        self.assertEqual(transfer["gate"]["status"], "PASS")
         self.assertEqual(
             judge["network_sign_once"]["required_total_attestation_count"],
             2,

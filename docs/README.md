@@ -13,6 +13,9 @@ changing status, dates, or priorities.
 | Database migration format, guarantees, and failure handling | [MIGRATIONS.md](MIGRATIONS.md) |
 | MCP tools, scope, transport, and deployment contract | [MCP_CONTRACT.md](MCP_CONTRACT.md) |
 | Real GitHub Actions red-to-green recovery evaluation | [CI_RECOVERY_BENCHMARK.md](CI_RECOVERY_BENCHMARK.md) |
+| Exact-fingerprint adaptive diagnostic evaluation | [ADAPTIVE_DIAGNOSIS_BENCHMARK.md](ADAPTIVE_DIAGNOSIS_BENCHMARK.md) |
+| Counterfactual cross-environment transfer evaluation | [TRANSFER_FIREWALL_BENCHMARK.md](TRANSFER_FIREWALL_BENCHMARK.md) |
+| Immutable competition evidence and verification contract | [RELEASE_ENVELOPE.md](RELEASE_ENVELOPE.md) |
 | Devpost readiness and participant-owned blockers | [DEVPOST_CHECKLIST.md](DEVPOST_CHECKLIST.md) |
 | Cost assumptions and spending controls | [COST_SAFETY.md](COST_SAFETY.md) |
 | CockroachDB Cloud/AWS provisioning, proof, and teardown procedure | [CLOUD_DEPLOYMENT_RUNBOOK.md](CLOUD_DEPLOYMENT_RUNBOOK.md) |

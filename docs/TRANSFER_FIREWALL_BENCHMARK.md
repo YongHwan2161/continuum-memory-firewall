@@ -75,6 +75,38 @@ The expected successful contract has 84 child receipts: 18 source calibration,
 12 shared target attestations, 18 candidate diagnostics, and 36 remediation
 receipts.
 
+## Live result
+
+The reviewed exact-head run
+[31439117749](https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31439117749)
+passed on source `361c3ec8ed6ee1a7c09ae30bcf80d9d22aa44fc9`:
+
+- Continuum: 12/12 verified recovery, 6/6 same-cause reuse without a
+  diagnostic, 6/6 near-neighbour rejection, zero false transfers, and zero
+  false promotions;
+- stateless: 12/12 verified recovery with twelve diagnostics;
+- raw-RAG: 6/12 verified recovery, six false transfers, six unsafe patches,
+  and six false promotions; and
+- 84/84 child receipts had unique workflow, artifact, and artifact-digest
+  identities, exact source lineage, zero repository mutation, and zero cleanup
+  residual.
+
+Continuum saved one candidate diagnostic in every same-cause pair versus
+stateless (two-sided paired exact `p=0.03125`). It prevented six false transfers
+and improved verified recovery by 50 percentage points versus raw-RAG
+(`p=0.03125`). The public projection SHA-256 is
+`cf46c93614d16e219bea849247ec15dc8ff9287145ebcb3ca8fda4e5424dbf25`.
+
+Two earlier parents remain visible as fail-closed evidence. Run `31437516208`
+stopped on a transient artifact-read disconnect; bounded retry was added only
+to GET operations. Run `31438167336` recovered every action but failed because
+three incompatible memories remained cited after current diagnostics. The
+server now withholds their fetch surface and independently rejects any citation
+that is not fetched, currently admitted, and exact-patch-authorizing.
+
+See the [public explorer](https://yonghwan2161.github.io/continuum-memory-firewall/transfer-firewall.html)
+and the detailed [live evidence record](evidence/2026-08-11-transfer-firewall-live.md).
+
 ## Reproduction
 
 Local contract and fixture tests:
@@ -107,3 +139,8 @@ Target attestation receipts are shared benchmark inputs. A reduction in
 candidate diagnostic workflows therefore does **not** mean fewer total provider
 workflow runs. Token and latency differences are reported but are not superiority
 claims unless a separately powered gate is preregistered.
+
+The benchmark runner constructs its typed source-memory hit from the exact
+provider calibration receipt. It does not yet retrieve that memory through the
+production CockroachDB vector/RLS path. Closing that live lineage is the next
+architectural evaluation, not a claim already made by this benchmark.

@@ -22,6 +22,7 @@ from continuum.release_guardian_replication import (
     build_public_release_guardian_replication,
 )
 from continuum.sequential_blind import build_public_sequential_blind
+from continuum.transfer_firewall import build_public_transfer_firewall
 
 
 DEFAULT_EVIDENCE_URL = (
@@ -313,6 +314,155 @@ def verify_adaptive_diagnosis(
         and bool(gate_checks)
         and all(value is True for value in gate_checks)
         and "controller retained labels"
+        in report.get("claim_boundary", "").lower()
+    )
+
+
+def verify_transfer_firewall(
+    evidence: dict[str, Any],
+    *,
+    fetch_json: Callable[[str], dict[str, Any]],
+    fetch_bytes: Callable[[str], bytes],
+) -> bool:
+    """Bind the cross-environment transfer result to 84 provider receipts."""
+
+    reference = evidence.get("transfer_firewall")
+    if reference is None:
+        return True
+    try:
+        workflow = fetch_json(reference["workflow_api_url"])
+        artifact = fetch_json(reference["artifact_api_url"])
+        public_bytes = fetch_bytes(reference["public_url"])
+        public_sha = hashlib.sha256(
+            public_bytes.replace(b"\r\n", b"\n")
+        ).hexdigest()
+        report = json.loads(public_bytes.decode("utf-8"))
+        if not isinstance(report, dict):
+            return False
+        public_projection = build_public_transfer_firewall(report)
+        methodology = report["methodology"]
+        arms = report["arms"]
+        continuum = arms["continuum"]
+        stateless = arms["stateless"]
+        raw = arms["raw_rag"]
+        observations = report["observations"]
+        source_calibration = report["source_calibration"]
+        target_attestations = report["target_attestations"]
+        receipts = [item["provider_receipt"] for item in source_calibration] + [
+            item["provider_receipt"] for item in target_attestations
+        ] + [
+            receipt
+            for item in observations
+            for receipt in item["diagnostic_receipts"]
+        ] + [item["provider_receipt"] for item in observations]
+    except (KeyError, RuntimeError, TypeError, ValueError, json.JSONDecodeError):
+        return False
+    run_ids = [item.get("workflow_run_id") for item in receipts]
+    artifact_ids = [item.get("artifact_id") for item in receipts]
+    artifact_digests = [item.get("artifact_digest") for item in receipts]
+    pairs = {(item.get("arm"), item.get("case_id")) for item in observations}
+    source_fingerprints = {
+        item.get("source_environment_fingerprint") for item in observations
+    }
+    target_fingerprints = {
+        item.get("target_environment_fingerprint") for item in observations
+    }
+    gate = report.get("gate", {})
+    gate_checks = [value for key, value in gate.items() if key != "status"]
+    commitment = report.get("commitment", {})
+    seal = report.get("seal_receipt", {})
+    same_cause = (
+        report.get("paired_comparisons", {})
+        .get("continuum_vs_stateless", {})
+        .get("same_cause", {})
+    )
+    vs_raw = report.get("paired_comparisons", {}).get(
+        "continuum_vs_raw_rag", {}
+    )
+    return (
+        report == public_projection
+        and reference.get("schema_version") == 1
+        and workflow.get("id") == reference.get("workflow_run_id")
+        and workflow.get("run_attempt") == reference.get("workflow_attempt")
+        and workflow.get("conclusion") == "success"
+        and workflow.get("head_sha") == reference.get("head_sha")
+        and artifact.get("id") == reference.get("artifact_id")
+        and artifact.get("name") == reference.get("artifact_name")
+        and artifact.get("digest")
+        == "sha256:" + str(reference.get("artifact_archive_sha256", ""))
+        and artifact.get("expired") is False
+        and artifact.get("workflow_run", {}).get("id")
+        == reference.get("workflow_run_id")
+        and public_sha == reference.get("public_sha256")
+        and report.get("source_head") == reference.get("head_sha")
+        and report.get("workflow_run_id") == reference.get("workflow_run_id")
+        and report.get("workflow_run_attempt") == reference.get("workflow_attempt")
+        and report.get("campaign_id") == reference.get("campaign_id")
+        and commitment.get("challenge_sha256")
+        == reference.get("challenge_sha256")
+        and commitment.get("labels_sha256") == reference.get("labels_sha256")
+        and commitment.get("commitment_sha256")
+        == reference.get("commitment_sha256")
+        and seal.get("receipt_sha256") == reference.get("seal_receipt_sha256")
+        and seal.get("write_once_condition") == "If-None-Match:*"
+        and report.get("provider") == "github-actions"
+        and report.get("real_external_provider") is True
+        and methodology.get("counterfactual_pairs") == 6
+        and methodology.get("target_cases") == 12
+        and methodology.get("arm_observations") == 36
+        and methodology.get("source_fault_families") == 6
+        and methodology.get("same_cause_targets") == 6
+        and methodology.get("near_neighbor_targets") == 6
+        and methodology.get("source_calibration_child_runs") == 18
+        and methodology.get("target_attestation_child_runs") == 12
+        and methodology.get("diagnostic_child_runs") == 18
+        and methodology.get("remediation_child_runs") == 36
+        and methodology.get("total_child_workflow_runs") == 84
+        and methodology.get("candidate_visible_label_fields") == 0
+        and methodology.get("labels_opened_by_controller_only") is True
+        and len(observations) == 36
+        and len(pairs) == 36
+        and {arm for arm, _case_id in pairs}
+        == {"stateless", "raw_rag", "continuum"}
+        and source_fingerprints.isdisjoint(target_fingerprints)
+        and len(source_calibration) == 18
+        and len(target_attestations) == 12
+        and len(receipts) == 84
+        and len(set(run_ids)) == 84
+        and len(set(artifact_ids)) == 84
+        and len(set(artifact_digests)) == 84
+        and all(item.get("head_sha") == reference.get("head_sha") for item in receipts)
+        and all(item.get("repository_mutation") is False for item in receipts)
+        and all(item.get("cleanup_residual_count") == 0 for item in receipts)
+        and all(
+            re.fullmatch(
+                r"sha256:[0-9a-f]{64}", str(item.get("artifact_digest", ""))
+            )
+            for item in receipts
+        )
+        and continuum.get("verified_recoveries") == 12
+        and continuum.get("same_cause_verified_transfers") == 6
+        and continuum.get("same_cause_zero_diagnostic_cases") == 6
+        and continuum.get("near_neighbor_safe_rejections") == 6
+        and continuum.get("near_neighbor_false_transfers") == 0
+        and continuum.get("diagnostic_probe_calls") == 6
+        and continuum.get("unsafe_patches") == 0
+        and continuum.get("false_canonical_promotions") == 0
+        and continuum.get("canonical_promotion_precision") == 1.0
+        and stateless.get("verified_recoveries") == 12
+        and stateless.get("diagnostic_probe_calls") == 12
+        and raw.get("verified_recoveries") == 6
+        and raw.get("near_neighbor_false_transfers") == 6
+        and raw.get("unsafe_patches") == 6
+        and raw.get("false_canonical_promotions") == 6
+        and same_cause.get("diagnostic_probe_reduction_cases") == 6
+        and same_cause.get("diagnostic_probe_exact_p_value") == 0.03125
+        and vs_raw.get("verified_recovery_lift_percentage_points") == 50.0
+        and vs_raw.get("near_neighbor_false_transfers_prevented") == 6
+        and gate.get("status") == "PASS"
+        and bool(gate_checks)
+        and all(value is True for value in gate_checks)
+        and "not arbitrary repository repair"
         in report.get("claim_boundary", "").lower()
     )
 
@@ -755,7 +905,7 @@ def verify_evidence(
             and runtime["control_plane_and_migrator_role_options_empty"] is True
         ),
         "representative_scale_gate": (
-            schema_version in {4, 5, 6, 7, 8, 9, 10, 11, 12}
+            schema_version in {4, 5, 6, 7, 8, 9, 10, 11, 12, 13}
             and scale_report.get("gate", {}).get("status") == "PASS"
             and [scale.get("row_count") for scale in scales] == [10_000, 50_000]
         ),
@@ -833,6 +983,14 @@ def verify_evidence(
             fetch_json=fetch_json,
             fetch_bytes=fetch_bytes,
         )
+    if "transfer_firewall" in evidence:
+        checks["counterfactual_cross_environment_transfer_firewall"] = (
+            verify_transfer_firewall(
+                evidence,
+                fetch_json=fetch_json,
+                fetch_bytes=fetch_bytes,
+            )
+        )
     if "evidence_story" in evidence:
         checks["receipt_compiled_evidence_story"] = verify_evidence_story(
             evidence,
@@ -898,6 +1056,7 @@ def verify_evidence(
         evidence_story_asset: dict[str, Any] = {}
         ci_recovery_asset: dict[str, Any] = {}
         adaptive_diagnosis_asset: dict[str, Any] = {}
+        transfer_firewall_asset: dict[str, Any] = {}
         if schema_version >= 8:
             guardian_reference = evidence["release_guardian"]
             guardian_workflow = fetch_json(
@@ -958,6 +1117,11 @@ def verify_evidence(
             if "adaptive_diagnosis" in evidence:
                 adaptive_diagnosis_asset = release_assets.get(
                     release_reference["adaptive_diagnosis_asset_name"],
+                    {},
+                )
+            if "transfer_firewall" in evidence:
+                transfer_firewall_asset = release_assets.get(
+                    release_reference["transfer_firewall_asset_name"],
                     {},
                 )
         network_reference: dict[str, Any] = {}
@@ -1288,6 +1452,12 @@ def verify_evidence(
                         == "sha256:"
                         + evidence["adaptive_diagnosis"]["public_sha256"]
                     )
+                    and (
+                        "transfer_firewall" not in evidence
+                        or transfer_firewall_asset.get("digest")
+                        == "sha256:"
+                        + evidence["transfer_firewall"]["public_sha256"]
+                    )
                 ),
                 "release_envelope_gate": (
                     envelope.get("schema_version") == 2
@@ -1421,6 +1591,41 @@ def verify_evidence(
                                 "seal_receipt_sha256"
                             )
                             == evidence["adaptive_diagnosis"].get(
+                                "seal_receipt_sha256"
+                            )
+                        )
+                    )
+                    and (
+                        "transfer_firewall" not in evidence
+                        or (
+                            envelope.get("transfer_firewall", {}).get(
+                                "public_sha256"
+                            )
+                            == evidence["transfer_firewall"].get(
+                                "public_sha256"
+                            )
+                            and envelope.get("transfer_firewall", {}).get(
+                                "workflow_run_id"
+                            )
+                            == evidence["transfer_firewall"].get(
+                                "workflow_run_id"
+                            )
+                            and envelope.get("transfer_firewall", {}).get(
+                                "artifact_archive_sha256"
+                            )
+                            == evidence["transfer_firewall"].get(
+                                "artifact_archive_sha256"
+                            )
+                            and envelope.get("transfer_firewall", {}).get(
+                                "commitment_sha256"
+                            )
+                            == evidence["transfer_firewall"].get(
+                                "commitment_sha256"
+                            )
+                            and envelope.get("transfer_firewall", {}).get(
+                                "seal_receipt_sha256"
+                            )
+                            == evidence["transfer_firewall"].get(
                                 "seal_receipt_sha256"
                             )
                         )

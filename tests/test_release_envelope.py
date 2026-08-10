@@ -465,6 +465,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         evidence_story=None,
         ci_recovery_public=None,
         adaptive_diagnosis_public=None,
+        transfer_firewall_public=None,
     ):
         blind_bytes = (
             (json.dumps(blind_holdout_public, sort_keys=True) + "\n").encode()
@@ -491,6 +492,11 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             if adaptive_diagnosis_public is not None
             else b""
         )
+        transfer_firewall_bytes = (
+            (json.dumps(transfer_firewall_public, sort_keys=True) + "\n").encode()
+            if transfer_firewall_public is not None
+            else b""
+        )
         return build_envelope(
             self.judge,
             self.scale,
@@ -506,6 +512,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             evidence_story=evidence_story,
             ci_recovery_public=ci_recovery_public,
             adaptive_diagnosis_public=adaptive_diagnosis_public,
+            transfer_firewall_public=transfer_firewall_public,
             judge_bytes=self.judge_bytes,
             scale_bytes=self.scale_bytes,
             pressure_bytes=self.pressure_bytes,
@@ -520,6 +527,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             evidence_story_bytes=story_bytes,
             ci_recovery_public_bytes=ci_recovery_bytes,
             adaptive_diagnosis_public_bytes=adaptive_diagnosis_bytes,
+            transfer_firewall_public_bytes=transfer_firewall_bytes,
             repo_root=Path(__file__).parents[1],
             repository="o/r",
             commit_sha="d" * 40,
@@ -642,6 +650,60 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         adaptive["arms"]["continuum"]["recurrence_zero_probe_cases"] = 5
         with self.assertRaisesRegex(RuntimeError, "adaptive_diagnosis"):
             self.build(adaptive_diagnosis_public=adaptive)
+
+    def test_binds_counterfactual_transfer_firewall_projection(self) -> None:
+        root = Path(__file__).parents[1]
+        transfer = json.loads(
+            (root / "public-demo/evidence/transfer-firewall-v1.json").read_bytes()
+        )
+        live_judge = json.loads(
+            (root / "public-demo/evidence/judge-verification.json").read_bytes()
+        )
+        self.judge["transfer_firewall"] = live_judge["transfer_firewall"]
+        transfer_bytes = (json.dumps(transfer, sort_keys=True) + "\n").encode()
+        self.judge["transfer_firewall"]["public_sha256"] = sha256_bytes(
+            transfer_bytes
+        )
+        self.judge["release_envelope"].update(
+            {
+                "transfer_firewall_asset_name": "transfer-firewall-v1.json",
+                "transfer_firewall_asset_url": (
+                    "https://github.com/o/r/releases/download/hackathon-v1/"
+                    "transfer-firewall-v1.json"
+                ),
+            }
+        )
+        self.judge_bytes = (json.dumps(self.judge, sort_keys=True) + "\n").encode()
+        envelope = self.build(transfer_firewall_public=transfer)
+        self.assertEqual(envelope["gates"]["status"], "PASS")
+        self.assertEqual(
+            envelope["transfer_firewall"]["workflow_run_id"], 31439117749
+        )
+        self.assertEqual(
+            envelope["transfer_firewall"]["arms"]["continuum"][
+                "near_neighbor_false_transfers"
+            ],
+            0,
+        )
+        self.assertEqual(
+            envelope["transfer_firewall"]["arms"]["raw_rag"][
+                "near_neighbor_false_transfers"
+            ],
+            6,
+        )
+
+        transfer["arms"]["continuum"]["near_neighbor_false_transfers"] = 1
+        with self.assertRaisesRegex(RuntimeError, "counterfactual_transfer"):
+            self.build(transfer_firewall_public=transfer)
+
+        transfer = json.loads(
+            (root / "public-demo/evidence/transfer-firewall-v1.json").read_bytes()
+        )
+        transfer["observations"][0]["target_environment_fingerprint"] = (
+            transfer["observations"][0]["source_environment_fingerprint"]
+        )
+        with self.assertRaisesRegex(RuntimeError, "counterfactual_transfer"):
+            self.build(transfer_firewall_public=transfer)
 
     def test_binds_preregistered_blind_holdout(self) -> None:
         blind = json.loads(
