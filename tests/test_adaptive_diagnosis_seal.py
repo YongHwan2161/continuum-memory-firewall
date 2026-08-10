@@ -7,6 +7,7 @@ import unittest
 
 from continuum.adaptive_diagnosis import generate_adaptive_diagnosis_inputs
 from continuum.blind_holdout import canonical_json_bytes
+from scripts.run_live_adaptive_diagnosis import _validate_seal
 from scripts.seal_adaptive_diagnosis import seal
 
 
@@ -67,6 +68,12 @@ class AdaptiveDiagnosisSealTests(unittest.TestCase):
             self.assertEqual(
                 json.loads(output.read_text())["receipt_sha256"],
                 receipt["receipt_sha256"],
+            )
+            _validate_seal(
+                challenge=values[0],
+                labels=values[1],
+                commitment=values[2],
+                seal_receipt=receipt,
             )
 
 
