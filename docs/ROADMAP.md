@@ -102,26 +102,17 @@ artifact, public projection, no-mutation, and cleanup gates are bound into the
 public judge and v18 release evidence. See
 [CI_RECOVERY_BENCHMARK.md](CI_RECOVERY_BENCHMARK.md).
 
-**P0 source complete; live evidence HOLD — sealed adaptive CI diagnosis:** the
-current explicit diagnostics make the stateless arm perfect, so adding more
-source-defined repair families would repeat safety evidence without proving the
-causal value of memory. The new implementation preregisters twelve opaque cases
-whose first red log is deliberately non-identifying, seals challenge and labels
-as separate checksum-addressed S3 objects, gives all arms the same two-probe
-budget, and requires either an exact-fingerprint green memory or an actual
-read-only GitHub Actions probe before accepting a proposal. Primary metrics are
-verified recovery within budget, diagnostic child runs, token/tool cost,
-recurrence evidence-acquisition latency, false promotion, and cleanup residual.
-Run `31398666306` exercised all 116 real child workflows and remained HOLD: five
-of six recurrence pairs saved probes, but the preregistered two-sided exact test
-was `p=0.0625`. The result was not reinterpreted. The evidence router now makes
-exact successful Continuum memory and current provider facts server-owned
-discriminated proposal states, preventing redundant probes and actions that the
-receipt cannot support. The public claim remains HOLD until a new reviewed
-main-only SHA generates and seals a fresh challenge and shows that
-Continuum reduces probes in at least five of six recurrence pairs with paired
-exact p <= 0.05 while preserving stateless-level recovery, false promotion 0,
-and canonical precision 1.0. See
+**Completed P0 on 2026-08-11 — sealed adaptive CI diagnosis:** exact-head run
+`31400622882` generated and write-once sealed a fresh challenge/label commitment
+before candidate execution, then bound 84 unique GitHub workflow/artifact
+receipts. All three arms recovered 12/12. Continuum used six diagnostic child
+workflows versus twelve for stateless and skipped all six registered recurrence
+probes; paired exact `p=0.03125`, canonical precision 1.0, false promotion 0,
+repository mutation 0, and cleanup residual 0. The earlier 116-child run
+`31398666306` remains the immutable fail-closed predecessor at `p=0.0625`; no
+threshold or label was changed. The admitted result is exact-fingerprint
+information value. It does not claim semantic transfer, higher recovery, or
+lower token cost. See
 [ADAPTIVE_DIAGNOSIS_BENCHMARK.md](ADAPTIVE_DIAGNOSIS_BENCHMARK.md).
 
 **Current:** the 540-observation synthetic ablation and the real-provider
@@ -160,28 +151,31 @@ Exit criteria:
 
 ## Cross-cutting engineering backlog
 
-### In progress — preregistered blind generalization
+### Next fundamental P0 — preregistered counterfactual transfer firewall
 
-The largest remaining evidence risk is no longer missing security controls or
-missing repetition. It is evaluator coupling: the same 36 hand-designed case
-definitions are visible to the implementation and recur across time. The source
-now implements a fully automated evaluation firewall:
+The largest remaining evidence risk is now exact-key coupling. The adaptive
+benchmark correctly proves that an exact provider-verified fingerprint can
+replace a repeated probe, but a judge can still characterize that behavior as
+a safe cache lookup rather than generalizable agentic memory. The next automated
+evaluation must therefore test causal transfer without exposing an answer key:
 
-- seal a checksum-addressed challenge manifest in S3 before any candidate run;
-- generate new provider-state families and paraphrases with an independent
-  Bedrock job, keeping expected labels inaccessible to the candidate runtime;
-- run raw-RAG and Continuum against the same sealed holdout and score them only
-  after both arms finish;
-- bind the manifest timestamp, generator/evaluator versions, workflow SHA,
-  artifact digest, and result to the immutable release envelope; and
-- fail closed if source, labels, or scoring policy change after preregistration.
+- preregister positive-transfer and near-neighbor negative-transfer variants in
+  which repository layout, tool version, wording, and environment fingerprint
+  change while the latent causal fault either remains or deliberately changes;
+- expose only signed causal evidence features and server-issued citation
+  handles, never the expected action or transfer label;
+- require Continuum to choose among reuse, bounded probe, and fail-closed
+  abstention, while stateless and raw-RAG receive identical provider tools;
+- score verified recovery, probes saved, calibrated abstention, and recovery
+  latency, with **false transfer fixed at zero as the hard gate**; and
+- seal challenge/labels before candidates, cluster-bootstrap over generated
+  environment families, and bind every disposable GitHub receipt and result to
+  the next immutable release.
 
-The second real adapter is an encrypted, disposable S3 object provider with the
-same idempotency, receipt lookup, reconciliation-timeout, and cleanup contract
-as the GitHub draft adapter. Live metrics and release-envelope v13 remain HOLD
-until the source merges and the main-only production environment workflow
-passes. Adding more controls to the old GitHub-only case family does not precede
-that gate.
+This P0 has higher judging value than adding another security control or scaling
+the exact-fingerprint population: it directly distinguishes durable causal
+memory from retrieval-by-key, strengthening Agentic Memory Design, Technical
+Implementation, and Real-World Impact with one falsifiable experiment.
 
 The following items should be pulled into the milestone they block:
 

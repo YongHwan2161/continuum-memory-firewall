@@ -5,6 +5,7 @@ const guardianUrl = './evidence/release-guardian-v1.json';
 const blindUrl = './evidence/blind-holdout-v1.json';
 const sequentialUrl = './evidence/sequential-blind-v1.json';
 const ciRecoveryUrl = './evidence/ci-recovery-v1.json';
+const adaptiveDiagnosisUrl = './evidence/adaptive-diagnosis-v1.json';
 const byId = id => document.getElementById(id);
 const percent = value => `${(Number(value) * 100).toFixed(1)}%`;
 const latency = value => `${Number(value).toFixed(1)} ms`;
@@ -31,6 +32,7 @@ function renderJudge(evidence) {
   if (evidence.blind_holdout) byId('blind-workflow').href = evidence.blind_holdout.workflow_url;
   if (evidence.sequential_blind_campaign) byId('sequential-workflow').href = evidence.sequential_blind_campaign.workflow_url;
   if (evidence.ci_recovery) byId('ci-workflow').href = evidence.ci_recovery.workflow_url;
+  if (evidence.adaptive_diagnosis) byId('adaptive-workflow').href = evidence.adaptive_diagnosis.workflow_url;
   liveStoryUrl = evidence.runtime.demo_url
     || evidence.runtime.health_url.replace(/\/healthz$/, '/demo/run?scenario=checkout-cache-pressure-v1');
   byId('proof-status').textContent = 'EVIDENCE READY';
@@ -68,6 +70,15 @@ function renderCIRecovery(evidence) {
   byId('ci-stateless').textContent = `${arms.stateless.verified_recoveries}/${arms.stateless.cases}`;
   byId('ci-raw').textContent = `${arms.raw_rag.verified_recoveries}/${arms.raw_rag.cases}`;
   byId('ci-false').textContent = `${arms.raw_rag.false_canonical_promotions} / ${arms.continuum.false_canonical_promotions}`;
+}
+
+function renderAdaptiveDiagnosis(evidence) {
+  const arms = evidence.arms;
+  const recurrence = evidence.paired_comparisons.continuum_vs_stateless.recurrence;
+  byId('adaptive-continuum').textContent = `${arms.continuum.verified_recoveries}/${arms.continuum.cases}`;
+  byId('adaptive-stateless').textContent = `${arms.stateless.verified_recoveries}/${arms.stateless.cases}`;
+  byId('adaptive-probes').textContent = `${arms.continuum.recurrence_diagnostic_probe_calls} / ${arms.stateless.recurrence_diagnostic_probe_calls}`;
+  byId('adaptive-p').textContent = recurrence.diagnostic_probe_exact_p_value.toFixed(5);
 }
 
 async function runStory() {
@@ -150,8 +161,8 @@ async function quickCheck() {
   button.disabled = true;
   result.textContent = 'Checking immutable evidence, workflow, Pages, and MCP health…';
   try {
-    const [judge, scale, pressure, guardian, blind, sequential, ciRecovery] = await Promise.all([
-      json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl), json(blindUrl), json(sequentialUrl), json(ciRecoveryUrl)
+    const [judge, scale, pressure, guardian, blind, sequential, ciRecovery, adaptive] = await Promise.all([
+      json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl), json(blindUrl), json(sequentialUrl), json(ciRecoveryUrl), json(adaptiveDiagnosisUrl)
     ]);
     const [workflow, health, page, release] = await Promise.all([
       json(judge.source.workflow_api_url),
@@ -196,8 +207,16 @@ async function quickCheck() {
       && ciRecovery.arms.continuum.false_canonical_promotions === 0
       && ciRecovery.arms.stateless.verified_recoveries === 12
       && ciRecovery.arms.raw_rag.verified_recoveries === 11;
-    result.textContent = passed && guardianPassed && blindPassed && sequentialPassed && ciRecoveryPassed ? 'PASS · public evidence, closed-loop CI proof, and live health agree.' : 'HOLD · open the full verifier for details.';
-    byId('proof-status').textContent = passed && guardianPassed && blindPassed && sequentialPassed && ciRecoveryPassed ? 'ALL PUBLIC GATES PASS' : 'HOLD';
+    const adaptivePassed = adaptive.gate.status === 'PASS'
+      && adaptive.methodology.total_child_workflow_runs === 84
+      && adaptive.arms.continuum.verified_recoveries === 12
+      && adaptive.arms.stateless.verified_recoveries === 12
+      && adaptive.arms.continuum.recurrence_diagnostic_probe_calls === 0
+      && adaptive.arms.stateless.recurrence_diagnostic_probe_calls === 6
+      && adaptive.paired_comparisons.continuum_vs_stateless.recurrence.diagnostic_probe_exact_p_value === 0.03125
+      && adaptive.arms.continuum.false_canonical_promotions === 0;
+    result.textContent = passed && guardianPassed && blindPassed && sequentialPassed && ciRecoveryPassed && adaptivePassed ? 'PASS · public evidence, adaptive diagnosis, and live health agree.' : 'HOLD · open the full verifier for details.';
+    byId('proof-status').textContent = passed && guardianPassed && blindPassed && sequentialPassed && ciRecoveryPassed && adaptivePassed ? 'ALL PUBLIC GATES PASS' : 'HOLD';
   } catch (error) {
     result.textContent = 'HOLD · public verification is temporarily unavailable.';
     byId('proof-status').textContent = 'HOLD';
@@ -207,8 +226,8 @@ async function quickCheck() {
   }
 }
 
-Promise.all([json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl), json(blindUrl), json(sequentialUrl), json(ciRecoveryUrl)])
-  .then(([judge, scale, pressure, guardian, blind, sequential, ciRecovery]) => {
+Promise.all([json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl), json(blindUrl), json(sequentialUrl), json(ciRecoveryUrl), json(adaptiveDiagnosisUrl)])
+  .then(([judge, scale, pressure, guardian, blind, sequential, ciRecovery, adaptive]) => {
     renderJudge(judge);
     renderScale(scale);
     renderPressure(pressure);
@@ -216,6 +235,7 @@ Promise.all([json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl
     renderBlind(blind);
     renderSequential(sequential);
     renderCIRecovery(ciRecovery);
+    renderAdaptiveDiagnosis(adaptive);
   })
   .catch(error => { byId('proof-status').textContent = 'EVIDENCE HOLD'; console.error(error); });
 byId('quick-check').addEventListener('click', quickCheck);

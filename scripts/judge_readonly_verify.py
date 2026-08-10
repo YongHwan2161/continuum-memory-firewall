@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 from scripts.release_transaction_coordinator import verify_receipt
+from continuum.adaptive_diagnosis import build_public_adaptive_diagnosis
 from continuum.blind_holdout import build_public_blind_holdout
 from continuum.ci_recovery import build_public_ci_recovery
 from continuum.evidence_story import verify_evidence_story_receipt
@@ -112,6 +113,8 @@ def verify_ci_recovery(
         re.fullmatch(r"sha256:[0-9a-f]{64}", str(item.get("artifact_digest", "")))
         for item in receipts
     )
+
+
     calibration_valid = all(
         item.get("baseline_receipt", {}).get("conclusion") == "failure"
         and item.get("wrong_patch_receipt", {}).get("conclusion") == "failure"
@@ -188,6 +191,129 @@ def verify_ci_recovery(
         and bool(gate_checks)
         and all(value is True for value in gate_checks)
         and "does not claim arbitrary-code repair" in report.get("claim_boundary", "")
+    )
+
+
+def verify_adaptive_diagnosis(
+    evidence: dict[str, Any],
+    *,
+    fetch_json: Callable[[str], dict[str, Any]],
+    fetch_bytes: Callable[[str], bytes],
+) -> bool:
+    """Bind the S3-preregistered adaptive result to 84 provider receipts."""
+
+    reference = evidence.get("adaptive_diagnosis")
+    if reference is None:
+        return True
+    try:
+        workflow = fetch_json(reference["workflow_api_url"])
+        artifact = fetch_json(reference["artifact_api_url"])
+        public_bytes = fetch_bytes(reference["public_url"])
+        public_sha = hashlib.sha256(
+            public_bytes.replace(b"\r\n", b"\n")
+        ).hexdigest()
+        report = json.loads(public_bytes.decode("utf-8"))
+        if not isinstance(report, dict):
+            return False
+        public_projection = build_public_adaptive_diagnosis(report)
+        methodology = report["methodology"]
+        arms = report["arms"]
+        continuum = arms["continuum"]
+        stateless = arms["stateless"]
+        raw = arms["raw_rag"]
+        observations = report["observations"]
+        calibration = report["calibration"]
+        receipts = [item["provider_receipt"] for item in calibration] + [
+            receipt
+            for item in observations
+            for receipt in item["diagnostic_receipts"]
+        ] + [item["provider_receipt"] for item in observations]
+    except (KeyError, RuntimeError, TypeError, ValueError, json.JSONDecodeError):
+        return False
+    run_ids = [item.get("workflow_run_id") for item in receipts]
+    artifact_ids = [item.get("artifact_id") for item in receipts]
+    pairs = {(item.get("arm"), item.get("case_id")) for item in observations}
+    gate = report.get("gate", {})
+    gate_checks = [value for key, value in gate.items() if key != "status"]
+    recurrence = (
+        report.get("paired_comparisons", {})
+        .get("continuum_vs_stateless", {})
+        .get("recurrence", {})
+    )
+    commitment = report.get("commitment", {})
+    seal = report.get("seal_receipt", {})
+    return (
+        report == public_projection
+        and reference.get("schema_version") == 1
+        and workflow.get("id") == reference.get("workflow_run_id")
+        and workflow.get("run_attempt") == reference.get("workflow_attempt")
+        and workflow.get("conclusion") == "success"
+        and workflow.get("head_sha") == reference.get("head_sha")
+        and artifact.get("id") == reference.get("artifact_id")
+        and artifact.get("name") == reference.get("artifact_name")
+        and artifact.get("digest")
+        == "sha256:" + str(reference.get("artifact_archive_sha256", ""))
+        and artifact.get("expired") is False
+        and artifact.get("workflow_run", {}).get("id")
+        == reference.get("workflow_run_id")
+        and public_sha == reference.get("public_sha256")
+        and report.get("source_head") == reference.get("head_sha")
+        and report.get("workflow_run_id") == reference.get("workflow_run_id")
+        and report.get("workflow_run_attempt") == reference.get("workflow_attempt")
+        and report.get("campaign_id") == reference.get("campaign_id")
+        and commitment.get("challenge_sha256")
+        == reference.get("challenge_sha256")
+        and commitment.get("labels_sha256") == reference.get("labels_sha256")
+        and commitment.get("commitment_sha256")
+        == reference.get("commitment_sha256")
+        and seal.get("receipt_sha256") == reference.get("seal_receipt_sha256")
+        and seal.get("write_once_condition") == "If-None-Match:*"
+        and report.get("provider") == "github-actions"
+        and report.get("real_external_provider") is True
+        and methodology.get("paired_cases") == 12
+        and methodology.get("arm_observations") == 36
+        and methodology.get("fault_families") == 6
+        and methodology.get("ambiguity_groups") == 3
+        and methodology.get("calibration_child_runs") == 18
+        and methodology.get("diagnostic_child_runs") == 30
+        and methodology.get("remediation_child_runs") == 36
+        and methodology.get("total_child_workflow_runs") == 84
+        and methodology.get("candidate_visible_label_fields") == 0
+        and len(observations) == 36
+        and len(pairs) == 36
+        and {arm for arm, _case_id in pairs}
+        == {"stateless", "raw_rag", "continuum"}
+        and len(calibration) == 18
+        and len(receipts) == 84
+        and len(set(run_ids)) == 84
+        and len(set(artifact_ids)) == 84
+        and all(item.get("head_sha") == reference.get("head_sha") for item in receipts)
+        and all(item.get("repository_mutation") is False for item in receipts)
+        and all(item.get("cleanup_residual_count") == 0 for item in receipts)
+        and all(
+            re.fullmatch(
+                r"sha256:[0-9a-f]{64}", str(item.get("artifact_digest", ""))
+            )
+            for item in receipts
+        )
+        and continuum.get("verified_recoveries") == 12
+        and continuum.get("recurrence_verified_recoveries") == 6
+        and continuum.get("diagnostic_probe_calls") == 6
+        and continuum.get("recurrence_diagnostic_probe_calls") == 0
+        and continuum.get("recurrence_zero_probe_cases") == 6
+        and continuum.get("false_canonical_promotions") == 0
+        and continuum.get("canonical_promotion_precision") == 1.0
+        and stateless.get("verified_recoveries") == 12
+        and stateless.get("recurrence_diagnostic_probe_calls") == 6
+        and raw.get("verified_recoveries") == 12
+        and recurrence.get("diagnostic_probe_reduction_cases") == 6
+        and recurrence.get("diagnostic_probe_increase_cases") == 0
+        and recurrence.get("diagnostic_probe_exact_p_value") == 0.03125
+        and gate.get("status") == "PASS"
+        and bool(gate_checks)
+        and all(value is True for value in gate_checks)
+        and "controller retained labels"
+        in report.get("claim_boundary", "").lower()
     )
 
 
@@ -629,7 +755,7 @@ def verify_evidence(
             and runtime["control_plane_and_migrator_role_options_empty"] is True
         ),
         "representative_scale_gate": (
-            schema_version in {4, 5, 6, 7, 8, 9, 10, 11}
+            schema_version in {4, 5, 6, 7, 8, 9, 10, 11, 12}
             and scale_report.get("gate", {}).get("status") == "PASS"
             and [scale.get("row_count") for scale in scales] == [10_000, 50_000]
         ),
@@ -701,6 +827,12 @@ def verify_evidence(
             fetch_json=fetch_json,
             fetch_bytes=fetch_bytes,
         )
+    if "adaptive_diagnosis" in evidence:
+        checks["preregistered_adaptive_diagnosis"] = verify_adaptive_diagnosis(
+            evidence,
+            fetch_json=fetch_json,
+            fetch_bytes=fetch_bytes,
+        )
     if "evidence_story" in evidence:
         checks["receipt_compiled_evidence_story"] = verify_evidence_story(
             evidence,
@@ -765,6 +897,7 @@ def verify_evidence(
         sequential_asset: dict[str, Any] = {}
         evidence_story_asset: dict[str, Any] = {}
         ci_recovery_asset: dict[str, Any] = {}
+        adaptive_diagnosis_asset: dict[str, Any] = {}
         if schema_version >= 8:
             guardian_reference = evidence["release_guardian"]
             guardian_workflow = fetch_json(
@@ -820,6 +953,11 @@ def verify_evidence(
             if "ci_recovery" in evidence:
                 ci_recovery_asset = release_assets.get(
                     release_reference["ci_recovery_asset_name"],
+                    {},
+                )
+            if "adaptive_diagnosis" in evidence:
+                adaptive_diagnosis_asset = release_assets.get(
+                    release_reference["adaptive_diagnosis_asset_name"],
                     {},
                 )
         network_reference: dict[str, Any] = {}
@@ -1144,6 +1282,12 @@ def verify_evidence(
                         or ci_recovery_asset.get("digest")
                         == "sha256:" + evidence["ci_recovery"]["public_sha256"]
                     )
+                    and (
+                        "adaptive_diagnosis" not in evidence
+                        or adaptive_diagnosis_asset.get("digest")
+                        == "sha256:"
+                        + evidence["adaptive_diagnosis"]["public_sha256"]
+                    )
                 ),
                 "release_envelope_gate": (
                     envelope.get("schema_version") == 2
@@ -1244,6 +1388,41 @@ def verify_evidence(
                                 "challenge_sha256"
                             )
                             == evidence["ci_recovery"].get("challenge_sha256")
+                        )
+                    )
+                    and (
+                        "adaptive_diagnosis" not in evidence
+                        or (
+                            envelope.get("adaptive_diagnosis", {}).get(
+                                "public_sha256"
+                            )
+                            == evidence["adaptive_diagnosis"].get(
+                                "public_sha256"
+                            )
+                            and envelope.get("adaptive_diagnosis", {}).get(
+                                "workflow_run_id"
+                            )
+                            == evidence["adaptive_diagnosis"].get(
+                                "workflow_run_id"
+                            )
+                            and envelope.get("adaptive_diagnosis", {}).get(
+                                "artifact_archive_sha256"
+                            )
+                            == evidence["adaptive_diagnosis"].get(
+                                "artifact_archive_sha256"
+                            )
+                            and envelope.get("adaptive_diagnosis", {}).get(
+                                "commitment_sha256"
+                            )
+                            == evidence["adaptive_diagnosis"].get(
+                                "commitment_sha256"
+                            )
+                            and envelope.get("adaptive_diagnosis", {}).get(
+                                "seal_receipt_sha256"
+                            )
+                            == evidence["adaptive_diagnosis"].get(
+                                "seal_receipt_sha256"
+                            )
                         )
                     )
                 ),

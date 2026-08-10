@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 from typing import Any, Mapping
 
+from continuum.adaptive_diagnosis import build_public_adaptive_diagnosis
 from continuum.blind_holdout import build_public_blind_holdout
 from continuum.ci_recovery import build_public_ci_recovery
 from continuum.drilldown import build_public_episode_drilldown
@@ -49,6 +50,7 @@ BLIND_HOLDOUT_ASSET = "blind-holdout-v1.json"
 SEQUENTIAL_BLIND_ASSET = "sequential-blind-v1.json"
 EVIDENCE_STORY_ASSET = "evidence-story-v1.json"
 CI_RECOVERY_ASSET = "ci-recovery-v1.json"
+ADAPTIVE_DIAGNOSIS_ASSET = "adaptive-diagnosis-v1.json"
 SIGNATURE_BUNDLE_ASSET = "continuum-release-envelope-v2.sigstore.jsonl"
 
 
@@ -142,6 +144,7 @@ def build_envelope(
     sequential_blind_public: dict[str, Any] | None = None,
     evidence_story: dict[str, Any] | None = None,
     ci_recovery_public: dict[str, Any] | None = None,
+    adaptive_diagnosis_public: dict[str, Any] | None = None,
     *,
     judge_bytes: bytes,
     scale_bytes: bytes,
@@ -157,6 +160,7 @@ def build_envelope(
     sequential_blind_public_bytes: bytes = b"",
     evidence_story_bytes: bytes = b"",
     ci_recovery_public_bytes: bytes = b"",
+    adaptive_diagnosis_public_bytes: bytes = b"",
     repo_root: Path,
     repository: str,
     commit_sha: str,
@@ -165,8 +169,8 @@ def build_envelope(
     release_tag: str,
     generated_at: str | None = None,
 ) -> dict[str, Any]:
-    if judge.get("schema_version") not in {8, 9, 10, 11}:
-        raise RuntimeError("judge evidence schema 8, 9, 10, or 11 is required")
+    if judge.get("schema_version") not in {8, 9, 10, 11, 12}:
+        raise RuntimeError("judge evidence schema 8 through 12 is required")
     if not SHA_PATTERN.fullmatch(commit_sha):
         raise RuntimeError("release commit must be a full lowercase SHA")
     if workflow_run_id < 1 or not workflow_url.startswith("https://github.com/"):
@@ -190,6 +194,7 @@ def build_envelope(
     sequential_reference = judge.get("sequential_blind_campaign")
     story_reference = judge.get("evidence_story")
     ci_recovery_reference = judge.get("ci_recovery")
+    adaptive_diagnosis_reference = judge.get("adaptive_diagnosis")
     database_policy_reference = judge["database_policy"]
     release_reference = judge["release_envelope"]
     network_sign_once = judge["network_sign_once"]
@@ -242,6 +247,11 @@ def build_envelope(
         if ci_recovery_public is not None
         else ""
     )
+    adaptive_diagnosis_public_sha = (
+        sha256_bytes(repository_text_bytes(adaptive_diagnosis_public_bytes))
+        if adaptive_diagnosis_public is not None
+        else ""
+    )
     public_ablation = build_public_ablation_aggregate(ablation)
     public_drilldown = build_public_episode_drilldown(ablation)
     public_guardian = build_public_release_guardian(release_guardian)
@@ -264,6 +274,28 @@ def build_envelope(
         build_public_ci_recovery(ci_recovery_public)
         if ci_recovery_public is not None
         else None
+    )
+    public_adaptive_diagnosis = (
+        build_public_adaptive_diagnosis(adaptive_diagnosis_public)
+        if adaptive_diagnosis_public is not None
+        else None
+    )
+    adaptive_receipts = (
+        [
+            item["provider_receipt"]
+            for item in adaptive_diagnosis_public.get("calibration", [])
+        ]
+        + [
+            receipt
+            for item in adaptive_diagnosis_public.get("observations", [])
+            for receipt in item.get("diagnostic_receipts", [])
+        ]
+        + [
+            item["provider_receipt"]
+            for item in adaptive_diagnosis_public.get("observations", [])
+        ]
+        if adaptive_diagnosis_public is not None
+        else []
     )
     sequential_replay = (
         sequential_blind_public.get("evaluation_replay")
@@ -885,6 +917,116 @@ def build_envelope(
                 in ci_recovery_public.get("claim_boundary", "")
             )
         ),
+        "adaptive_diagnosis_artifact_bound": (
+            adaptive_diagnosis_reference is None
+            or (
+                adaptive_diagnosis_public is not None
+                and adaptive_diagnosis_public == public_adaptive_diagnosis
+                and adaptive_diagnosis_public_sha
+                == adaptive_diagnosis_reference.get("public_sha256")
+                and adaptive_diagnosis_public.get("source_head")
+                == adaptive_diagnosis_reference.get("head_sha")
+                and adaptive_diagnosis_public.get("workflow_run_id")
+                == adaptive_diagnosis_reference.get("workflow_run_id")
+                and adaptive_diagnosis_reference.get("artifact_name")
+                == (
+                    "continuum-adaptive-diagnosis-"
+                    + str(adaptive_diagnosis_reference.get("head_sha", ""))
+                    + "-"
+                    + str(adaptive_diagnosis_reference.get("workflow_run_id", ""))
+                    + "-"
+                    + str(adaptive_diagnosis_reference.get("workflow_attempt", ""))
+                )
+                and int(adaptive_diagnosis_reference.get("artifact_id", 0)) > 0
+                and SHA256_PATTERN.fullmatch(
+                    str(
+                        adaptive_diagnosis_reference.get(
+                            "artifact_archive_sha256", ""
+                        )
+                    )
+                )
+                is not None
+                and adaptive_diagnosis_public.get("commitment", {}).get(
+                    "challenge_sha256"
+                )
+                == adaptive_diagnosis_reference.get("challenge_sha256")
+                and adaptive_diagnosis_public.get("commitment", {}).get(
+                    "labels_sha256"
+                )
+                == adaptive_diagnosis_reference.get("labels_sha256")
+                and adaptive_diagnosis_public.get("commitment", {}).get(
+                    "commitment_sha256"
+                )
+                == adaptive_diagnosis_reference.get("commitment_sha256")
+                and adaptive_diagnosis_public.get("seal_receipt", {}).get(
+                    "receipt_sha256"
+                )
+                == adaptive_diagnosis_reference.get("seal_receipt_sha256")
+            )
+        ),
+        "adaptive_diagnosis_information_value_passed": (
+            adaptive_diagnosis_reference is None
+            or (
+                adaptive_diagnosis_public is not None
+                and adaptive_diagnosis_public.get("real_external_provider") is True
+                and adaptive_diagnosis_public.get("provider") == "github-actions"
+                and adaptive_diagnosis_public.get("methodology", {}).get(
+                    "paired_cases"
+                )
+                == 12
+                and adaptive_diagnosis_public.get("methodology", {}).get(
+                    "arm_observations"
+                )
+                == 36
+                and adaptive_diagnosis_public.get("methodology", {}).get(
+                    "total_child_workflow_runs"
+                )
+                == 84
+                and len(adaptive_receipts) == 84
+                and len(
+                    {item.get("workflow_run_id") for item in adaptive_receipts}
+                )
+                == 84
+                and len(
+                    {item.get("artifact_id") for item in adaptive_receipts}
+                )
+                == 84
+                and all(
+                    item.get("head_sha")
+                    == adaptive_diagnosis_reference.get("head_sha")
+                    and item.get("repository_mutation") is False
+                    and item.get("cleanup_residual_count") == 0
+                    for item in adaptive_receipts
+                )
+                and adaptive_diagnosis_public.get("gate", {}).get("status")
+                == "PASS"
+                and adaptive_diagnosis_public.get("arms", {})
+                .get("continuum", {})
+                .get("verified_recoveries")
+                == 12
+                and adaptive_diagnosis_public.get("arms", {})
+                .get("continuum", {})
+                .get("recurrence_diagnostic_probe_calls")
+                == 0
+                and adaptive_diagnosis_public.get("arms", {})
+                .get("continuum", {})
+                .get("false_canonical_promotions")
+                == 0
+                and adaptive_diagnosis_public.get("arms", {})
+                .get("stateless", {})
+                .get("verified_recoveries")
+                == 12
+                and adaptive_diagnosis_public.get("arms", {})
+                .get("stateless", {})
+                .get("recurrence_diagnostic_probe_calls")
+                == 6
+                and adaptive_diagnosis_public.get("paired_comparisons", {})
+                .get("continuum_vs_stateless", {})
+                .get("recurrence", {})
+                .get("diagnostic_probe_exact_p_value")
+                == 0.03125
+            )
+        ),
         "citation_grounding_failures_zero": grounding_failures == 0,
         "public_rls_checksum_matches_source": (
             database_policy_reference.get("rls_combined_sha256")
@@ -1060,6 +1202,18 @@ def build_envelope(
                     )
                 )
             )
+            and (
+                adaptive_diagnosis_reference is None
+                or (
+                    release_reference.get("adaptive_diagnosis_asset_name")
+                    == ADAPTIVE_DIAGNOSIS_ASSET
+                    and release_reference.get("adaptive_diagnosis_asset_url")
+                    == (
+                        f"https://github.com/{repository}/releases/download/"
+                        f"{release_tag}/{ADAPTIVE_DIAGNOSIS_ASSET}"
+                    )
+                )
+            )
         ),
         "network_sign_once_contract_bound": (
             network_sign_once.get("schema_version") == 2
@@ -1207,6 +1361,15 @@ def build_envelope(
                         ]
                     }
                     if ci_recovery_reference is not None
+                    else {}
+                ),
+                **(
+                    {
+                        "adaptive_diagnosis": release_reference[
+                            "adaptive_diagnosis_asset_url"
+                        ]
+                    }
+                    if adaptive_diagnosis_reference is not None
                     else {}
                 ),
             },
@@ -1563,6 +1726,59 @@ def build_envelope(
             and ci_recovery_public is not None
             else {}
         ),
+        **(
+            {
+                "adaptive_diagnosis": {
+                    "schema_version": adaptive_diagnosis_public["schema_version"],
+                    "head_sha": adaptive_diagnosis_reference["head_sha"],
+                    "workflow_run_id": adaptive_diagnosis_reference[
+                        "workflow_run_id"
+                    ],
+                    "workflow_attempt": adaptive_diagnosis_reference[
+                        "workflow_attempt"
+                    ],
+                    "workflow_url": adaptive_diagnosis_reference["workflow_url"],
+                    "artifact_id": adaptive_diagnosis_reference["artifact_id"],
+                    "artifact_name": adaptive_diagnosis_reference[
+                        "artifact_name"
+                    ],
+                    "artifact_archive_sha256": adaptive_diagnosis_reference[
+                        "artifact_archive_sha256"
+                    ],
+                    "public_sha256": adaptive_diagnosis_public_sha,
+                    "public_url": adaptive_diagnosis_reference["public_url"],
+                    "page_url": adaptive_diagnosis_reference["page_url"],
+                    "immutable_release_asset_url": release_reference[
+                        "adaptive_diagnosis_asset_url"
+                    ],
+                    "campaign_id": adaptive_diagnosis_public["campaign_id"],
+                    "challenge_sha256": adaptive_diagnosis_public["commitment"][
+                        "challenge_sha256"
+                    ],
+                    "labels_sha256": adaptive_diagnosis_public["commitment"][
+                        "labels_sha256"
+                    ],
+                    "commitment_sha256": adaptive_diagnosis_public["commitment"][
+                        "commitment_sha256"
+                    ],
+                    "seal_receipt_sha256": adaptive_diagnosis_public[
+                        "seal_receipt"
+                    ]["receipt_sha256"],
+                    "methodology": adaptive_diagnosis_public["methodology"],
+                    "arms": adaptive_diagnosis_public["arms"],
+                    "paired_comparisons": adaptive_diagnosis_public[
+                        "paired_comparisons"
+                    ],
+                    "gate": adaptive_diagnosis_public["gate"],
+                    "claim_boundary": adaptive_diagnosis_public[
+                        "claim_boundary"
+                    ],
+                }
+            }
+            if adaptive_diagnosis_reference is not None
+            and adaptive_diagnosis_public is not None
+            else {}
+        ),
         "public_judge_evidence": {
             "url": judge["public_demo"]["evidence_url"],
             "sha256": judge_sha,
@@ -1604,6 +1820,7 @@ def main() -> None:
     parser.add_argument("--sequential-blind-public", type=Path)
     parser.add_argument("--evidence-story", type=Path)
     parser.add_argument("--ci-recovery-public", type=Path)
+    parser.add_argument("--adaptive-diagnosis-public", type=Path)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--repository", required=True)
     parser.add_argument("--commit-sha", required=True)
@@ -1646,6 +1863,11 @@ def main() -> None:
         if args.ci_recovery_public is not None
         else b""
     )
+    adaptive_diagnosis_public_bytes = (
+        args.adaptive_diagnosis_public.read_bytes()
+        if args.adaptive_diagnosis_public is not None
+        else b""
+    )
     envelope = build_envelope(
         json.loads(judge_bytes),
         json.loads(scale_bytes),
@@ -1681,6 +1903,11 @@ def main() -> None:
             if ci_recovery_public_bytes
             else None
         ),
+        (
+            json.loads(adaptive_diagnosis_public_bytes)
+            if adaptive_diagnosis_public_bytes
+            else None
+        ),
         judge_bytes=judge_bytes,
         scale_bytes=scale_bytes,
         pressure_bytes=pressure_bytes,
@@ -1695,6 +1922,7 @@ def main() -> None:
         sequential_blind_public_bytes=sequential_blind_public_bytes,
         evidence_story_bytes=evidence_story_bytes,
         ci_recovery_public_bytes=ci_recovery_public_bytes,
+        adaptive_diagnosis_public_bytes=adaptive_diagnosis_public_bytes,
         repo_root=args.repo_root.resolve(),
         repository=args.repository,
         commit_sha=args.commit_sha,

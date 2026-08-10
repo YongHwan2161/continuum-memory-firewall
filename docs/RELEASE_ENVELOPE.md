@@ -1,7 +1,7 @@
 # Immutable competition release envelope
 
-`hackathon-v18` is the proof unit for the receipt-compiled competition story and
-closed-loop CI recovery evidence. It is
+`hackathon-v19` is the proof unit for the receipt-compiled competition story,
+closed-loop CI recovery, and preregistered ambiguity-first diagnosis evidence. It is
 published only by `.github/workflows/release-envelope.yml` after every
 fail-closed gate passes.
 
@@ -65,16 +65,21 @@ The envelope binds:
   unique child receipts, six calibrated fault families, public projection
   digest, three-arm metrics, zero mutation/residual gates, and bounded
   non-superiority claim; and
+- the S3-preregistered ambiguity-first diagnosis parent and artifact, separate
+  challenge/label/commitment/seal digests, 84 unique calibration/diagnostic/
+  remediation receipts, exact three-arm pairing, paired probe-reduction
+  statistics, zero mutation/residual gates, and explicit exact-fingerprint,
+  non-transfer, and non-token-cost claim boundary; and
 - the Devpost submission ID, updated project timestamp, public project URL,
   current video URL, duration, local-render SHA-256, and English subtitle
   SHA-256.
 
 The immutable release carries the exact sandbox JSON, full ablation JSON,
 public-safe episode drill-down JSON, full real-provider guardian JSON, the
-time-distributed aggregate JSON, public blind-holdout JSON, and public
-sequential-campaign JSON as release assets
-in addition to the envelope. Version 15 also carries
-`evidence-story-v1.json` and its SHA-256 sidecar.
+time-distributed aggregate JSON, public blind-holdout JSON, public
+sequential-campaign JSON, public CI-recovery JSON, and public adaptive-diagnosis
+JSON as release assets in addition to the envelope. Each has a SHA-256 sidecar;
+the release also carries `evidence-story-v1.json`.
 This keeps judge evidence available
 after the shorter-lived GitHub Actions artifacts expire.
 
@@ -181,6 +186,18 @@ report, and binds all 54 unique child receipt identities plus the parent
 workflow/artifact/public digests. The result is not claimed as a general
 recovery advantage because stateless also recovered 12/12.
 
+Version 19 closes the explicit-diagnostic information-value gap. Twelve opaque
+red summaries are generated as six novel/recurrence pairs. Challenge, evaluator
+labels, and their commitment are checksum-addressed and S3-sealed before the
+first model call. The release workflow re-downloads the exact parent artifact,
+reconstructs the public projection from its private report, and requires 84
+unique exact-head provider receipts: 18 calibration, 30 read-only diagnostics,
+and 36 remediations. Publication also requires stateless-level recovery,
+Continuum canonical precision 1.0, false promotion 0, paired recurrence probe
+reduction at `p<=0.05`, and zero mutation/residual. The immutable asset and
+one-click verifier keep the result bounded to exact-fingerprint information
+value; semantic transfer, higher recovery, and lower token cost are not inferred.
+
 The v14 sequential section binds two workflow planes. Candidate run
 `31311573511` completed the full 540-observation step and cleanup, then failed
 before scoring when the runner's Python 3.10 could not import `StrEnum`.
@@ -217,7 +234,7 @@ asset state, and SHA-256 digest. A judge can independently download the envelope
 and validate its sidecar without trusting the public page:
 
 ```bash
-gh release download hackathon-v18 --pattern 'continuum-release-envelope-v2.json*'
+gh release download hackathon-v19 --pattern 'continuum-release-envelope-v2.json*'
 sha256sum -c continuum-release-envelope-v2.json.sha256
 ```
 
@@ -228,7 +245,7 @@ attestation API and the in-toto subject digest. Full cryptographic policy
 verification is one repository command:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v18
+python scripts/verify_network_sign_once.py --release-tag hackathon-v19
 ```
 
 That command downloads the immutable envelope, detached author bundle, and both

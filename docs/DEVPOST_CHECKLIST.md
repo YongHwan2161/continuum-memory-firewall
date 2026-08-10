@@ -91,6 +91,14 @@ complete attestations and organizer agreements.
       Exact parent/artifact/public digests, zero repository mutation, and zero
       cleanup residual are judge-verifiable at
       <https://yonghwan2161.github.io/continuum-memory-firewall/ci-recovery.html>.
+- [x] S3-preregistered ambiguity-first diagnosis completed 84 unique GitHub
+      Actions child receipts: 18 calibration, 30 read-only diagnostics, and 36
+      remediations. All three arms recovered 12/12; Continuum used six probes
+      versus twelve for stateless and skipped all six recurrence probes
+      (`p=0.03125`) with canonical precision 1.0, false promotion 0, repository
+      mutation 0, and cleanup residual 0. The page discloses the higher input-
+      token cost and exact-fingerprint/non-transfer boundary:
+      <https://yonghwan2161.github.io/continuum-memory-firewall/adaptive-diagnosis.html>.
 - [x] Network-visible sign-once release flow refuses a second author
       attestation, attaches the one verified Fulcio/Rekor author bundle before
       release immutability, serves identical bundle bytes through Pages, and
