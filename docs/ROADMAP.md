@@ -112,7 +112,13 @@ budget, and requires either an exact-fingerprint green memory or an actual
 read-only GitHub Actions probe before accepting a proposal. Primary metrics are
 verified recovery within budget, diagnostic child runs, token/tool cost,
 recurrence evidence-acquisition latency, false promotion, and cleanup residual.
-The public claim remains HOLD until the reviewed main-only workflow shows that
+Run `31398666306` exercised all 116 real child workflows and remained HOLD: five
+of six recurrence pairs saved probes, but the preregistered two-sided exact test
+was `p=0.0625`. The result was not reinterpreted. The evidence router now makes
+exact successful Continuum memory and current provider facts server-owned
+discriminated proposal states, preventing redundant probes and actions that the
+receipt cannot support. The public claim remains HOLD until a new reviewed
+main-only SHA generates and seals a fresh challenge and shows that
 Continuum reduces probes in at least five of six recurrence pairs with paired
 exact p <= 0.05 while preserving stateless-level recovery, false promotion 0,
 and canonical precision 1.0. See

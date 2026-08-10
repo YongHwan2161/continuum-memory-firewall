@@ -170,6 +170,41 @@ _PROBE_PAIRS = {
     )
     for group in {item.ambiguity_group for item in ADAPTIVE_DIAGNOSIS_FAMILIES}
 }
+_PATCH_BY_FAULT_PROBE = {
+    item.fault_probe_id: item.expected_patch_id
+    for item in ADAPTIVE_DIAGNOSIS_FAMILIES
+}
+_PATCHES_BY_AMBIGUITY_GROUP = {
+    group: frozenset(
+        item.expected_patch_id
+        for item in ADAPTIVE_DIAGNOSIS_FAMILIES
+        if item.ambiguity_group == group
+    )
+    for group in _PROBE_PAIRS
+}
+
+
+def evidence_patch_id(probe_id: str, finding: str) -> str:
+    """Compile one registered provider fact into the only admissible proposal.
+
+    The mapping is public challenge policy, not an evaluator label.  Each
+    ambiguity group contains two mutually exclusive families: an anomalous
+    probe selects its own reviewed patch and a within-contract result selects
+    the paired patch by exclusion.
+    """
+
+    probe = PROBES.get(probe_id)
+    direct = _PATCH_BY_FAULT_PROBE.get(probe_id)
+    if probe is None or direct is None:
+        raise ValueError("adaptive diagnostic probe is not registered")
+    if finding == "anomaly":
+        return direct
+    if finding != "within-contract":
+        raise ValueError("adaptive diagnostic finding is invalid")
+    alternatives = _PATCHES_BY_AMBIGUITY_GROUP[probe.ambiguity_group] - {direct}
+    if len(alternatives) != 1:
+        raise RuntimeError("adaptive ambiguity policy is not discriminated")
+    return next(iter(alternatives))
 
 
 def sha256_bytes(value: bytes) -> str:

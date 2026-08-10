@@ -9,7 +9,11 @@ import secrets
 import time
 from typing import Any, Callable, Mapping, Sequence
 
-from continuum.adaptive_diagnosis import DIAGNOSTIC_BUDGET, PROBES
+from continuum.adaptive_diagnosis import (
+    DIAGNOSTIC_BUDGET,
+    PROBES,
+    evidence_patch_id,
+)
 from continuum.ci_recovery import CI_PATCH_POLICIES
 from continuum.episode import AgentArm
 from continuum.orchestrator import MemoryToolHit
@@ -143,8 +147,10 @@ class AdaptiveDiagnosisAgent:
                     searched=searched,
                     handles=handles,
                     fetched_handles=fetched_handles,
+                    environment_fingerprint=fingerprint,
                     allowed_probes=tuple(str(item) for item in allowed_probes),
                     used_probes=used_probes,
+                    diagnostic_receipts=diagnostic_receipts,
                 )
                 try:
                     response = self._model.converse(
@@ -422,8 +428,10 @@ class AdaptiveDiagnosisAgent:
         searched: bool,
         handles: Mapping[str, MemoryToolHit],
         fetched_handles: Sequence[str],
+        environment_fingerprint: str,
         allowed_probes: Sequence[str],
         used_probes: set[str],
+        diagnostic_receipts: Sequence[Mapping[str, Any]],
     ) -> list[Mapping[str, Any]]:
         if arm is not AgentArm.STATELESS and not searched:
             return [
@@ -451,38 +459,73 @@ class AdaptiveDiagnosisAgent:
                     }
                 }
             ]
+        # A current provider fact outranks all memory. Compile it into a single
+        # discriminated proposal schema, so the model cannot request a second
+        # low-value probe or an action contradicted by the receipt.
+        if diagnostic_receipts:
+            payload = diagnostic_receipts[-1].get("provider_payload")
+            if not isinstance(payload, Mapping):
+                raise AdaptiveDiagnosisAgentError(
+                    "adaptive diagnostic provider payload is invalid"
+                )
+            patch_id = evidence_patch_id(
+                str(payload.get("probe_id", "")),
+                str(payload.get("finding", "")),
+            )
+            return [
+                self._proposal_tool(
+                    CI_PATCH_POLICIES[patch_id],
+                    (),
+                    require_citation=False,
+                )
+            ]
+
+        exact_verified_handles = [
+            handle
+            for handle, hit in handles.items()
+            if hit.payload.get("provider_conclusion") == "success"
+            and hit.payload.get("environment_fingerprint")
+            == environment_fingerprint
+            and hit.payload.get("patch_id") in CI_PATCH_POLICIES
+        ]
+        # Continuum's outcome gate is a control-plane decision, not a model
+        # suggestion. Exact provider-success memory must be fetched, cited, and
+        # routed to its matching proposal before any diagnostic probe is exposed.
+        if arm is AgentArm.CONTINUUM and exact_verified_handles:
+            fetched_verified = [
+                handle
+                for handle in exact_verified_handles
+                if handle in fetched_handles
+            ]
+            if not fetched_verified:
+                return [self._fetch_tool(exact_verified_handles)]
+            patch_ids = {
+                str(handles[handle].payload["patch_id"])
+                for handle in fetched_verified
+            }
+            if len(patch_ids) != 1:
+                raise AdaptiveDiagnosisAgentError(
+                    "adaptive verified memories disagree on a patch"
+                )
+            patch_id = next(iter(patch_ids))
+            return [
+                self._proposal_tool(
+                    CI_PATCH_POLICIES[patch_id],
+                    tuple(fetched_verified),
+                    require_citation=True,
+                )
+            ]
+
         tools: list[Mapping[str, Any]] = []
         available_handles = [
             handle for handle in handles if handle not in fetched_handles
         ]
         if available_handles:
-            tools.append(
-                {
-                    "toolSpec": {
-                        "name": "fetch_memory",
-                        "description": (
-                            "Fetch one handle returned by the current scoped search."
-                        ),
-                        "inputSchema": {
-                            "json": {
-                                "type": "object",
-                                "properties": {
-                                    "citation_handle": {
-                                        "type": "string",
-                                        "enum": available_handles,
-                                    }
-                                },
-                                "required": ["citation_handle"],
-                                "additionalProperties": False,
-                            }
-                        },
-                    }
-                }
-            )
+            tools.append(self._fetch_tool(available_handles))
         available_probes = [
             probe_id for probe_id in allowed_probes if probe_id not in used_probes
         ]
-        if len(used_probes) < DIAGNOSTIC_BUDGET and available_probes:
+        if not used_probes and available_probes:
             tools.append(
                 {
                     "toolSpec": {
@@ -507,19 +550,73 @@ class AdaptiveDiagnosisAgent:
                     }
                 }
             )
+        supported: dict[str, list[str]] = {}
+        for handle in fetched_handles:
+            hit = handles[handle]
+            patch_id = str(hit.payload.get("patch_id", ""))
+            if (
+                hit.payload.get("provider_conclusion") == "success"
+                and hit.payload.get("environment_fingerprint")
+                == environment_fingerprint
+                and patch_id in CI_PATCH_POLICIES
+            ):
+                supported.setdefault(patch_id, []).append(handle)
         tools.extend(
-            self._proposal_tool(policy, tuple(handles))
-            for policy in CI_PATCH_POLICIES.values()
+            self._proposal_tool(
+                CI_PATCH_POLICIES[patch_id],
+                tuple(citation_handles),
+                require_citation=True,
+            )
+            for patch_id, citation_handles in sorted(supported.items())
         )
+        if not tools:
+            raise AdaptiveDiagnosisAgentError(
+                "adaptive evidence router has no admissible tool"
+            )
         return tools
 
     @staticmethod
+    def _fetch_tool(handles: Sequence[str]) -> Mapping[str, Any]:
+        return {
+            "toolSpec": {
+                "name": "fetch_memory",
+                "description": (
+                    "Fetch one handle returned by the current scoped search."
+                ),
+                "inputSchema": {
+                    "json": {
+                        "type": "object",
+                        "properties": {
+                            "citation_handle": {
+                                "type": "string",
+                                "enum": list(handles),
+                            }
+                        },
+                        "required": ["citation_handle"],
+                        "additionalProperties": False,
+                    }
+                },
+            }
+        }
+
+    @staticmethod
     def _proposal_tool(
-        policy: Any, handles: Sequence[str]
+        policy: Any,
+        handles: Sequence[str],
+        *,
+        require_citation: bool,
     ) -> Mapping[str, Any]:
         citation_item: dict[str, Any] = {"type": "string"}
         if handles:
             citation_item["enum"] = list(handles)
+        citation_schema: dict[str, Any] = {
+            "type": "array",
+            "items": citation_item,
+            "maxItems": len(handles),
+            "uniqueItems": True,
+        }
+        if require_citation:
+            citation_schema["minItems"] = 1
         return {
             "toolSpec": {
                 "name": policy.tool_name,
@@ -534,12 +631,7 @@ class AdaptiveDiagnosisAgent:
                             "action_key": {"type": "string", "minLength": 1},
                             "parameters": policy.parameter_schema(),
                             "rationale": {"type": "string", "minLength": 1},
-                            "citation_handles": {
-                                "type": "array",
-                                "items": citation_item,
-                                "maxItems": len(handles),
-                                "uniqueItems": True,
-                            },
+                            "citation_handles": citation_schema,
                         },
                         "required": [
                             "action_key",
