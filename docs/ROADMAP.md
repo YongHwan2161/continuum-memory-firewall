@@ -151,7 +151,7 @@ Exit criteria:
 
 ## Cross-cutting engineering backlog
 
-### Next fundamental P0 — preregistered counterfactual transfer firewall
+### Current fundamental P0 — preregistered counterfactual transfer firewall
 
 The largest remaining evidence risk is now exact-key coupling. The adaptive
 benchmark correctly proves that an exact provider-verified fingerprint can
@@ -171,6 +171,13 @@ evaluation must therefore test causal transfer without exposing an answer key:
 - seal challenge/labels before candidates, cluster-bootstrap over generated
   environment families, and bind every disposable GitHub receipt and result to
   the next immutable release.
+
+**Implemented in source on 2026-08-11; main-only live receipt generation and
+immutable publication remain gated.** The generator, S3 write-once seal,
+provider-attested causal-signature firewall, three-arm runner, 84-receipt
+contract, and fail-closed tests are implemented in
+[TRANSFER_FIREWALL_BENCHMARK.md](TRANSFER_FIREWALL_BENCHMARK.md). No live result
+is claimed until the reviewed main SHA completes the sealed workflow.
 
 This P0 has higher judging value than adding another security control or scaling
 the exact-fingerprint population: it directly distinguishes durable causal

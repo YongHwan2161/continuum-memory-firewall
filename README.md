@@ -12,6 +12,9 @@ or [inspect 36 paired incidents with real GitHub effects](https://yonghwan2161.g
 then [inspect all five time-distributed real-provider batches](https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian-replication.html)
 and the [three-batch sequential blind memory-compounding proof](https://yonghwan2161.github.io/continuum-memory-firewall/sequential-blind.html),
 or inspect the [S3-preregistered ambiguity-first adaptive diagnosis proof](https://yonghwan2161.github.io/continuum-memory-firewall/adaptive-diagnosis.html).
+The next source-complete evaluation is the
+[counterfactual cross-environment transfer firewall](docs/TRANSFER_FIREWALL_BENCHMARK.md);
+its live claim remains gated until an exact-main S3-sealed run passes.
 In the incident-response story, trusted telemetry becomes durable memory,
 poisoned model output remains quarantined, a later agent retrieves the accepted
 resolution, and CockroachDB grants exactly one action owner.
@@ -315,6 +318,7 @@ production remediation systems.
 - [Sequential blind evaluation](docs/SEQUENTIAL_BLIND.md) — sealed three-arm episode chains, paired inference, and future-episode promotion proof
 - [Closed-loop CI recovery](docs/CI_RECOVERY_BENCHMARK.md) — actual failed/green GitHub Actions receipts and three-arm recovery metrics
 - [Ambiguity-first adaptive diagnosis](docs/ADAPTIVE_DIAGNOSIS_BENCHMARK.md) — preregistered label-free red summaries, 84 actual provider receipts, and a paired memory information-value gate
+- [Counterfactual transfer firewall](docs/TRANSFER_FIREWALL_BENCHMARK.md) — disjoint source/target environments, provider-attested causal compatibility, and near-neighbour false-transfer rejection
 - [Devpost Checklist](docs/DEVPOST_CHECKLIST.md) — submission readiness SSOT
 - [Cost Safety](docs/COST_SAFETY.md) — spending assumptions and guardrails
 - [Cloud Deployment Runbook](docs/CLOUD_DEPLOYMENT_RUNBOOK.md) — participant-owned setup, guarded deployment, proof, and teardown

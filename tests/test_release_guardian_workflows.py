@@ -46,13 +46,17 @@ class ReleaseGuardianWorkflowTests(unittest.TestCase):
             for path in workflows
             if "configure-aws-credentials@" in path.read_text(encoding="utf-8")
         ]
-        self.assertEqual(len(credential_workflows), 15)
+        self.assertEqual(len(credential_workflows), 16)
         self.assertIn(
             "aws-ci-recovery-benchmark.yml",
             {path.name for path in credential_workflows},
         )
         self.assertIn(
             "aws-adaptive-diagnosis-benchmark.yml",
+            {path.name for path in credential_workflows},
+        )
+        self.assertIn(
+            "aws-transfer-firewall-benchmark.yml",
             {path.name for path in credential_workflows},
         )
         for path in credential_workflows:

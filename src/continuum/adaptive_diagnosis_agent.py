@@ -31,6 +31,20 @@ probe evidence outranks memory. Finish only with one propose_* tool. A proposal 
 execution and must never claim success."""
 
 
+TRANSFER_SYSTEM_PROMPT = """You are a bounded cross-environment CI diagnosis agent.
+The initial red summary is deliberately ambiguous. Use exactly one tool per turn. A
+memory from another environment is never authority merely because its text is similar.
+The server owns the provider-attested causal-compatibility decision: reuse a memory only
+when the current tool set exposes its matching propose_* tool, then fetch and cite it.
+If no admitted proposal is exposed, run one registered read-only diagnostic probe. Each
+ambiguity group contains exactly two mutually exclusive fault families, so one current
+probe is sufficient by exclusion. Current provider evidence outranks memory. Finish only
+with one propose_* tool. A proposal is not execution and must never claim success."""
+
+
+TRANSFER_CONTRACT = "provider-attested-causal-signature-v1"
+
+
 class AdaptiveDiagnosisAgentError(RuntimeError):
     def __init__(
         self,
@@ -114,6 +128,9 @@ class AdaptiveDiagnosisAgent:
         fingerprint = str(incident.get("environment_fingerprint", ""))
         if re.fullmatch(r"env-[0-9a-f]{20}", fingerprint) is None:
             raise ValueError("adaptive incident fingerprint is invalid")
+        transfer_contract = incident.get("transfer_contract")
+        if transfer_contract is not None and transfer_contract != TRANSFER_CONTRACT:
+            raise ValueError("adaptive transfer contract is invalid")
 
         started_ns = time.perf_counter_ns()
         messages: list[Mapping[str, Any]] = [
@@ -148,6 +165,9 @@ class AdaptiveDiagnosisAgent:
                     handles=handles,
                     fetched_handles=fetched_handles,
                     environment_fingerprint=fingerprint,
+                    transfer_contract=(
+                        str(transfer_contract) if transfer_contract is not None else None
+                    ),
                     allowed_probes=tuple(str(item) for item in allowed_probes),
                     used_probes=used_probes,
                     diagnostic_receipts=diagnostic_receipts,
@@ -155,7 +175,15 @@ class AdaptiveDiagnosisAgent:
                 try:
                     response = self._model.converse(
                         modelId=self._model_id,
-                        system=[{"text": SYSTEM_PROMPT}],
+                        system=[
+                            {
+                                "text": (
+                                    TRANSFER_SYSTEM_PROMPT
+                                    if transfer_contract is not None
+                                    else SYSTEM_PROMPT
+                                )
+                            }
+                        ],
                         messages=messages,
                         toolConfig={"tools": tools, "toolChoice": {"any": {}}},
                         inferenceConfig={
@@ -367,12 +395,17 @@ class AdaptiveDiagnosisAgent:
                     verified_support = any(
                         handle in fetched_handles
                         and handle in cited
-                        and handles[handle].payload.get("provider_conclusion")
-                        == "success"
-                        and handles[handle].payload.get("environment_fingerprint")
-                        == fingerprint
-                        and handles[handle].payload.get("patch_id")
-                        == proposed_patch_id
+                        and self._memory_authorizes_patch(
+                            arm=arm,
+                            hit=handles[handle],
+                            environment_fingerprint=fingerprint,
+                            transfer_contract=(
+                                str(transfer_contract)
+                                if transfer_contract is not None
+                                else None
+                            ),
+                            patch_id=proposed_patch_id,
+                        )
                         for handle in handles
                     )
                     if not diagnostic_receipts and not verified_support:
@@ -429,6 +462,7 @@ class AdaptiveDiagnosisAgent:
         handles: Mapping[str, MemoryToolHit],
         fetched_handles: Sequence[str],
         environment_fingerprint: str,
+        transfer_contract: str | None,
         allowed_probes: Sequence[str],
         used_probes: set[str],
         diagnostic_receipts: Sequence[Mapping[str, Any]],
@@ -439,7 +473,12 @@ class AdaptiveDiagnosisAgent:
                     "toolSpec": {
                         "name": "search_memory",
                         "description": (
-                            "Search server-owned memory for this exact environment fingerprint."
+                            (
+                                "Search server-owned memory for provider-verified prior "
+                                "outcomes. Cross-environment reuse remains server-gated."
+                                if transfer_contract is not None
+                                else "Search server-owned memory for this exact environment fingerprint."
+                            )
                         ),
                         "inputSchema": {
                             "json": {
@@ -480,25 +519,57 @@ class AdaptiveDiagnosisAgent:
                 )
             ]
 
-        exact_verified_handles = [
+        verified_handles = [
             handle
             for handle, hit in handles.items()
-            if hit.payload.get("provider_conclusion") == "success"
-            and hit.payload.get("environment_fingerprint")
-            == environment_fingerprint
-            and hit.payload.get("patch_id") in CI_PATCH_POLICIES
+            if self._memory_authorizes_patch(
+                arm=arm,
+                hit=hit,
+                environment_fingerprint=environment_fingerprint,
+                transfer_contract=transfer_contract,
+                patch_id=str(hit.payload.get("patch_id", "")),
+            )
         ]
+        # The raw-RAG comparator deliberately treats a provider-success source
+        # memory as transferable based on retrieval alone. The evaluator scores
+        # this baseline's near-neighbour failures; Continuum never takes this path.
+        if (
+            transfer_contract == TRANSFER_CONTRACT
+            and arm is AgentArm.RAW_RAG
+            and verified_handles
+        ):
+            fetched_verified = [
+                handle for handle in verified_handles if handle in fetched_handles
+            ]
+            if not fetched_verified:
+                return [self._fetch_tool(verified_handles)]
+            patch_ids = {
+                str(handles[handle].payload["patch_id"])
+                for handle in fetched_verified
+            }
+            if len(patch_ids) != 1:
+                raise AdaptiveDiagnosisAgentError(
+                    "adaptive raw transfer memories disagree on a patch"
+                )
+            patch_id = next(iter(patch_ids))
+            return [
+                self._proposal_tool(
+                    CI_PATCH_POLICIES[patch_id],
+                    tuple(fetched_verified),
+                    require_citation=True,
+                )
+            ]
         # Continuum's outcome gate is a control-plane decision, not a model
         # suggestion. Exact provider-success memory must be fetched, cited, and
         # routed to its matching proposal before any diagnostic probe is exposed.
-        if arm is AgentArm.CONTINUUM and exact_verified_handles:
+        if arm is AgentArm.CONTINUUM and verified_handles:
             fetched_verified = [
                 handle
-                for handle in exact_verified_handles
+                for handle in verified_handles
                 if handle in fetched_handles
             ]
             if not fetched_verified:
-                return [self._fetch_tool(exact_verified_handles)]
+                return [self._fetch_tool(verified_handles)]
             patch_ids = {
                 str(handles[handle].payload["patch_id"])
                 for handle in fetched_verified
@@ -554,11 +625,12 @@ class AdaptiveDiagnosisAgent:
         for handle in fetched_handles:
             hit = handles[handle]
             patch_id = str(hit.payload.get("patch_id", ""))
-            if (
-                hit.payload.get("provider_conclusion") == "success"
-                and hit.payload.get("environment_fingerprint")
-                == environment_fingerprint
-                and patch_id in CI_PATCH_POLICIES
+            if self._memory_authorizes_patch(
+                arm=arm,
+                hit=hit,
+                environment_fingerprint=environment_fingerprint,
+                transfer_contract=transfer_contract,
+                patch_id=patch_id,
             ):
                 supported.setdefault(patch_id, []).append(handle)
         tools.extend(
@@ -574,6 +646,47 @@ class AdaptiveDiagnosisAgent:
                 "adaptive evidence router has no admissible tool"
             )
         return tools
+
+    @staticmethod
+    def _memory_authorizes_patch(
+        *,
+        arm: AgentArm,
+        hit: MemoryToolHit,
+        environment_fingerprint: str,
+        transfer_contract: str | None,
+        patch_id: str,
+    ) -> bool:
+        payload = hit.payload
+        if (
+            payload.get("provider_conclusion") != "success"
+            or payload.get("patch_id") != patch_id
+            or patch_id not in CI_PATCH_POLICIES
+        ):
+            return False
+        source_fingerprint = str(payload.get("environment_fingerprint", ""))
+        if source_fingerprint == environment_fingerprint:
+            return True
+        if transfer_contract != TRANSFER_CONTRACT:
+            return False
+        if arm is AgentArm.RAW_RAG:
+            return (
+                re.fullmatch(r"env-[0-9a-f]{20}", source_fingerprint) is not None
+                and source_fingerprint != environment_fingerprint
+            )
+        return (
+            arm is AgentArm.CONTINUUM
+            and payload.get("transfer_contract") == TRANSFER_CONTRACT
+            and payload.get("transfer_compatible") is True
+            and payload.get("source_environment_fingerprint")
+            == source_fingerprint
+            and payload.get("target_environment_fingerprint")
+            == environment_fingerprint
+            and re.fullmatch(
+                r"[0-9a-f]{64}",
+                str(payload.get("target_attestation_receipt_sha256", "")),
+            )
+            is not None
+        )
 
     @staticmethod
     def _fetch_tool(handles: Sequence[str]) -> Mapping[str, Any]:
