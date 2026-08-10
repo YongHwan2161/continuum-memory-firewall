@@ -119,7 +119,11 @@ def _validate_seal(
     expected = {
         "challenge": commitment["challenge_sha256"],
         "labels": commitment["labels_sha256"],
-        "commitment": commitment["commitment_sha256"],
+        # The commitment identity hashes the body before its identity field is
+        # attached.  The S3 object digest correctly hashes the complete file.
+        "commitment": hashlib.sha256(
+            canonical_json_bytes(dict(commitment))
+        ).hexdigest(),
     }
     if any(
         not isinstance(objects.get(key), Mapping)
