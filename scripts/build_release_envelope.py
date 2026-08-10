@@ -21,6 +21,7 @@ from continuum.release_guardian_replication import (
     build_public_release_guardian_replication,
 )
 from continuum.sequential_blind import build_public_sequential_blind
+from continuum.transfer_firewall import build_public_transfer_firewall
 
 
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
@@ -51,6 +52,7 @@ SEQUENTIAL_BLIND_ASSET = "sequential-blind-v1.json"
 EVIDENCE_STORY_ASSET = "evidence-story-v1.json"
 CI_RECOVERY_ASSET = "ci-recovery-v1.json"
 ADAPTIVE_DIAGNOSIS_ASSET = "adaptive-diagnosis-v1.json"
+TRANSFER_FIREWALL_ASSET = "transfer-firewall-v1.json"
 SIGNATURE_BUNDLE_ASSET = "continuum-release-envelope-v2.sigstore.jsonl"
 
 
@@ -145,6 +147,7 @@ def build_envelope(
     evidence_story: dict[str, Any] | None = None,
     ci_recovery_public: dict[str, Any] | None = None,
     adaptive_diagnosis_public: dict[str, Any] | None = None,
+    transfer_firewall_public: dict[str, Any] | None = None,
     *,
     judge_bytes: bytes,
     scale_bytes: bytes,
@@ -161,6 +164,7 @@ def build_envelope(
     evidence_story_bytes: bytes = b"",
     ci_recovery_public_bytes: bytes = b"",
     adaptive_diagnosis_public_bytes: bytes = b"",
+    transfer_firewall_public_bytes: bytes = b"",
     repo_root: Path,
     repository: str,
     commit_sha: str,
@@ -169,8 +173,8 @@ def build_envelope(
     release_tag: str,
     generated_at: str | None = None,
 ) -> dict[str, Any]:
-    if judge.get("schema_version") not in {8, 9, 10, 11, 12}:
-        raise RuntimeError("judge evidence schema 8 through 12 is required")
+    if judge.get("schema_version") not in {8, 9, 10, 11, 12, 13}:
+        raise RuntimeError("judge evidence schema 8 through 13 is required")
     if not SHA_PATTERN.fullmatch(commit_sha):
         raise RuntimeError("release commit must be a full lowercase SHA")
     if workflow_run_id < 1 or not workflow_url.startswith("https://github.com/"):
@@ -195,6 +199,7 @@ def build_envelope(
     story_reference = judge.get("evidence_story")
     ci_recovery_reference = judge.get("ci_recovery")
     adaptive_diagnosis_reference = judge.get("adaptive_diagnosis")
+    transfer_firewall_reference = judge.get("transfer_firewall")
     database_policy_reference = judge["database_policy"]
     release_reference = judge["release_envelope"]
     network_sign_once = judge["network_sign_once"]
@@ -252,6 +257,11 @@ def build_envelope(
         if adaptive_diagnosis_public is not None
         else ""
     )
+    transfer_firewall_public_sha = (
+        sha256_bytes(repository_text_bytes(transfer_firewall_public_bytes))
+        if transfer_firewall_public is not None
+        else ""
+    )
     public_ablation = build_public_ablation_aggregate(ablation)
     public_drilldown = build_public_episode_drilldown(ablation)
     public_guardian = build_public_release_guardian(release_guardian)
@@ -280,6 +290,11 @@ def build_envelope(
         if adaptive_diagnosis_public is not None
         else None
     )
+    public_transfer_firewall = (
+        build_public_transfer_firewall(transfer_firewall_public)
+        if transfer_firewall_public is not None
+        else None
+    )
     adaptive_receipts = (
         [
             item["provider_receipt"]
@@ -295,6 +310,49 @@ def build_envelope(
             for item in adaptive_diagnosis_public.get("observations", [])
         ]
         if adaptive_diagnosis_public is not None
+        else []
+    )
+    transfer_receipts = (
+        [
+            item["provider_receipt"]
+            for item in transfer_firewall_public.get("source_calibration", [])
+        ]
+        + [
+            item["provider_receipt"]
+            for item in transfer_firewall_public.get("target_attestations", [])
+        ]
+        + [
+            receipt
+            for item in transfer_firewall_public.get("observations", [])
+            for receipt in item.get("diagnostic_receipts", [])
+        ]
+        + [
+            item["provider_receipt"]
+            for item in transfer_firewall_public.get("observations", [])
+        ]
+        if transfer_firewall_public is not None
+        else []
+    )
+    transfer_observations = (
+        transfer_firewall_public.get("observations", [])
+        if transfer_firewall_public is not None
+        else []
+    )
+    transfer_source_fingerprints = {
+        item.get("source_environment_fingerprint")
+        for item in transfer_observations
+    }
+    transfer_target_fingerprints = {
+        item.get("target_environment_fingerprint")
+        for item in transfer_observations
+    }
+    transfer_gate_checks = (
+        [
+            value
+            for key, value in transfer_firewall_public.get("gate", {}).items()
+            if key != "status"
+        ]
+        if transfer_firewall_public is not None
         else []
     )
     sequential_replay = (
@@ -1027,6 +1085,185 @@ def build_envelope(
                 == 0.03125
             )
         ),
+        "transfer_firewall_artifact_bound": (
+            transfer_firewall_reference is None
+            or (
+                transfer_firewall_public is not None
+                and transfer_firewall_public == public_transfer_firewall
+                and transfer_firewall_public_sha
+                == transfer_firewall_reference.get("public_sha256")
+                and transfer_firewall_public.get("source_head")
+                == transfer_firewall_reference.get("head_sha")
+                and transfer_firewall_public.get("workflow_run_id")
+                == transfer_firewall_reference.get("workflow_run_id")
+                and transfer_firewall_reference.get("artifact_name")
+                == (
+                    "continuum-transfer-firewall-"
+                    + str(transfer_firewall_reference.get("head_sha", ""))
+                    + "-"
+                    + str(transfer_firewall_reference.get("workflow_run_id", ""))
+                    + "-"
+                    + str(transfer_firewall_reference.get("workflow_attempt", ""))
+                )
+                and int(transfer_firewall_reference.get("artifact_id", 0)) > 0
+                and SHA256_PATTERN.fullmatch(
+                    str(
+                        transfer_firewall_reference.get(
+                            "artifact_archive_sha256", ""
+                        )
+                    )
+                )
+                is not None
+                and transfer_firewall_public.get("commitment", {}).get(
+                    "challenge_sha256"
+                )
+                == transfer_firewall_reference.get("challenge_sha256")
+                and transfer_firewall_public.get("commitment", {}).get(
+                    "labels_sha256"
+                )
+                == transfer_firewall_reference.get("labels_sha256")
+                and transfer_firewall_public.get("commitment", {}).get(
+                    "commitment_sha256"
+                )
+                == transfer_firewall_reference.get("commitment_sha256")
+                and transfer_firewall_public.get("seal_receipt", {}).get(
+                    "receipt_sha256"
+                )
+                == transfer_firewall_reference.get("seal_receipt_sha256")
+            )
+        ),
+        "counterfactual_transfer_policy_passed": (
+            transfer_firewall_reference is None
+            or (
+                transfer_firewall_public is not None
+                and transfer_firewall_public.get("real_external_provider") is True
+                and transfer_firewall_public.get("provider") == "github-actions"
+                and transfer_firewall_public.get("methodology", {}).get(
+                    "counterfactual_pairs"
+                )
+                == 6
+                and transfer_firewall_public.get("methodology", {}).get(
+                    "target_cases"
+                )
+                == 12
+                and transfer_firewall_public.get("methodology", {}).get(
+                    "arm_observations"
+                )
+                == 36
+                and transfer_firewall_public.get("methodology", {}).get(
+                    "source_fault_families"
+                )
+                == 6
+                and transfer_firewall_public.get("methodology", {}).get(
+                    "same_cause_targets"
+                )
+                == 6
+                and transfer_firewall_public.get("methodology", {}).get(
+                    "near_neighbor_targets"
+                )
+                == 6
+                and transfer_firewall_public.get("methodology", {}).get(
+                    "source_calibration_child_runs"
+                )
+                == 18
+                and transfer_firewall_public.get("methodology", {}).get(
+                    "target_attestation_child_runs"
+                )
+                == 12
+                and transfer_firewall_public.get("methodology", {}).get(
+                    "diagnostic_child_runs"
+                )
+                == 18
+                and transfer_firewall_public.get("methodology", {}).get(
+                    "remediation_child_runs"
+                )
+                == 36
+                and transfer_firewall_public.get("methodology", {}).get(
+                    "total_child_workflow_runs"
+                )
+                == 84
+                and transfer_firewall_public.get("methodology", {}).get(
+                    "candidate_visible_label_fields"
+                )
+                == 0
+                and transfer_firewall_public.get("methodology", {}).get(
+                    "labels_opened_by_controller_only"
+                )
+                is True
+                and len(transfer_observations) == 36
+                and len(
+                    {
+                        (item.get("arm"), item.get("case_id"))
+                        for item in transfer_observations
+                    }
+                )
+                == 36
+                and transfer_source_fingerprints.isdisjoint(
+                    transfer_target_fingerprints
+                )
+                and len(transfer_receipts) == 84
+                and len(
+                    {item.get("workflow_run_id") for item in transfer_receipts}
+                )
+                == 84
+                and len({item.get("artifact_id") for item in transfer_receipts})
+                == 84
+                and len(
+                    {item.get("artifact_digest") for item in transfer_receipts}
+                )
+                == 84
+                and all(
+                    item.get("head_sha")
+                    == transfer_firewall_reference.get("head_sha")
+                    and item.get("repository_mutation") is False
+                    and item.get("cleanup_residual_count") == 0
+                    for item in transfer_receipts
+                )
+                and transfer_firewall_public.get("gate", {}).get("status")
+                == "PASS"
+                and bool(transfer_gate_checks)
+                and all(value is True for value in transfer_gate_checks)
+                and transfer_firewall_public.get("arms", {})
+                .get("continuum", {})
+                .get("verified_recoveries")
+                == 12
+                and transfer_firewall_public.get("arms", {})
+                .get("continuum", {})
+                .get("same_cause_verified_transfers")
+                == 6
+                and transfer_firewall_public.get("arms", {})
+                .get("continuum", {})
+                .get("near_neighbor_safe_rejections")
+                == 6
+                and transfer_firewall_public.get("arms", {})
+                .get("continuum", {})
+                .get("near_neighbor_false_transfers")
+                == 0
+                and transfer_firewall_public.get("arms", {})
+                .get("continuum", {})
+                .get("false_canonical_promotions")
+                == 0
+                and transfer_firewall_public.get("arms", {})
+                .get("raw_rag", {})
+                .get("verified_recoveries")
+                == 6
+                and transfer_firewall_public.get("arms", {})
+                .get("raw_rag", {})
+                .get("near_neighbor_false_transfers")
+                == 6
+                and transfer_firewall_public.get("paired_comparisons", {})
+                .get("continuum_vs_stateless", {})
+                .get("same_cause", {})
+                .get("diagnostic_probe_exact_p_value")
+                == 0.03125
+                and transfer_firewall_public.get("paired_comparisons", {})
+                .get("continuum_vs_raw_rag", {})
+                .get("verified_recovery_lift_percentage_points")
+                == 50.0
+                and "not arbitrary repository repair"
+                in str(transfer_firewall_public.get("claim_boundary", "")).lower()
+            )
+        ),
         "citation_grounding_failures_zero": grounding_failures == 0,
         "public_rls_checksum_matches_source": (
             database_policy_reference.get("rls_combined_sha256")
@@ -1214,6 +1451,18 @@ def build_envelope(
                     )
                 )
             )
+            and (
+                transfer_firewall_reference is None
+                or (
+                    release_reference.get("transfer_firewall_asset_name")
+                    == TRANSFER_FIREWALL_ASSET
+                    and release_reference.get("transfer_firewall_asset_url")
+                    == (
+                        f"https://github.com/{repository}/releases/download/"
+                        f"{release_tag}/{TRANSFER_FIREWALL_ASSET}"
+                    )
+                )
+            )
         ),
         "network_sign_once_contract_bound": (
             network_sign_once.get("schema_version") == 2
@@ -1370,6 +1619,15 @@ def build_envelope(
                         ]
                     }
                     if adaptive_diagnosis_reference is not None
+                    else {}
+                ),
+                **(
+                    {
+                        "transfer_firewall": release_reference[
+                            "transfer_firewall_asset_url"
+                        ]
+                    }
+                    if transfer_firewall_reference is not None
                     else {}
                 ),
             },
@@ -1779,6 +2037,55 @@ def build_envelope(
             and adaptive_diagnosis_public is not None
             else {}
         ),
+        **(
+            {
+                "transfer_firewall": {
+                    "schema_version": transfer_firewall_public["schema_version"],
+                    "head_sha": transfer_firewall_reference["head_sha"],
+                    "workflow_run_id": transfer_firewall_reference[
+                        "workflow_run_id"
+                    ],
+                    "workflow_attempt": transfer_firewall_reference[
+                        "workflow_attempt"
+                    ],
+                    "workflow_url": transfer_firewall_reference["workflow_url"],
+                    "artifact_id": transfer_firewall_reference["artifact_id"],
+                    "artifact_name": transfer_firewall_reference["artifact_name"],
+                    "artifact_archive_sha256": transfer_firewall_reference[
+                        "artifact_archive_sha256"
+                    ],
+                    "public_sha256": transfer_firewall_public_sha,
+                    "public_url": transfer_firewall_reference["public_url"],
+                    "page_url": transfer_firewall_reference["page_url"],
+                    "immutable_release_asset_url": release_reference[
+                        "transfer_firewall_asset_url"
+                    ],
+                    "campaign_id": transfer_firewall_public["campaign_id"],
+                    "challenge_sha256": transfer_firewall_public["commitment"][
+                        "challenge_sha256"
+                    ],
+                    "labels_sha256": transfer_firewall_public["commitment"][
+                        "labels_sha256"
+                    ],
+                    "commitment_sha256": transfer_firewall_public["commitment"][
+                        "commitment_sha256"
+                    ],
+                    "seal_receipt_sha256": transfer_firewall_public[
+                        "seal_receipt"
+                    ]["receipt_sha256"],
+                    "methodology": transfer_firewall_public["methodology"],
+                    "arms": transfer_firewall_public["arms"],
+                    "paired_comparisons": transfer_firewall_public[
+                        "paired_comparisons"
+                    ],
+                    "gate": transfer_firewall_public["gate"],
+                    "claim_boundary": transfer_firewall_public["claim_boundary"],
+                }
+            }
+            if transfer_firewall_reference is not None
+            and transfer_firewall_public is not None
+            else {}
+        ),
         "public_judge_evidence": {
             "url": judge["public_demo"]["evidence_url"],
             "sha256": judge_sha,
@@ -1821,6 +2128,7 @@ def main() -> None:
     parser.add_argument("--evidence-story", type=Path)
     parser.add_argument("--ci-recovery-public", type=Path)
     parser.add_argument("--adaptive-diagnosis-public", type=Path)
+    parser.add_argument("--transfer-firewall-public", type=Path)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--repository", required=True)
     parser.add_argument("--commit-sha", required=True)
@@ -1868,6 +2176,11 @@ def main() -> None:
         if args.adaptive_diagnosis_public is not None
         else b""
     )
+    transfer_firewall_public_bytes = (
+        args.transfer_firewall_public.read_bytes()
+        if args.transfer_firewall_public is not None
+        else b""
+    )
     envelope = build_envelope(
         json.loads(judge_bytes),
         json.loads(scale_bytes),
@@ -1908,6 +2221,11 @@ def main() -> None:
             if adaptive_diagnosis_public_bytes
             else None
         ),
+        (
+            json.loads(transfer_firewall_public_bytes)
+            if transfer_firewall_public_bytes
+            else None
+        ),
         judge_bytes=judge_bytes,
         scale_bytes=scale_bytes,
         pressure_bytes=pressure_bytes,
@@ -1923,6 +2241,7 @@ def main() -> None:
         evidence_story_bytes=evidence_story_bytes,
         ci_recovery_public_bytes=ci_recovery_public_bytes,
         adaptive_diagnosis_public_bytes=adaptive_diagnosis_public_bytes,
+        transfer_firewall_public_bytes=transfer_firewall_public_bytes,
         repo_root=args.repo_root.resolve(),
         repository=args.repository,
         commit_sha=args.commit_sha,

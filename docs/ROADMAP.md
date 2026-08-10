@@ -151,38 +151,53 @@ Exit criteria:
 
 ## Cross-cutting engineering backlog
 
-### Current fundamental P0 — preregistered counterfactual transfer firewall
+### Completed P0 — preregistered counterfactual transfer firewall
 
-The largest remaining evidence risk is now exact-key coupling. The adaptive
-benchmark correctly proves that an exact provider-verified fingerprint can
-replace a repeated probe, but a judge can still characterize that behavior as
-a safe cache lookup rather than generalizable agentic memory. The next automated
-evaluation must therefore test causal transfer without exposing an answer key:
+Exact-head run `31439117749` completed on 2026-08-11. Across six disjoint-
+environment counterfactual pairs, Continuum achieved 12/12 recovery, 6/6
+provider-attested same-cause transfer without a diagnostic, 6/6 near-neighbour
+rejection, and zero false promotion. raw-RAG recovered 6/12 and falsely
+transferred and promoted all six near neighbours. All 84 provider receipts have
+unique workflow, artifact, and digest identities; the challenge and labels were
+sealed before the first candidate call. See
+[TRANSFER_FIREWALL_BENCHMARK.md](TRANSFER_FIREWALL_BENCHMARK.md).
 
-- preregister positive-transfer and near-neighbor negative-transfer variants in
-  which repository layout, tool version, wording, and environment fingerprint
-  change while the latent causal fault either remains or deliberately changes;
-- expose only signed causal evidence features and server-issued citation
-  handles, never the expected action or transfer label;
-- require Continuum to choose among reuse, bounded probe, and fail-closed
-  abstention, while stateless and raw-RAG receive identical provider tools;
-- score verified recovery, probes saved, calibrated abstention, and recovery
-  latency, with **false transfer fixed at zero as the hard gate**; and
-- seal challenge/labels before candidates, cluster-bootstrap over generated
-  environment families, and bind every disposable GitHub receipt and result to
-  the next immutable release.
+### Current fundamental P0 — online CockroachDB memory-lineage closure
 
-**Implemented in source on 2026-08-11; main-only live receipt generation and
-immutable publication remain gated.** The generator, S3 write-once seal,
-provider-attested causal-signature firewall, three-arm runner, 84-receipt
-contract, and fail-closed tests are implemented in
-[TRANSFER_FIREWALL_BENCHMARK.md](TRANSFER_FIREWALL_BENCHMARK.md). No live result
-is claimed until the reviewed main SHA completes the sealed workflow.
+The largest remaining architectural seam is now between the strongest memory
+evaluation and the sponsor database runtime. The transfer runner constructs a
+typed `MemoryToolHit` directly from an exact provider calibration receipt. The
+production path separately persists canonical memory, indexes Titan vectors,
+enforces caller scope with CockroachDB RLS, and exposes read-only MCP search and
+fetch. Both halves are live-proven, but the same transfer decision has not yet
+traversed them as one receipt-bound transaction chain.
 
-This P0 has higher judging value than adding another security control or scaling
-the exact-fingerprint population: it directly distinguishes durable causal
-memory from retrieval-by-key, strengthening Agentic Memory Design, Technical
-Implementation, and Real-World Impact with one falsifiable experiment.
+The next automated evaluation must therefore:
+
+- promote a provider-success source outcome into canonical CockroachDB memory,
+  persist its causal-evidence and promotion receipt lineage, and index it with
+  the deployed Titan embedding path;
+- start a target episode through the authenticated server-owned tenant and SQL
+  identity, retrieve the source via actual CockroachDB vector search and RLS,
+  and expose only a server-issued citation handle;
+- combine the retrieved memory with a separate target provider attestation,
+  then require the transfer firewall to authorize the exact proposal or force a
+  current diagnostic;
+- execute the disposable provider action, reconcile its receipt, and either
+  promote the verified target outcome or prove that no failed/incompatible
+  memory became canonical; and
+- bind database memory ID, retrieval-audit ID, RLS checksum, model/tool policy,
+  target attestation, action receipt, and promotion decision to one public
+  release artifact, while keeping cross-scope rows and false transfer at zero.
+
+This is the highest-value P0 because it turns the current two strong but
+separate claims—CockroachDB is the durable scoped memory system, and verified
+memory causally improves action—into one end-to-end Agentic Memory Design proof.
+It also makes CockroachDB essential to the measured outcome instead of merely
+an independently demonstrated storage layer. Freeze this work if a reviewed
+live PASS is not available by 2026-08-15 KST; preserve v20 and spend the final
+submission window on the judge story and Devpost evidence rather than weakening
+the admitted release.
 
 The following items should be pulled into the milestone they block:
 

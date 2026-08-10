@@ -99,6 +99,16 @@ complete attestations and organizer agreements.
       mutation 0, and cleanup residual 0. The page discloses the higher input-
       token cost and exact-fingerprint/non-transfer boundary:
       <https://yonghwan2161.github.io/continuum-memory-firewall/adaptive-diagnosis.html>.
+- [x] S3-preregistered counterfactual transfer firewall completed 84 unique
+      GitHub Actions child receipts across six source calibrations, twelve
+      disjoint-fingerprint targets, three arms, and separate target
+      attestations. Continuum recovered 12/12, transferred all six compatible
+      memories without a diagnostic, rejected all six near neighbours, and
+      retained zero false promotions. raw-RAG recovered 6/12 and falsely
+      transferred/promoted all six near neighbours. The paired probe reduction
+      and recovery lift gates each reached `p=0.03125`; the page preserves the
+      shared-attestation and non-open-world boundary:
+      <https://yonghwan2161.github.io/continuum-memory-firewall/transfer-firewall.html>.
 - [x] Network-visible sign-once release flow refuses a second author
       attestation, attaches the one verified Fulcio/Rekor author bundle before
       release immutability, serves identical bundle bytes through Pages, and

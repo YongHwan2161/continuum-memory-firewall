@@ -59,7 +59,7 @@ any post-compilation edit.
 
 ## Delivery binding
 
-The v19 promotion step preserves and binds the unchanged receipt-compiled story to:
+The v20 promotion step preserves and binds the unchanged receipt-compiled story to:
 
 - public video <https://youtu.be/QQxfQaDVz9c>;
 - 97.02-second local H.264/AAC render SHA-256
@@ -67,9 +67,10 @@ The v19 promotion step preserves and binds the unchanged receipt-compiled story 
 - English SRT SHA-256
   `f95c60536851fd6cfa8f05441e15ed069da35457aba779977e91024835bbd98b`;
 - Devpost project version 20 and its authenticated update timestamp;
-- immutable `hackathon-v19` envelope, story, CI recovery, and adaptive diagnosis
-  release assets. The current video predates the adaptive result and does not
-  narrate it; the adaptive page and verifier carry that newer evidence.
+- immutable `hackathon-v20` envelope, story, CI recovery, adaptive diagnosis,
+  and transfer-firewall release assets. The current video predates the adaptive
+  and transfer results and does not narrate them; their dedicated pages and the
+  verifier carry that newer evidence.
 
 The release builder recomputes the story receipt and public file digest, checks
 the source v14 lineage, then compares its video, subtitle, and Devpost fields to
@@ -108,7 +109,7 @@ After publication, use the logged-out page or strict command:
 
 ```bash
 PYTHONPATH=src:. python -m scripts.judge_readonly_verify
-python scripts/verify_network_sign_once.py --release-tag hackathon-v19
+python scripts/verify_network_sign_once.py --release-tag hackathon-v20
 ```
 
 The scheduled judge monitor uses the same explicit module and import-path

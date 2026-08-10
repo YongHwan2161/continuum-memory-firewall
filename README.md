@@ -11,10 +11,8 @@ deterministic, and transactionally durable.
 or [inspect 36 paired incidents with real GitHub effects](https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian.html),
 then [inspect all five time-distributed real-provider batches](https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian-replication.html)
 and the [three-batch sequential blind memory-compounding proof](https://yonghwan2161.github.io/continuum-memory-firewall/sequential-blind.html),
-or inspect the [S3-preregistered ambiguity-first adaptive diagnosis proof](https://yonghwan2161.github.io/continuum-memory-firewall/adaptive-diagnosis.html).
-The next source-complete evaluation is the
-[counterfactual cross-environment transfer firewall](docs/TRANSFER_FIREWALL_BENCHMARK.md);
-its live claim remains gated until an exact-main S3-sealed run passes.
+inspect the [S3-preregistered ambiguity-first adaptive diagnosis proof](https://yonghwan2161.github.io/continuum-memory-firewall/adaptive-diagnosis.html),
+or run the [counterfactual cross-environment transfer firewall](https://yonghwan2161.github.io/continuum-memory-firewall/transfer-firewall.html).
 In the incident-response story, trusted telemetry becomes durable memory,
 poisoned model output remains quarantined, a later agent retrieves the accepted
 resolution, and CockroachDB grants exactly one action owner.
@@ -175,6 +173,18 @@ zero false promotions, zero repository mutations, and zero cleanup residuals.
 The claim is deliberately bounded: input-token cost increased, and this exact-
 fingerprint benchmark does not prove transfer to changed environments.
 
+The [counterfactual transfer firewall](https://yonghwan2161.github.io/continuum-memory-firewall/transfer-firewall.html)
+changes every source/target environment fingerprint and hides relationship,
+expected patch, causal signatures, and scoring policy from the candidate.
+Across six same-cause and six similar-symptom different-cause targets, Continuum
+recovered 12/12, reused 6/6 provider-attested compatible memories without a
+diagnostic, rejected 6/6 near neighbours, and produced zero false promotions.
+Stateless recovered 12/12 with twice the candidate diagnostics; raw-RAG
+recovered 6/12 and falsely transferred and promoted all six near neighbours.
+The result binds 84 unique exact-head workflow, artifact, and digest receipts.
+It proves this reviewed causal-transfer contract, not arbitrary repair or
+open-world semantic generalization.
+
 The current receipt-compiled 97.02-second judge demo is public at
 <https://youtu.be/QQxfQaDVz9c>. Its nine scenes are generated from the immutable
 v14 sequential receipt rather than copied from hand-edited metric text. It shows
@@ -192,7 +202,7 @@ receives a token or database credential. The executable database evidence is
 the integration suite and linked exact-head workflows in
 [Project Status](docs/PROJECT_STATUS.md).
 
-The v19 release envelope receives exactly one author-controlled signature in
+The v20 release envelope receives exactly one author-controlled signature in
 the same main-only workflow that publishes it. Its Fulcio/Rekor Sigstore bundle
 is an immutable release asset and a byte-identical Pages resource. GitHub also
 adds one distinguishable immutable-release countersignature; the verifier
@@ -201,8 +211,14 @@ a second author signing operation. Perform strict cryptographic policy
 verification of the author signature with:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v19
+python scripts/verify_network_sign_once.py --release-tag hackathon-v20
 ```
+
+Version 20 preserves the v19 evidence and adds the S3-sealed counterfactual
+transfer parent, artifact archive digest, challenge/labels/commitment/seal
+receipts, deterministic public projection, 84 unique provider receipts,
+disjoint source/target fingerprint gate, exact paired transfer/rejection
+metrics, bounded claim, judge page, and immutable release asset.
 
 Version 19 preserves the v18 recovery proof and adds the S3-sealed adaptive
 diagnosis parent, artifact archive digest, challenge/labels/commitment/seal
@@ -298,6 +314,9 @@ and bounded three-arm interpretation are recorded in
 The sealed challenge, failed predecessor, 84-receipt PASS run, and bounded
 information-value interpretation are recorded in
 [adaptive diagnosis evidence](docs/evidence/2026-08-11-adaptive-diagnosis-live.md).
+The counterfactual pairs, two failed predecessors, corrected exact-head
+84-receipt PASS run, and bounded transfer interpretation are recorded in
+[counterfactual transfer evidence](docs/evidence/2026-08-11-transfer-firewall-live.md).
 
 ## Safety boundary
 

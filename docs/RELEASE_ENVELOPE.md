@@ -1,9 +1,9 @@
 # Immutable competition release envelope
 
-`hackathon-v19` is the proof unit for the receipt-compiled competition story,
-closed-loop CI recovery, and preregistered ambiguity-first diagnosis evidence. It is
-published only by `.github/workflows/release-envelope.yml` after every
-fail-closed gate passes.
+`hackathon-v20` is the proof unit for the receipt-compiled competition story,
+closed-loop CI recovery, preregistered ambiguity-first diagnosis, and
+counterfactual cross-environment transfer evidence. It is published only by
+`.github/workflows/release-envelope.yml` after every fail-closed gate passes.
 
 `hackathon-v1` through `hackathon-v9` remain immutable audit history. Version 6
 adds the outcome-first public video and refreshed Devpost version 14 receipt to
@@ -70,6 +70,11 @@ The envelope binds:
   remediation receipts, exact three-arm pairing, paired probe-reduction
   statistics, zero mutation/residual gates, and explicit exact-fingerprint,
   non-transfer, and non-token-cost claim boundary; and
+- the S3-preregistered counterfactual transfer parent and artifact, disjoint
+  source/target environment fingerprints, separate challenge/label/commitment/
+  seal digests, 84 unique calibration/attestation/diagnostic/remediation
+  receipts, 6/6 same-cause transfer, 6/6 near-neighbour rejection, zero
+  Continuum false transfer/promotion, and the bounded non-open-world claim; and
 - the Devpost submission ID, updated project timestamp, public project URL,
   current video URL, duration, local-render SHA-256, and English subtitle
   SHA-256.
@@ -77,9 +82,10 @@ The envelope binds:
 The immutable release carries the exact sandbox JSON, full ablation JSON,
 public-safe episode drill-down JSON, full real-provider guardian JSON, the
 time-distributed aggregate JSON, public blind-holdout JSON, public
-sequential-campaign JSON, public CI-recovery JSON, and public adaptive-diagnosis
-JSON as release assets in addition to the envelope. Each has a SHA-256 sidecar;
-the release also carries `evidence-story-v1.json`.
+sequential-campaign JSON, public CI-recovery JSON, public adaptive-diagnosis
+JSON, and public transfer-firewall JSON as release assets in addition to the
+envelope. Each has a SHA-256 sidecar; the release also carries
+`evidence-story-v1.json`.
 This keeps judge evidence available
 after the shorter-lived GitHub Actions artifacts expire.
 
@@ -186,6 +192,17 @@ report, and binds all 54 unique child receipt identities plus the parent
 workflow/artifact/public digests. The result is not claimed as a general
 recovery advantage because stateless also recovered 12/12.
 
+Version 20 closes the counterfactual transfer-authority gap. It binds exact
+parent run `31439117749`, artifact `9082282513`, archive digest, challenge,
+labels, commitment, S3 seal receipt, deterministic public projection, and all
+84 child receipt identities. Publication requires disjoint source/target
+fingerprints, candidate-visible label fields `0`, Continuum recovery 12/12,
+same-cause transfer 6/6, near-neighbour rejection 6/6, false transfer and false
+promotion both `0`, canonical precision `1.0`, paired probe reduction at
+`p<=0.05`, and zero repository mutation or cleanup residual. The release keeps
+target attestations and the typed benchmark memory boundary explicit; it does
+not infer open-world generalization or fewer total provider runs.
+
 Version 19 closes the explicit-diagnostic information-value gap. Twelve opaque
 red summaries are generated as six novel/recurrence pairs. Challenge, evaluator
 labels, and their commitment are checksum-addressed and S3-sealed before the
@@ -234,7 +251,7 @@ asset state, and SHA-256 digest. A judge can independently download the envelope
 and validate its sidecar without trusting the public page:
 
 ```bash
-gh release download hackathon-v19 --pattern 'continuum-release-envelope-v2.json*'
+gh release download hackathon-v20 --pattern 'continuum-release-envelope-v2.json*'
 sha256sum -c continuum-release-envelope-v2.json.sha256
 ```
 
@@ -245,7 +262,7 @@ attestation API and the in-toto subject digest. Full cryptographic policy
 verification is one repository command:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v19
+python scripts/verify_network_sign_once.py --release-tag hackathon-v20
 ```
 
 That command downloads the immutable envelope, detached author bundle, and both
