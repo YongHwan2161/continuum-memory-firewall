@@ -6,7 +6,7 @@ on:
       release_tag:
         description: New or resumable immutable GitHub Release tag
         required: true
-        default: hackathon-v17
+        default: hackathon-v18
       release_target:
         description: Exact existing release target to reconcile; blank uses the workflow SHA
         required: false
@@ -74,7 +74,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           judge=public-demo/evidence/judge-verification.json
-          for plane in source vector_scale agent_pressure managed_mcp sandbox_provider agent_ablation release_guardian time_distributed_replication blind_holdout sequential_blind_campaign; do
+          for plane in source vector_scale agent_pressure managed_mcp sandbox_provider agent_ablation release_guardian time_distributed_replication blind_holdout sequential_blind_campaign ci_recovery; do
             case "$plane" in
               source)
                 run_id="$(jq -r '.source.workflow_run_id' "$judge")"
@@ -116,6 +116,10 @@ jobs:
                 run_id="$(jq -r '.sequential_blind_campaign.workflow_run_id' "$judge")"
                 expected_head="$(jq -r '.sequential_blind_campaign.evaluator_head_sha // .sequential_blind_campaign.head_sha' "$judge")"
                 ;;
+              ci_recovery)
+                run_id="$(jq -r '.ci_recovery.workflow_run_id' "$judge")"
+                expected_head="$(jq -r '.ci_recovery.head_sha' "$judge")"
+                ;;
             esac
             provider_receipt="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
             test "$(jq -r '.conclusion' <<<"$provider_receipt")" = success
@@ -133,7 +137,7 @@ jobs:
             test "$(jq -r '.conclusion' <<<"$candidate_receipt")" = failure
           fi
 
-      - name: Download and bind exact sandbox, ablation, guardian, replication, and blind artifacts
+      - name: Download and bind exact historical and CI-recovery artifacts
         if: steps.transaction.outputs.mode == 'new'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -141,8 +145,8 @@ jobs:
         run: |
           set -euo pipefail
           judge=public-demo/evidence/judge-verification.json
-          mkdir -p build/evidence/sandbox build/evidence/ablation build/evidence/guardian build/evidence/replication build/evidence/blind build/evidence/sequential
-          for plane in sandbox_provider agent_ablation release_guardian time_distributed_replication blind_holdout sequential_blind_campaign; do
+          mkdir -p build/evidence/sandbox build/evidence/ablation build/evidence/guardian build/evidence/replication build/evidence/blind build/evidence/sequential build/evidence/ci-recovery
+          for plane in sandbox_provider agent_ablation release_guardian time_distributed_replication blind_holdout sequential_blind_campaign ci_recovery; do
             artifact_id="$(jq -r ".$plane.artifact_id" "$judge")"
             artifact_name="$(jq -r ".$plane.artifact_name" "$judge")"
             expected_archive="sha256:$(jq -r ".$plane.artifact_archive_sha256" "$judge")"
@@ -156,6 +160,7 @@ jobs:
             if [ "$plane" = time_distributed_replication ]; then target=build/evidence/replication; fi
             if [ "$plane" = blind_holdout ]; then target=build/evidence/blind; fi
             if [ "$plane" = sequential_blind_campaign ]; then target=build/evidence/sequential; fi
+            if [ "$plane" = ci_recovery ]; then target=build/evidence/ci-recovery; fi
             gh run download \
               "$(jq -r ".$plane.workflow_run_id" "$judge")" \
               --name "$artifact_name" \
@@ -187,6 +192,10 @@ jobs:
             "$(jq -r '.sequential_blind_campaign.public_sha256' "$judge")"
           cmp build/evidence/sequential/campaign-public.json \
             public-demo/evidence/sequential-blind-v1.json
+          test "$(sha256sum build/evidence/ci-recovery/ci-recovery-v1.json | cut -d' ' -f1)" = \
+            "$(jq -r '.ci_recovery.public_sha256' "$judge")"
+          cmp build/evidence/ci-recovery/ci-recovery-v1.json \
+            public-demo/evidence/ci-recovery-v1.json
           PYTHONPATH=src python - <<'PY'
           import json
           from pathlib import Path
@@ -194,6 +203,7 @@ jobs:
           from continuum.release_guardian import build_public_release_guardian
           from continuum.release_guardian_replication import build_public_release_guardian_replication
           from continuum.sequential_blind import build_public_sequential_blind
+          from continuum.ci_recovery import build_public_ci_recovery
           raw = json.loads(Path("build/evidence/guardian/release-guardian-v1.json").read_text())
           public = json.loads(Path("public-demo/evidence/release-guardian-v1.json").read_text())
           if public != build_public_release_guardian(raw):
@@ -210,6 +220,10 @@ jobs:
           sequential_public = json.loads(Path("public-demo/evidence/sequential-blind-v1.json").read_text())
           if sequential_public != build_public_sequential_blind(sequential_raw):
               raise SystemExit("public sequential campaign projection does not match raw report")
+          ci_raw = json.loads(Path("build/evidence/ci-recovery/ci-recovery-private.json").read_text())
+          ci_public = json.loads(Path("public-demo/evidence/ci-recovery-v1.json").read_text())
+          if ci_public != build_public_ci_recovery(ci_raw):
+              raise SystemExit("public CI recovery projection does not match raw report")
           PY
 
       - name: Build the exact release payload once
@@ -232,6 +246,7 @@ jobs:
             --blind-holdout-public public-demo/evidence/blind-holdout-v1.json \
             --sequential-blind-public public-demo/evidence/sequential-blind-v1.json \
             --evidence-story public-demo/evidence/evidence-story-v1.json \
+            --ci-recovery-public public-demo/evidence/ci-recovery-v1.json \
             --repo-root . \
             --repository "$GITHUB_REPOSITORY" \
             --commit-sha "$RELEASE_TARGET" \
@@ -255,6 +270,8 @@ jobs:
             build/release/sequential-blind-v1.json
           cp public-demo/evidence/evidence-story-v1.json \
             build/release/evidence-story-v1.json
+          cp public-demo/evidence/ci-recovery-v1.json \
+            build/release/ci-recovery-v1.json
           (
             cd build/release
             sha256sum sandbox-provider-proof.json >sandbox-provider-proof.json.sha256
@@ -265,6 +282,7 @@ jobs:
             sha256sum blind-holdout-v1.json >blind-holdout-v1.json.sha256
             sha256sum sequential-blind-v1.json >sequential-blind-v1.json.sha256
             sha256sum evidence-story-v1.json >evidence-story-v1.json.sha256
+            sha256sum ci-recovery-v1.json >ci-recovery-v1.json.sha256
           )
 
       - name: Create the durable draft before author signing
@@ -294,6 +312,8 @@ jobs:
             build/release/sequential-blind-v1.json.sha256 \
             build/release/evidence-story-v1.json \
             build/release/evidence-story-v1.json.sha256 \
+            build/release/ci-recovery-v1.json \
+            build/release/ci-recovery-v1.json.sha256 \
             --target "$RELEASE_TARGET" \
             --draft \
             --title "Continuum Memory Firewall evidence envelope" \
@@ -373,6 +393,8 @@ jobs:
               "sequential-blind-v1.json.sha256",
               "evidence-story-v1.json",
               "evidence-story-v1.json.sha256",
+              "ci-recovery-v1.json",
+              "ci-recovery-v1.json.sha256",
           )
           root = Path("build/release")
           print(json.dumps({name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}, sort_keys=True))
@@ -570,6 +592,8 @@ jobs:
               "sequential-blind-v1.json.sha256",
               "evidence-story-v1.json",
               "evidence-story-v1.json.sha256",
+              "ci-recovery-v1.json",
+              "ci-recovery-v1.json.sha256",
           )
           root = Path("build/release")
           print(json.dumps({name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}, sort_keys=True))

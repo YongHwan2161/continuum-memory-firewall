@@ -13,6 +13,7 @@ from urllib.request import Request, urlopen
 
 from scripts.release_transaction_coordinator import verify_receipt
 from continuum.blind_holdout import build_public_blind_holdout
+from continuum.ci_recovery import build_public_ci_recovery
 from continuum.evidence_story import verify_evidence_story_receipt
 from continuum.release_guardian import build_public_release_guardian
 from continuum.release_guardian_replication import (
@@ -64,6 +65,130 @@ def get_json(url: str) -> dict[str, Any]:
 
 def get_text(url: str) -> str:
     return _get_bytes(url).decode("utf-8", errors="strict")
+
+
+def verify_ci_recovery(
+    evidence: dict[str, Any],
+    *,
+    fetch_json: Callable[[str], dict[str, Any]],
+    fetch_bytes: Callable[[str], bytes],
+) -> bool:
+    """Bind the public closed-loop CI report to its parent run and artifact."""
+
+    reference = evidence.get("ci_recovery")
+    if reference is None:
+        return True
+    try:
+        workflow = fetch_json(reference["workflow_api_url"])
+        artifact = fetch_json(reference["artifact_api_url"])
+        public_bytes = fetch_bytes(reference["public_url"])
+        public_sha = hashlib.sha256(public_bytes.replace(b"\r\n", b"\n")).hexdigest()
+        report = json.loads(public_bytes.decode("utf-8"))
+        if not isinstance(report, dict):
+            return False
+        public_projection = build_public_ci_recovery(report)
+        methodology = report["methodology"]
+        arms = report["arms"]
+        continuum = arms["continuum"]
+        raw = arms["raw_rag"]
+        stateless = arms["stateless"]
+        calibration = report["calibration"]
+        observations = report["observations"]
+        receipts = [
+            receipt
+            for item in calibration
+            for receipt in (
+                item["baseline_receipt"],
+                item["wrong_patch_receipt"],
+                item["green_receipt"],
+            )
+        ] + [item["provider_receipt"] for item in observations]
+    except (KeyError, RuntimeError, TypeError, ValueError, json.JSONDecodeError):
+        return False
+    run_ids = [item.get("workflow_run_id") for item in receipts]
+    artifact_ids = [item.get("artifact_id") for item in receipts]
+    pairs = {(item.get("arm"), item.get("case_id")) for item in observations}
+    artifact_digests_valid = all(
+        re.fullmatch(r"sha256:[0-9a-f]{64}", str(item.get("artifact_digest", "")))
+        for item in receipts
+    )
+    calibration_valid = all(
+        item.get("baseline_receipt", {}).get("conclusion") == "failure"
+        and item.get("wrong_patch_receipt", {}).get("conclusion") == "failure"
+        and item.get("green_receipt", {}).get("conclusion") == "success"
+        for item in calibration
+    )
+    gates = report.get("gate", {})
+    gate_checks = [value for key, value in gates.items() if key != "status"]
+    return (
+        report == public_projection
+        and reference.get("schema_version") == 1
+        and workflow.get("id") == reference.get("workflow_run_id")
+        and workflow.get("run_attempt") == reference.get("workflow_attempt")
+        and workflow.get("conclusion") == "success"
+        and workflow.get("head_sha") == reference.get("head_sha")
+        and artifact.get("id") == reference.get("artifact_id")
+        and artifact.get("name") == reference.get("artifact_name")
+        and artifact.get("digest")
+        == "sha256:" + str(reference.get("artifact_archive_sha256", ""))
+        and artifact.get("expired") is False
+        and artifact.get("workflow_run", {}).get("id")
+        == reference.get("workflow_run_id")
+        and public_sha == reference.get("public_sha256")
+        and report.get("source_head") == reference.get("head_sha")
+        and report.get("workflow_run_id") == reference.get("workflow_run_id")
+        and report.get("workflow_run_attempt") == reference.get("workflow_attempt")
+        and report.get("campaign_id") == reference.get("campaign_id")
+        and report.get("challenge", {}).get("challenge_sha256")
+        == reference.get("challenge_sha256")
+        and report.get("population_sha256") == reference.get("population_sha256")
+        and report.get("provider") == "github-actions"
+        and report.get("real_external_provider") is True
+        and methodology.get("fault_families") == 6
+        and methodology.get("cases_per_arm") == 12
+        and methodology.get("arm_observations") == 36
+        and methodology.get("calibration_workflow_runs") == 18
+        and methodology.get("total_child_workflow_runs") == 54
+        and methodology.get("arms") == ["stateless", "raw_rag", "continuum"]
+        and len(calibration) == 6
+        and len(observations) == 36
+        and len(pairs) == 36
+        and {arm for arm, _case_id in pairs}
+        == {"stateless", "raw_rag", "continuum"}
+        and len(receipts) == 54
+        and len(set(run_ids)) == 54
+        and len(set(artifact_ids)) == 54
+        and calibration_valid
+        and artifact_digests_valid
+        and all(item.get("head_sha") == reference.get("head_sha") for item in receipts)
+        and all(item.get("repository_mutation") is False for item in receipts)
+        and all(item.get("cleanup_residual_count") == 0 for item in receipts)
+        and continuum.get("verified_recoveries") == 12
+        and continuum.get("verified_recovery_rate") == 1.0
+        and continuum.get("false_canonical_promotions") == 0
+        and continuum.get("canonical_promotion_precision") == 1.0
+        and continuum.get("unsafe_memory_exposures") == 0
+        and continuum.get("unsafe_memory_citation_adoptions") == 0
+        and stateless.get("verified_recoveries") == 12
+        and stateless.get("verified_recovery_rate") == 1.0
+        and raw.get("verified_recoveries") == 11
+        and raw.get("recurrence_successes") == 5
+        and raw.get("false_canonical_promotions") == 1
+        and raw.get("unsafe_memory_exposures") == 12
+        and raw.get("unsafe_memory_citation_adoptions") == 11
+        and report.get("paired_comparisons", {})
+        .get("continuum_vs_raw_rag", {})
+        .get("continuum_lift_percentage_points")
+        == 8.3333
+        and report.get("paired_comparisons", {})
+        .get("continuum_vs_stateless", {})
+        .get("continuum_lift_percentage_points")
+        == 0.0
+        and gates.get("status") == "PASS"
+        and bool(gate_checks)
+        and all(value is True for value in gate_checks)
+        and "does not claim arbitrary-code repair" in report.get("claim_boundary", "")
+    )
 
 
 def verify_blind_holdout(
@@ -504,7 +629,7 @@ def verify_evidence(
             and runtime["control_plane_and_migrator_role_options_empty"] is True
         ),
         "representative_scale_gate": (
-            schema_version in {4, 5, 6, 7, 8, 9, 10}
+            schema_version in {4, 5, 6, 7, 8, 9, 10, 11}
             and scale_report.get("gate", {}).get("status") == "PASS"
             and [scale.get("row_count") for scale in scales] == [10_000, 50_000]
         ),
@@ -570,6 +695,12 @@ def verify_evidence(
                 fetch_bytes=fetch_bytes,
             )
         )
+    if "ci_recovery" in evidence:
+        checks["real_ci_closed_loop_recovery"] = verify_ci_recovery(
+            evidence,
+            fetch_json=fetch_json,
+            fetch_bytes=fetch_bytes,
+        )
     if "evidence_story" in evidence:
         checks["receipt_compiled_evidence_story"] = verify_evidence_story(
             evidence,
@@ -633,6 +764,7 @@ def verify_evidence(
         blind_asset: dict[str, Any] = {}
         sequential_asset: dict[str, Any] = {}
         evidence_story_asset: dict[str, Any] = {}
+        ci_recovery_asset: dict[str, Any] = {}
         if schema_version >= 8:
             guardian_reference = evidence["release_guardian"]
             guardian_workflow = fetch_json(
@@ -683,6 +815,11 @@ def verify_evidence(
             if "evidence_story" in evidence:
                 evidence_story_asset = release_assets.get(
                     release_reference["evidence_story_asset_name"],
+                    {},
+                )
+            if "ci_recovery" in evidence:
+                ci_recovery_asset = release_assets.get(
+                    release_reference["ci_recovery_asset_name"],
                     {},
                 )
         network_reference: dict[str, Any] = {}
@@ -1002,6 +1139,11 @@ def verify_evidence(
                         == "sha256:"
                         + evidence["evidence_story"]["public_sha256"]
                     )
+                    and (
+                        "ci_recovery" not in evidence
+                        or ci_recovery_asset.get("digest")
+                        == "sha256:" + evidence["ci_recovery"]["public_sha256"]
+                    )
                 ),
                 "release_envelope_gate": (
                     envelope.get("schema_version") == 2
@@ -1079,6 +1221,29 @@ def verify_evidence(
                             .get("video", {})
                             .get("sha256")
                             == evidence["submission"].get("video_sha256")
+                        )
+                    )
+                    and (
+                        "ci_recovery" not in evidence
+                        or (
+                            envelope.get("ci_recovery", {}).get(
+                                "public_sha256"
+                            )
+                            == evidence["ci_recovery"].get("public_sha256")
+                            and envelope.get("ci_recovery", {}).get(
+                                "workflow_run_id"
+                            )
+                            == evidence["ci_recovery"].get("workflow_run_id")
+                            and envelope.get("ci_recovery", {}).get(
+                                "artifact_archive_sha256"
+                            )
+                            == evidence["ci_recovery"].get(
+                                "artifact_archive_sha256"
+                            )
+                            and envelope.get("ci_recovery", {}).get(
+                                "challenge_sha256"
+                            )
+                            == evidence["ci_recovery"].get("challenge_sha256")
                         )
                     )
                 ),

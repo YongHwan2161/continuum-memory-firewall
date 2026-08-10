@@ -12,6 +12,7 @@ import re
 from typing import Any, Mapping
 
 from continuum.blind_holdout import build_public_blind_holdout
+from continuum.ci_recovery import build_public_ci_recovery
 from continuum.drilldown import build_public_episode_drilldown
 from continuum.evidence_story import verify_evidence_story_receipt
 from continuum.release_guardian import build_public_release_guardian
@@ -47,6 +48,7 @@ RELEASE_GUARDIAN_REPLICATION_ASSET = "release-guardian-replication-v1.json"
 BLIND_HOLDOUT_ASSET = "blind-holdout-v1.json"
 SEQUENTIAL_BLIND_ASSET = "sequential-blind-v1.json"
 EVIDENCE_STORY_ASSET = "evidence-story-v1.json"
+CI_RECOVERY_ASSET = "ci-recovery-v1.json"
 SIGNATURE_BUNDLE_ASSET = "continuum-release-envelope-v2.sigstore.jsonl"
 
 
@@ -139,6 +141,7 @@ def build_envelope(
     blind_holdout_public: dict[str, Any] | None = None,
     sequential_blind_public: dict[str, Any] | None = None,
     evidence_story: dict[str, Any] | None = None,
+    ci_recovery_public: dict[str, Any] | None = None,
     *,
     judge_bytes: bytes,
     scale_bytes: bytes,
@@ -153,6 +156,7 @@ def build_envelope(
     blind_holdout_public_bytes: bytes = b"",
     sequential_blind_public_bytes: bytes = b"",
     evidence_story_bytes: bytes = b"",
+    ci_recovery_public_bytes: bytes = b"",
     repo_root: Path,
     repository: str,
     commit_sha: str,
@@ -161,8 +165,8 @@ def build_envelope(
     release_tag: str,
     generated_at: str | None = None,
 ) -> dict[str, Any]:
-    if judge.get("schema_version") not in {8, 9, 10}:
-        raise RuntimeError("judge evidence schema 8, 9, or 10 is required")
+    if judge.get("schema_version") not in {8, 9, 10, 11}:
+        raise RuntimeError("judge evidence schema 8, 9, 10, or 11 is required")
     if not SHA_PATTERN.fullmatch(commit_sha):
         raise RuntimeError("release commit must be a full lowercase SHA")
     if workflow_run_id < 1 or not workflow_url.startswith("https://github.com/"):
@@ -185,6 +189,7 @@ def build_envelope(
     blind_reference = judge.get("blind_holdout")
     sequential_reference = judge.get("sequential_blind_campaign")
     story_reference = judge.get("evidence_story")
+    ci_recovery_reference = judge.get("ci_recovery")
     database_policy_reference = judge["database_policy"]
     release_reference = judge["release_envelope"]
     network_sign_once = judge["network_sign_once"]
@@ -232,6 +237,11 @@ def build_envelope(
         if evidence_story is not None
         else ""
     )
+    ci_recovery_public_sha = (
+        sha256_bytes(repository_text_bytes(ci_recovery_public_bytes))
+        if ci_recovery_public is not None
+        else ""
+    )
     public_ablation = build_public_ablation_aggregate(ablation)
     public_drilldown = build_public_episode_drilldown(ablation)
     public_guardian = build_public_release_guardian(release_guardian)
@@ -248,6 +258,11 @@ def build_envelope(
     public_sequential_blind = (
         build_public_sequential_blind(sequential_blind_public)
         if sequential_blind_public is not None
+        else None
+    )
+    public_ci_recovery = (
+        build_public_ci_recovery(ci_recovery_public)
+        if ci_recovery_public is not None
         else None
     )
     sequential_replay = (
@@ -787,6 +802,89 @@ def build_envelope(
                 and len(evidence_story.get("story", {}).get("scenes", [])) == 9
             )
         ),
+        "ci_recovery_artifact_bound": (
+            ci_recovery_reference is None
+            or (
+                ci_recovery_reference is not None
+                and ci_recovery_public is not None
+                and ci_recovery_public == public_ci_recovery
+                and ci_recovery_public_sha
+                == ci_recovery_reference.get("public_sha256")
+                and ci_recovery_public.get("source_head")
+                == ci_recovery_reference.get("head_sha")
+                and ci_recovery_public.get("workflow_run_id")
+                == ci_recovery_reference.get("workflow_run_id")
+                and ci_recovery_reference.get("artifact_name")
+                == (
+                    "continuum-ci-recovery-"
+                    + str(ci_recovery_reference.get("head_sha", ""))
+                    + "-"
+                    + str(ci_recovery_reference.get("workflow_run_id", ""))
+                    + "-"
+                    + str(ci_recovery_reference.get("workflow_attempt", ""))
+                )
+                and int(ci_recovery_reference.get("artifact_id", 0)) > 0
+                and SHA256_PATTERN.fullmatch(
+                    str(ci_recovery_reference.get("artifact_archive_sha256", ""))
+                )
+                is not None
+                and ci_recovery_public.get("challenge", {}).get(
+                    "challenge_sha256"
+                )
+                == ci_recovery_reference.get("challenge_sha256")
+                and ci_recovery_public.get("population_sha256")
+                == ci_recovery_reference.get("population_sha256")
+            )
+        ),
+        "ci_recovery_closed_loop_passed": (
+            ci_recovery_reference is None
+            or (
+                ci_recovery_public is not None
+                and ci_recovery_public.get("real_external_provider") is True
+                and ci_recovery_public.get("provider") == "github-actions"
+                and ci_recovery_public.get("methodology", {}).get(
+                    "fault_families"
+                )
+                == 6
+                and ci_recovery_public.get("methodology", {}).get(
+                    "cases_per_arm"
+                )
+                == 12
+                and ci_recovery_public.get("methodology", {}).get(
+                    "total_child_workflow_runs"
+                )
+                == 54
+                and len(ci_recovery_public.get("calibration", [])) == 6
+                and len(ci_recovery_public.get("observations", [])) == 36
+                and ci_recovery_public.get("gate", {}).get("status") == "PASS"
+                and ci_recovery_public.get("arms", {})
+                .get("continuum", {})
+                .get("verified_recoveries")
+                == 12
+                and ci_recovery_public.get("arms", {})
+                .get("continuum", {})
+                .get("false_canonical_promotions")
+                == 0
+                and ci_recovery_public.get("arms", {})
+                .get("continuum", {})
+                .get("canonical_promotion_precision")
+                == 1.0
+                and ci_recovery_public.get("arms", {})
+                .get("stateless", {})
+                .get("verified_recoveries")
+                == 12
+                and ci_recovery_public.get("arms", {})
+                .get("raw_rag", {})
+                .get("verified_recoveries")
+                == 11
+                and ci_recovery_public.get("arms", {})
+                .get("raw_rag", {})
+                .get("false_canonical_promotions")
+                == 1
+                and "does not claim arbitrary-code repair"
+                in ci_recovery_public.get("claim_boundary", "")
+            )
+        ),
         "citation_grounding_failures_zero": grounding_failures == 0,
         "public_rls_checksum_matches_source": (
             database_policy_reference.get("rls_combined_sha256")
@@ -950,6 +1048,18 @@ def build_envelope(
                     )
                 )
             )
+            and (
+                ci_recovery_reference is None
+                or (
+                    release_reference.get("ci_recovery_asset_name")
+                    == CI_RECOVERY_ASSET
+                    and release_reference.get("ci_recovery_asset_url")
+                    == (
+                        f"https://github.com/{repository}/releases/download/"
+                        f"{release_tag}/{CI_RECOVERY_ASSET}"
+                    )
+                )
+            )
         ),
         "network_sign_once_contract_bound": (
             network_sign_once.get("schema_version") == 2
@@ -1088,6 +1198,15 @@ def build_envelope(
                         ]
                     }
                     if story_reference is not None
+                    else {}
+                ),
+                **(
+                    {
+                        "ci_recovery": release_reference[
+                            "ci_recovery_asset_url"
+                        ]
+                    }
+                    if ci_recovery_reference is not None
                     else {}
                 ),
             },
@@ -1401,6 +1520,49 @@ def build_envelope(
             if story_reference is not None and evidence_story is not None
             else {}
         ),
+        **(
+            {
+                "ci_recovery": {
+                    "schema_version": ci_recovery_public["schema_version"],
+                    "head_sha": ci_recovery_reference["head_sha"],
+                    "workflow_run_id": ci_recovery_reference[
+                        "workflow_run_id"
+                    ],
+                    "workflow_attempt": ci_recovery_reference[
+                        "workflow_attempt"
+                    ],
+                    "workflow_url": ci_recovery_reference["workflow_url"],
+                    "artifact_id": ci_recovery_reference["artifact_id"],
+                    "artifact_name": ci_recovery_reference["artifact_name"],
+                    "artifact_archive_sha256": ci_recovery_reference[
+                        "artifact_archive_sha256"
+                    ],
+                    "public_sha256": ci_recovery_public_sha,
+                    "public_url": ci_recovery_reference["public_url"],
+                    "page_url": ci_recovery_reference["page_url"],
+                    "immutable_release_asset_url": release_reference[
+                        "ci_recovery_asset_url"
+                    ],
+                    "campaign_id": ci_recovery_public["campaign_id"],
+                    "challenge_sha256": ci_recovery_public["challenge"][
+                        "challenge_sha256"
+                    ],
+                    "population_sha256": ci_recovery_public[
+                        "population_sha256"
+                    ],
+                    "methodology": ci_recovery_public["methodology"],
+                    "arms": ci_recovery_public["arms"],
+                    "paired_comparisons": ci_recovery_public[
+                        "paired_comparisons"
+                    ],
+                    "gate": ci_recovery_public["gate"],
+                    "claim_boundary": ci_recovery_public["claim_boundary"],
+                }
+            }
+            if ci_recovery_reference is not None
+            and ci_recovery_public is not None
+            else {}
+        ),
         "public_judge_evidence": {
             "url": judge["public_demo"]["evidence_url"],
             "sha256": judge_sha,
@@ -1441,6 +1603,7 @@ def main() -> None:
     parser.add_argument("--blind-holdout-public", type=Path)
     parser.add_argument("--sequential-blind-public", type=Path)
     parser.add_argument("--evidence-story", type=Path)
+    parser.add_argument("--ci-recovery-public", type=Path)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--repository", required=True)
     parser.add_argument("--commit-sha", required=True)
@@ -1478,6 +1641,11 @@ def main() -> None:
         if args.evidence_story is not None
         else b""
     )
+    ci_recovery_public_bytes = (
+        args.ci_recovery_public.read_bytes()
+        if args.ci_recovery_public is not None
+        else b""
+    )
     envelope = build_envelope(
         json.loads(judge_bytes),
         json.loads(scale_bytes),
@@ -1508,6 +1676,11 @@ def main() -> None:
             if evidence_story_bytes
             else None
         ),
+        (
+            json.loads(ci_recovery_public_bytes)
+            if ci_recovery_public_bytes
+            else None
+        ),
         judge_bytes=judge_bytes,
         scale_bytes=scale_bytes,
         pressure_bytes=pressure_bytes,
@@ -1521,6 +1694,7 @@ def main() -> None:
         blind_holdout_public_bytes=blind_holdout_public_bytes,
         sequential_blind_public_bytes=sequential_blind_public_bytes,
         evidence_story_bytes=evidence_story_bytes,
+        ci_recovery_public_bytes=ci_recovery_public_bytes,
         repo_root=args.repo_root.resolve(),
         repository=args.repository,
         commit_sha=args.commit_sha,

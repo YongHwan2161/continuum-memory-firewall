@@ -1,6 +1,7 @@
 # Immutable competition release envelope
 
-`hackathon-v17` is the proof unit for the receipt-compiled competition story. It is
+`hackathon-v18` is the proof unit for the receipt-compiled competition story and
+closed-loop CI recovery evidence. It is
 published only by `.github/workflows/release-envelope.yml` after every
 fail-closed gate passes.
 
@@ -60,6 +61,10 @@ The envelope binds:
 - the canonical evidence-story receipt, including its self-addressed digest,
   exact v14 envelope and sequential-asset inputs, nine ordered scenes, bounded
   statistical claims, and public story page; and
+- the real GitHub Actions closed-loop recovery parent and artifact, its 54
+  unique child receipts, six calibrated fault families, public projection
+  digest, three-arm metrics, zero mutation/residual gates, and bounded
+  non-superiority claim; and
 - the Devpost submission ID, updated project timestamp, public project URL,
   current video URL, duration, local-render SHA-256, and English subtitle
   SHA-256.
@@ -167,6 +172,15 @@ scheduled successes predated that import. The workflow now executes the module
 with `PYTHONPATH=src:.`, and a repository contract test prevents regression.
 The public evidence, story, video, and Devpost receipts remain unchanged.
 
+Version 18 closes the simulated-recovery evidence gap. Six reviewed fixture
+families each prove a red baseline, red wrong patch, and green repair in
+separate GitHub Actions runs. The paired evaluation dispatches 36 more child
+runs across stateless, raw-RAG, and Continuum. The release workflow downloads
+the exact parent artifact, reconstructs the public projection from the private
+report, and binds all 54 unique child receipt identities plus the parent
+workflow/artifact/public digests. The result is not claimed as a general
+recovery advantage because stateless also recovered 12/12.
+
 The v14 sequential section binds two workflow planes. Candidate run
 `31311573511` completed the full 540-observation step and cleanup, then failed
 before scoring when the runner's Python 3.10 could not import `StrEnum`.
@@ -203,7 +217,7 @@ asset state, and SHA-256 digest. A judge can independently download the envelope
 and validate its sidecar without trusting the public page:
 
 ```bash
-gh release download hackathon-v17 --pattern 'continuum-release-envelope-v2.json*'
+gh release download hackathon-v18 --pattern 'continuum-release-envelope-v2.json*'
 sha256sum -c continuum-release-envelope-v2.json.sha256
 ```
 
@@ -214,7 +228,7 @@ attestation API and the in-toto subject digest. Full cryptographic policy
 verification is one repository command:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v17
+python scripts/verify_network_sign_once.py --release-tag hackathon-v18
 ```
 
 That command downloads the immutable envelope, detached author bundle, and both

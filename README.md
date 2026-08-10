@@ -153,6 +153,13 @@ The logged-out browser proof console is available at:
 
 <https://yonghwan2161.github.io/continuum-memory-firewall/>
 
+The [closed-loop CI recovery proof](https://yonghwan2161.github.io/continuum-memory-firewall/ci-recovery.html)
+binds 54 unique real GitHub Actions child receipts. Continuum recovered 12/12
+with no false promotion; raw-RAG recovered 11/12 and promoted its failed
+recurrence; stateless also recovered 12/12. The explicit stateless result keeps
+the claim honest: the benchmark proves failed-memory isolation and provider
+receipt closure, not general repair superiority.
+
 The current receipt-compiled 97.02-second judge demo is public at
 <https://youtu.be/QQxfQaDVz9c>. Its nine scenes are generated from the immutable
 v14 sequential receipt rather than copied from hand-edited metric text. It shows
@@ -170,7 +177,7 @@ receives a token or database credential. The executable database evidence is
 the integration suite and linked exact-head workflows in
 [Project Status](docs/PROJECT_STATUS.md).
 
-The v17 release envelope receives exactly one author-controlled signature in
+The v18 release envelope receives exactly one author-controlled signature in
 the same main-only workflow that publishes it. Its Fulcio/Rekor Sigstore bundle
 is an immutable release asset and a byte-identical Pages resource. GitHub also
 adds one distinguishable immutable-release countersignature; the verifier
@@ -179,8 +186,13 @@ a second author signing operation. Perform strict cryptographic policy
 verification of the author signature with:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v17
+python scripts/verify_network_sign_once.py --release-tag hackathon-v18
 ```
+
+Version 18 preserves the v17 story delivery and additionally binds the exact
+closed-loop CI parent workflow, artifact archive digest, deterministic public
+projection, 54 child receipts, bounded claim, and release asset. The public
+verifier re-reads the parent run and artifact before accepting the result.
 
 Version 17 preserves the v16 browser fix and makes the scheduled read-only judge
 monitor load both repository scripts and the `src` package explicitly. The same
@@ -258,6 +270,9 @@ failed-first strong-identity correction are recorded in
 The five time-cluster run receipts, aggregate statistics, and explicit repeated-
 case boundary are recorded in
 [time-distributed real-provider evidence](docs/evidence/2026-08-09-time-distributed-real-provider-replication.md).
+The 54-run GitHub Actions recovery benchmark, first-parent fail-closed incident,
+and bounded three-arm interpretation are recorded in
+[closed-loop CI recovery evidence](docs/evidence/2026-08-10-ci-recovery-live.md).
 
 ## Safety boundary
 
