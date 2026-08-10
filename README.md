@@ -219,6 +219,10 @@ transfer parent, artifact archive digest, challenge/labels/commitment/seal
 receipts, deterministic public projection, 84 unique provider receipts,
 disjoint source/target fingerprint gate, exact paired transfer/rejection
 metrics, bounded claim, judge page, and immutable release asset.
+It is published at
+<https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v20>;
+the release coordinator, Pages materializer, and credential-free monitor all
+passed on exact source `16a84d10`.
 
 Version 19 preserves the v18 recovery proof and adds the S3-sealed adaptive
 diagnosis parent, artifact archive digest, challenge/labels/commitment/seal

@@ -116,14 +116,23 @@ their cited authority is stale or incompatible.
   <https://yonghwan2161.github.io/continuum-memory-firewall/verify.html>
 - Exact parent workflow:
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31439117749>
-- Immutable evidence release after publication:
+- Immutable evidence release:
   <https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v20>
 
-The v20 release workflow re-downloads the exact Actions artifact, rebuilds the
-public projection from the private report, validates all 84 receipt identities,
-and binds the public bytes to both the immutable release asset and Pages. Until
-that workflow and the public network verifier pass, source and live benchmark
-PASS remain separate from publication PASS.
+Release coordinator
+[31441863985](https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31441863985)
+re-downloaded the exact Actions artifact, rebuilt the public projection from
+the private report, validated all 84 receipt identities, and published immutable
+`hackathon-v20` at exact target `16a84d10c6fce8af5e82a39b7c67b24c27603327`.
+The release asset digest is the same public SHA-256 shown above. Pages run
+[31441902936](https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31441902936)
+reached `PAGES_MATERIALIZED`; its public terminal receipt SHA-256 is
+`454b29f515b4504b8b72bc1c4f0c5b98553736a7bcfd530ecde3abb05d326bb6`.
+Credential-free monitor
+[31442028079](https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31442028079)
+then passed every judge check from the exact published source. Strict network
+verification also found exactly one author attestation and one GitHub platform
+countersignature.
 
 ## Claim boundary and next architectural question
 
