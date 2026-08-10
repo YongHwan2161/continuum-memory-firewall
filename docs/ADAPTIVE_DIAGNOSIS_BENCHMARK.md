@@ -41,12 +41,23 @@ the same hard budget of at most two probes.
 
 ## Evidence acquisition and action boundary
 
-The Bedrock model can use only phased tools:
+The Bedrock model can use only phased tools. The server, rather than the model,
+owns the transition between phases:
 
 1. memory-enabled arms perform one server-scoped search;
 2. a dynamic citation handle may fetch a returned memory;
-3. any arm may dispatch one of the two registered read-only probes; and
-4. the model finishes with one action-specific `propose_*` tool.
+3. without exact verified support, an arm may dispatch one of the two registered
+   read-only probes; and
+4. the server compiles either the fetched verified outcome or the current probe
+   fact into exactly one admissible action-specific `propose_*` schema.
+
+An exact-fingerprint successful Continuum memory therefore exposes only
+`search -> fetch -> matching proposal`; a diagnostic probe exposes only its
+evidence-consistent proposal. A second low-value probe and the other five action
+schemas are not offered to the model. This is a fail-closed evidence router, not
+an evaluator-label lookup: the probe-to-action mapping is part of the public
+challenge policy, while the responsible fixture and expected label remain in
+the sealed evaluator object.
 
 The server rejects a proposal unless it is supported by either:
 
@@ -115,3 +126,20 @@ aws-adaptive-diagnosis-benchmark.yml
 The implementation contract and deterministic tests are complete. Live metrics,
 public judge integration, and a release-envelope claim remain HOLD until the
 main-only workflow produces a passing artifact.
+
+## Fail-closed validation history
+
+The first complete exact-head run after S3-seal validation was
+[31398666306](https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31398666306)
+at source `b593ba65b1daf546f59fbf32e3c2cb1bb3ad86f3`. It preserved 116 child
+workflow receipts and correctly refused publication: Continuum reduced
+recurrence probes in five of six pairs, but the preregistered two-sided exact
+test was `p=0.0625`, above the `0.05` gate. The run also showed that a model
+could ignore exact verified memory and request a redundant probe when both
+tools remained available.
+
+The response is architectural, not statistical threshold relaxation. The
+server now compiles verified memory and provider facts into discriminated tool
+schemas as described above. The failed run remains immutable evidence; only a
+new source SHA with a newly generated and S3-sealed challenge may qualify for
+publication.

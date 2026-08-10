@@ -13,11 +13,13 @@ from continuum.orchestrator import MemoryToolHit
 class FakeAdaptiveModel:
     def __init__(self) -> None:
         self.counter = 0
+        self.tool_name_history: list[list[str]] = []
 
     def converse(self, **kwargs):
         self.counter += 1
         tools = kwargs["toolConfig"]["tools"]
         names = [item["toolSpec"]["name"] for item in tools]
+        self.tool_name_history.append(names)
         messages = kwargs["messages"]
         last_json = None
         if messages and "toolResult" in messages[-1].get("content", [{}])[0]:
@@ -104,7 +106,8 @@ class AdaptiveDiagnosisAgentTests(unittest.TestCase):
         self.incident = candidate_projection(case)
 
     def test_stateless_requires_one_actual_probe(self) -> None:
-        agent = AdaptiveDiagnosisAgent(model=FakeAdaptiveModel(), model_id="fake")
+        model = FakeAdaptiveModel()
+        agent = AdaptiveDiagnosisAgent(model=model, model_id="fake")
         result = agent.run(
             arm=AgentArm.STATELESS,
             incident=self.incident,
@@ -114,6 +117,11 @@ class AdaptiveDiagnosisAgentTests(unittest.TestCase):
         self.assertEqual(result.proposed_patch_id, "set_python_312")
         self.assertEqual(len(result.diagnostic_receipts), 1)
         self.assertEqual(result.selected_memory_ids, ())
+        self.assertEqual(model.counter, 2)
+        self.assertEqual(
+            model.tool_name_history,
+            [["run_diagnostic_probe"], ["propose_set_python_312"]],
+        )
 
     def test_matching_verified_memory_avoids_the_probe(self) -> None:
         fingerprint = self.incident["environment_fingerprint"]
@@ -128,7 +136,8 @@ class AdaptiveDiagnosisAgentTests(unittest.TestCase):
                 "summary": "Exact fingerprint produced a green provider receipt.",
             },
         )
-        agent = AdaptiveDiagnosisAgent(model=FakeAdaptiveModel(), model_id="fake")
+        model = FakeAdaptiveModel()
+        agent = AdaptiveDiagnosisAgent(model=model, model_id="fake")
         result = agent.run(
             arm=AgentArm.CONTINUUM,
             incident=self.incident,
@@ -138,6 +147,15 @@ class AdaptiveDiagnosisAgentTests(unittest.TestCase):
         self.assertEqual(result.proposed_patch_id, "set_python_312")
         self.assertEqual(len(result.diagnostic_receipts), 0)
         self.assertEqual(result.selected_memory_ids, ("verified-runtime-memory",))
+        self.assertEqual(model.counter, 3)
+        self.assertEqual(
+            model.tool_name_history,
+            [
+                ["search_memory"],
+                ["fetch_memory"],
+                ["propose_set_python_312"],
+            ],
+        )
 
 
 if __name__ == "__main__":
