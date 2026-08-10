@@ -102,18 +102,21 @@ artifact, public projection, no-mutation, and cleanup gates are bound into the
 public judge and v18 release evidence. See
 [CI_RECOVERY_BENCHMARK.md](CI_RECOVERY_BENCHMARK.md).
 
-**Next P0 — sealed adaptive CI diagnosis:** the current explicit diagnostics
-make the stateless arm perfect, so adding more source-defined repair families
-would repeat safety evidence without proving the causal value of memory. The
-next benchmark should preregister disposable repository variants whose first
-red log is deliberately non-identifying. Each arm receives the same tool and
-time budget and must choose provider-backed diagnostic probes before proposing
-a patch. Hidden variant labels open only after all arms finish. Primary metrics
-are verified recovery within budget, unnecessary diagnostic calls and cost,
-recurrence MTTR, false promotion, and cleanup residual. The hard product claim
-is admitted only if Continuum improves the paired recovery/cost frontier over
-stateless while preserving false promotion 0. This is the shortest path from
-“safe memory” to “memory supplies otherwise unavailable information.”
+**P0 source complete; live evidence HOLD — sealed adaptive CI diagnosis:** the
+current explicit diagnostics make the stateless arm perfect, so adding more
+source-defined repair families would repeat safety evidence without proving the
+causal value of memory. The new implementation preregisters twelve opaque cases
+whose first red log is deliberately non-identifying, seals challenge and labels
+as separate checksum-addressed S3 objects, gives all arms the same two-probe
+budget, and requires either an exact-fingerprint green memory or an actual
+read-only GitHub Actions probe before accepting a proposal. Primary metrics are
+verified recovery within budget, diagnostic child runs, token/tool cost,
+recurrence evidence-acquisition latency, false promotion, and cleanup residual.
+The public claim remains HOLD until the reviewed main-only workflow shows that
+Continuum reduces probes in at least five of six recurrence pairs with paired
+exact p <= 0.05 while preserving stateless-level recovery, false promotion 0,
+and canonical precision 1.0. See
+[ADAPTIVE_DIAGNOSIS_BENCHMARK.md](ADAPTIVE_DIAGNOSIS_BENCHMARK.md).
 
 **Current:** the 540-observation synthetic ablation and the real-provider
 guardian are separate evidence layers. In five serial, main-only OIDC workflow
