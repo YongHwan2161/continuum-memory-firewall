@@ -60,7 +60,7 @@ def _fetch(url: str) -> dict:
 
 
 def test_live_public_blind_holdout_is_fully_bound() -> None:
-    public_bytes = PUBLIC_PATH.read_bytes()
+    public_bytes = PUBLIC_PATH.read_bytes().replace(b"\r\n", b"\n")
     assert verify_blind_holdout(
         _evidence(public_bytes),
         fetch_json=_fetch,
@@ -80,7 +80,7 @@ def test_blind_holdout_fails_closed_on_candidate_label_access() -> None:
 
 
 def test_blind_holdout_fails_closed_on_artifact_digest_drift() -> None:
-    public_bytes = PUBLIC_PATH.read_bytes()
+    public_bytes = PUBLIC_PATH.read_bytes().replace(b"\r\n", b"\n")
     evidence = deepcopy(_evidence(public_bytes))
 
     def drifted(url: str) -> dict:

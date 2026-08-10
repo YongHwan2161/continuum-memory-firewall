@@ -1,0 +1,147 @@
+name: aws-adaptive-diagnosis-benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      campaign_prefix:
+        description: Stable ambiguity-first campaign prefix
+        required: true
+        default: adaptive-diagnosis-v1
+        type: string
+
+permissions:
+  actions: write
+  contents: read
+  id-token: write
+
+concurrency:
+  group: continuum-adaptive-diagnosis-benchmark
+  cancel-in-progress: false
+
+jobs:
+  ambiguity-first:
+    runs-on: ubuntu-latest
+    environment: continuum-production
+    timeout-minutes: 80
+    env:
+      AWS_REGION: ap-southeast-1
+      CONTINUUM_AGENT_BEDROCK_REGION: ap-southeast-2
+      CONTINUUM_AGENT_MODEL: amazon.nova-micro-v1:0
+      CONTINUUM_MCP_STACK_NAME: continuum-authenticated-mcp
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v6.2.0, Node 24
+        with:
+          python-version: "3.12"
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3, Node 24
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          role-session-name: continuum-adaptive-diagnosis
+      - name: Prove reviewed main-only deployment identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          ./scripts/assert_deployer_identity.sh
+      - name: Resolve the private checksum-addressed evidence prefix
+        shell: bash
+        run: |
+          set -euo pipefail
+          deploy_bucket="$(aws cloudformation describe-stacks \
+            --region "$AWS_REGION" \
+            --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+            --query "Stacks[0].Parameters[?ParameterKey=='PackageBucket'].ParameterValue | [0]" \
+            --output text)"
+          test -n "$deploy_bucket"
+          test "$deploy_bucket" != None
+          evidence_prefix="evidence/adaptive-diagnosis/$GITHUB_SHA/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          echo "CONTINUUM_DEPLOY_BUCKET=$deploy_bucket" >>"$GITHUB_ENV"
+          echo "CONTINUUM_ADAPTIVE_EVIDENCE_PREFIX=$evidence_prefix" >>"$GITHUB_ENV"
+      - name: Install the exact-head benchmark runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check "boto3>=1.40,<2" -e .
+      - name: Generate and S3-seal challenge plus labels before any model call
+        shell: bash
+        run: |
+          set -euo pipefail
+          work=build/evidence/adaptive-diagnosis
+          nonce="workflow-$GITHUB_RUN_ID-attempt-$GITHUB_RUN_ATTEMPT"
+          PYTHONPATH=src:. python scripts/generate_adaptive_diagnosis.py \
+            --source-head "$GITHUB_SHA" \
+            --generation-nonce "$nonce" \
+            --output-dir "$work"
+          PYTHONPATH=src:. python scripts/seal_adaptive_diagnosis.py \
+            --region "$AWS_REGION" \
+            --bucket "$CONTINUUM_DEPLOY_BUCKET" \
+            --prefix "$CONTINUUM_ADAPTIVE_EVIDENCE_PREFIX" \
+            --challenge "$work/adaptive-diagnosis-challenge-v1.json" \
+            --labels "$work/adaptive-diagnosis-labels-v1.json" \
+            --commitment "$work/adaptive-diagnosis-commitment-v1.json" \
+            --output "$work/adaptive-diagnosis-seal-receipt-v1.json" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-run-attempt "$GITHUB_RUN_ATTEMPT"
+      - name: Run label-free Bedrock diagnosis and actual GitHub Actions probes
+        env:
+          ADAPTIVE_GITHUB_TOKEN: ${{ github.token }}
+          CAMPAIGN_PREFIX: ${{ inputs.campaign_prefix }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          work=build/evidence/adaptive-diagnosis
+          campaign_id="${CAMPAIGN_PREFIX}-${GITHUB_RUN_ID}"
+          PYTHONPATH=src:. python scripts/run_live_adaptive_diagnosis.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --source-head "$GITHUB_SHA" \
+            --ref main \
+            --campaign-id "$campaign_id" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --agent-region "$CONTINUUM_AGENT_BEDROCK_REGION" \
+            --agent-model "$CONTINUUM_AGENT_MODEL" \
+            --server-url "$GITHUB_SERVER_URL" \
+            --challenge "$work/adaptive-diagnosis-challenge-v1.json" \
+            --labels "$work/adaptive-diagnosis-labels-v1.json" \
+            --commitment "$work/adaptive-diagnosis-commitment-v1.json" \
+            --seal-receipt "$work/adaptive-diagnosis-seal-receipt-v1.json" \
+            --output-dir "$work" \
+            --candidate-workers 3
+      - name: Validate the information-value claim boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          report=build/evidence/adaptive-diagnosis/adaptive-diagnosis-v1.json
+          jq -e '
+            .schema_version == 1 and
+            .kind == "continuum.adaptive-diagnosis.report" and
+            .source_head == env.GITHUB_SHA and
+            .workflow_run_id == (env.GITHUB_RUN_ID | tonumber) and
+            .real_external_provider == true and
+            .provider == "github-actions" and
+            .methodology.paired_cases == 12 and
+            .methodology.arm_observations == 36 and
+            .methodology.fault_families == 6 and
+            .methodology.ambiguity_groups == 3 and
+            .methodology.calibration_child_runs == 18 and
+            .methodology.remediation_child_runs == 36 and
+            .methodology.total_child_workflow_runs >= 78 and
+            .methodology.candidate_visible_label_fields == 0 and
+            (.arms | keys | sort) == ["continuum","raw_rag","stateless"] and
+            .arms.continuum.verified_recovery_rate >= .arms.stateless.verified_recovery_rate and
+            .arms.continuum.false_canonical_promotions == 0 and
+            .arms.continuum.canonical_promotion_precision == 1 and
+            .paired_comparisons.continuum_vs_stateless.recurrence.diagnostic_probe_reduction_cases >= 5 and
+            .paired_comparisons.continuum_vs_stateless.recurrence.diagnostic_probe_exact_p_value <= 0.05 and
+            .gate.status == "PASS"
+          ' "$report" >/dev/null
+          sha256sum build/evidence/adaptive-diagnosis/*.json
+      - name: Upload raw, public, commitment, and seal receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        with:
+          name: continuum-adaptive-diagnosis-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/evidence/adaptive-diagnosis
+          if-no-files-found: error
+          retention-days: 90

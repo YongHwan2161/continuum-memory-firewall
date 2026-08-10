@@ -292,6 +292,7 @@ production remediation systems.
 - [Blind holdout firewall](docs/BLIND_HOLDOUT.md) — preregistration, label-denied candidate execution, and post-arm evaluation
 - [Sequential blind evaluation](docs/SEQUENTIAL_BLIND.md) — sealed three-arm episode chains, paired inference, and future-episode promotion proof
 - [Closed-loop CI recovery](docs/CI_RECOVERY_BENCHMARK.md) — actual failed/green GitHub Actions receipts and three-arm recovery metrics
+- [Ambiguity-first adaptive diagnosis](docs/ADAPTIVE_DIAGNOSIS_BENCHMARK.md) — preregistered label-free red summaries, actual read-only probes, and a paired memory information-value gate (live evidence pending)
 - [Devpost Checklist](docs/DEVPOST_CHECKLIST.md) — submission readiness SSOT
 - [Cost Safety](docs/COST_SAFETY.md) — spending assumptions and guardrails
 - [Cloud Deployment Runbook](docs/CLOUD_DEPLOYMENT_RUNBOOK.md) — participant-owned setup, guarded deployment, proof, and teardown

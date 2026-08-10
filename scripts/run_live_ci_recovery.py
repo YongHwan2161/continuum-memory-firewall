@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 import hashlib
 import io
@@ -55,6 +55,7 @@ class WorkflowRequest:
     patch_id: str
     phase: str
     correlation_id: str
+    extra_inputs: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -90,6 +91,11 @@ class GitHubActionsProvider:
         source_head: str,
         ref: str,
         server_url: str = "https://github.com",
+        workflow_file: str = CHILD_WORKFLOW,
+        workflow_name: str = CHILD_WORKFLOW_NAME,
+        run_name_prefix: str = "ci-recovery / ",
+        artifact_prefix: str = "ci-recovery-",
+        receipt_filename: str = "ci-recovery-receipt.json",
     ) -> None:
         if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository) is None:
             raise ValueError("repository must be owner/name")
@@ -99,11 +105,27 @@ class GitHubActionsProvider:
             raise ValueError("source head must be a full Git SHA")
         if not ref:
             raise ValueError("workflow ref is required")
+        for name, value in (
+            ("workflow_file", workflow_file),
+            ("workflow_name", workflow_name),
+            ("run_name_prefix", run_name_prefix),
+            ("artifact_prefix", artifact_prefix),
+            ("receipt_filename", receipt_filename),
+        ):
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{name} is required")
+        if "/" in receipt_filename or "\\" in receipt_filename:
+            raise ValueError("receipt filename must be a basename")
         self.repository = repository
         self.__token = token
         self.source_head = source_head
         self.ref = ref
         self.server_url = server_url.rstrip("/")
+        self.workflow_file = workflow_file
+        self.workflow_name = workflow_name
+        self.run_name_prefix = run_name_prefix
+        self.artifact_prefix = artifact_prefix
+        self.receipt_filename = receipt_filename
 
     def _api(self, path: str) -> str:
         return f"https://api.github.com/repos/{self.repository}/{path}"
@@ -179,11 +201,30 @@ class GitHubActionsProvider:
             return response.read()
 
     def _dispatch(self, request: WorkflowRequest) -> None:
+        reserved = {
+            "case_id",
+            "patch_id",
+            "phase",
+            "correlation_id",
+            "source_head",
+        }
+        extra_inputs = dict(request.extra_inputs)
+        if set(extra_inputs) & reserved:
+            raise ValueError("extra workflow inputs may not override reserved inputs")
+        if not all(
+            isinstance(key, str)
+            and isinstance(value, str)
+            and key
+            and len(key) <= 64
+            and len(value) <= 512
+            for key, value in extra_inputs.items()
+        ):
+            raise ValueError("extra workflow inputs are not bounded strings")
         self._request(
             "POST",
             self._api(
                 "actions/workflows/"
-                + quote(CHILD_WORKFLOW, safe="")
+                + quote(self.workflow_file, safe="")
                 + "/dispatches"
             ),
             body={
@@ -194,6 +235,7 @@ class GitHubActionsProvider:
                     "phase": request.phase,
                     "correlation_id": request.correlation_id,
                     "source_head": self.source_head,
+                    **extra_inputs,
                 },
             },
         )
@@ -210,7 +252,7 @@ class GitHubActionsProvider:
         timeout_seconds: int = 300,
     ) -> dict[str, Mapping[str, Any]]:
         expected = {
-            f"ci-recovery / {request.correlation_id}": request
+            f"{self.run_name_prefix}{request.correlation_id}": request
             for request in requests
         }
         found: dict[str, Mapping[str, Any]] = {}
@@ -220,7 +262,7 @@ class GitHubActionsProvider:
                 "GET",
                 self._api(
                     "actions/workflows/"
-                    + quote(CHILD_WORKFLOW, safe="")
+                    + quote(self.workflow_file, safe="")
                     + "/runs?event=workflow_dispatch&branch="
                     + quote(self.ref, safe="")
                     + "&per_page=100"
@@ -305,7 +347,7 @@ class GitHubActionsProvider:
             raise RuntimeError("child artifact archive digest does not match GitHub")
         with zipfile.ZipFile(io.BytesIO(archive)) as zipped:
             names = [name for name in zipped.namelist() if not name.endswith("/")]
-            if names != ["ci-recovery-receipt.json"]:
+            if names != [self.receipt_filename]:
                 raise RuntimeError("child artifact has an unexpected file set")
             receipt_bytes = zipped.read(names[0])
         receipt = json.loads(receipt_bytes)
@@ -331,7 +373,7 @@ class GitHubActionsProvider:
         receipts: dict[str, Mapping[str, Any]] = {}
         for correlation_id, run in terminal.items():
             request = by_correlation[correlation_id]
-            artifact_name = f"ci-recovery-{correlation_id}"
+            artifact_name = f"{self.artifact_prefix}{correlation_id}"
             artifact = self._artifact(
                 run_id=int(run["id"]), expected_name=artifact_name
             )
@@ -342,6 +384,7 @@ class GitHubActionsProvider:
                 "phase": request.phase,
                 "correlation_id": request.correlation_id,
                 "source_head": self.source_head,
+                **dict(request.extra_inputs),
             }
             if any(child.get(key) != value for key, value in expected_child.items()):
                 raise RuntimeError("child receipt does not match its dispatch inputs")
@@ -352,7 +395,7 @@ class GitHubActionsProvider:
                 "workflow_run_id": int(run["id"]),
                 "workflow_run_attempt": int(run.get("run_attempt", 1)),
                 "workflow_url": str(run["html_url"]),
-                "workflow_name": str(run.get("name", CHILD_WORKFLOW_NAME)),
+                "workflow_name": str(run.get("name", self.workflow_name)),
                 "head_sha": str(run["head_sha"]),
                 "conclusion": str(run["conclusion"]),
                 "created_at": created.isoformat(),
@@ -366,6 +409,11 @@ class GitHubActionsProvider:
                 "repository_mutation": bool(child["repository_mutation"]),
                 "cleanup_residual_count": int(child["cleanup_residual_count"]),
             }
+            provider_payload = child.get("provider_payload")
+            if provider_payload is not None:
+                if not isinstance(provider_payload, Mapping):
+                    raise RuntimeError("child provider payload is not an object")
+                receipt["provider_payload"] = dict(provider_payload)
             validate_ci_workflow_receipt(receipt)
             receipts[correlation_id] = receipt
         return receipts

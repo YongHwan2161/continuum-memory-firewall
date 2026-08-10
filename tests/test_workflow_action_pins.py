@@ -19,6 +19,8 @@ def test_node24_actions_are_immutable_and_uniform() -> None:
         for line_number, line in enumerate(
             workflow.read_text(encoding="utf-8").splitlines(), start=1
         ):
+            if not line.strip().startswith(("uses:", "- uses:")):
+                continue
             for action, expected_sha in EXPECTED_PINS.items():
                 marker = f"{action}@"
                 if marker not in line:
