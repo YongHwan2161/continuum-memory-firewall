@@ -8,7 +8,11 @@ from continuum.episode import (
     ProviderOutcome,
     canonical_outcome_facts,
 )
-from continuum.online_lineage import TransferAdmissionError, TransferAdmissionTools
+from continuum.online_lineage import (
+    TransferAdmissionError,
+    TransferAdmissionTools,
+    family_for_patch,
+)
 from continuum.orchestrator import MemoryToolHit
 
 
@@ -82,6 +86,11 @@ class MemoryTools:
 
 
 class OnlineLineageTests(unittest.TestCase):
+    def test_predecessor_patch_maps_to_registered_family(self) -> None:
+        self.assertEqual(family_for_patch("set_python_312"), "python-runtime")
+        with self.assertRaisesRegex(RuntimeError, "unique fault family"):
+            family_for_patch("unregistered-patch")
+
     def test_provider_facts_are_explicitly_projected(self) -> None:
         outcome = ProviderOutcome(
             provider="github-actions",

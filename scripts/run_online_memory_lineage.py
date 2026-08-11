@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 from typing import Any, Mapping
 from uuid import uuid4
 
@@ -28,7 +29,7 @@ from continuum.episode import (
     canonical_json_bytes,
 )
 from continuum.migrate import Migrator
-from continuum.online_lineage import TransferAdmissionTools
+from continuum.online_lineage import TransferAdmissionTools, family_for_patch
 from continuum.orchestrator import BedrockConverseClient, RetrievalStoreTools
 from continuum.retrieval import BedrockTitanEmbedder, MemoryRetrievalStore
 from continuum.scope_roles import verify_scope_role
@@ -105,6 +106,10 @@ def _database_url(value: Any) -> str:
 
 def _parse_time(value: object) -> datetime:
     return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+
+
+def _sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _receipt_id(receipt: Mapping[str, Any]) -> str:
@@ -426,6 +431,7 @@ def prepare(args: argparse.Namespace) -> None:
             {
                 "case_id": case["case_id"],
                 "relationship": case["relationship"],
+                "target_family": str(case["provider_route"]["target_fixture_id"]),
                 "expected_patch_id": case["evaluator"]["expected_patch_id"],
                 "proposed_patch_id": result.proposed_patch_id,
                 "run_id": run.run_id,
@@ -512,6 +518,54 @@ def finalize(args: argparse.Namespace) -> None:
     for key in ("source_head", "repository", "campaign_id"):
         if outcomes.get(key) != state.get(key):
             raise RuntimeError(f"online lineage outcome {key} drifted")
+    candidate_head = str(state.get("source_head", ""))
+    reconciler_head = str(args.reconciler_source_head or candidate_head)
+    reconciler_artifact = str(
+        args.reconciler_deployment_artifact_sha256
+        or state.get("deployment_artifact_sha256", "")
+    )
+    if re.fullmatch(r"[0-9a-f]{40}", candidate_head) is None or re.fullmatch(
+        r"[0-9a-f]{40}", reconciler_head
+    ) is None:
+        raise RuntimeError("online lineage reconciliation source head is invalid")
+    if re.fullmatch(r"[0-9a-f]{64}", reconciler_artifact) is None:
+        raise RuntimeError("online lineage reconciler artifact digest is invalid")
+    cross_head_resume = reconciler_head != candidate_head
+    reconciliation_input: dict[str, Any] = {}
+    if cross_head_resume:
+        if (
+            args.predecessor_workflow_run_id < 1
+            or args.reconciliation_workflow_run_id < 1
+            or args.reconciliation_workflow_run_attempt < 1
+            or args.reconciliation_input is None
+        ):
+            raise RuntimeError("cross-head reconciliation lineage is incomplete")
+        reconciliation_input = _load(args.reconciliation_input)
+        expected_input = {
+            "kind": "continuum.online-memory-lineage.reconciliation-input",
+            "candidate_source_head": candidate_head,
+            "reconciler_source_head": reconciler_head,
+            "predecessor_workflow_run_id": args.predecessor_workflow_run_id,
+            "reconciliation_workflow_run_id": args.reconciliation_workflow_run_id,
+            "reconciliation_workflow_run_attempt": (
+                args.reconciliation_workflow_run_attempt
+            ),
+            "actions_permission": "read",
+            "provider_action_dispatch_capability": False,
+            "proposals_sha256": _sha256_file(args.proposals),
+            "provider_outcomes_sha256": _sha256_file(args.provider_outcomes),
+        }
+        if any(
+            reconciliation_input.get(key) != value
+            for key, value in expected_input.items()
+        ):
+            raise RuntimeError("cross-head reconciliation input receipt drifted")
+        if not str(state.get("campaign_id", "")).endswith(
+            f"-{args.predecessor_workflow_run_id}"
+        ):
+            raise RuntimeError("predecessor run does not own the candidate campaign")
+    elif args.predecessor_workflow_run_id:
+        raise RuntimeError("same-head finalization cannot name a predecessor")
     secret_client = boto3.client("secretsmanager", region_name=args.region)
     migrator_url = pin_database_tls_root(
         _database_url(_secret_payload(secret_client, args.migrator_secret_id)),
@@ -537,6 +591,10 @@ def finalize(args: argparse.Namespace) -> None:
         attestation_payload = proposal["target_attestation_receipt"][
             "provider_payload"
         ]
+        derived_family = family_for_patch(str(proposal["expected_patch_id"]))
+        target_family = str(proposal.get("target_family", derived_family))
+        if target_family != derived_family:
+            raise RuntimeError("online lineage target family drifted")
         canonical = {
             "causal_signature": str(attestation_payload["causal_signature"]),
             "environment_fingerprint": str(
@@ -545,11 +603,7 @@ def finalize(args: argparse.Namespace) -> None:
             "environment_profile_id": str(
                 attestation_payload["environment_profile_id"]
             ),
-            "family": str(
-                proposal["target_attestation_receipt"]["provider_payload"][
-                    "fixture_id"
-                ]
-            ),
+            "family": target_family,
             "patch_id": str(proposal["proposed_patch_id"]),
             "provider_conclusion": "success",
             "provider_receipt_sha256": str(receipt["receipt_sha256"]),
@@ -709,6 +763,21 @@ def finalize(args: argparse.Namespace) -> None:
         "cleanup_residuals_zero": all(
             receipt.get("cleanup_residual_count") == 0 for receipt in all_receipts
         ),
+        "reconciliation_lineage_bound": (
+            not cross_head_resume
+            or (
+                reconciliation_input.get("provider_action_dispatch_capability")
+                is False
+                and reconciliation_input.get("actions_permission") == "read"
+                and args.predecessor_workflow_run_id > 0
+                and args.reconciliation_workflow_run_id > 0
+            )
+        ),
+        "provider_action_reexecutions_zero": (
+            not cross_head_resume
+            or reconciliation_input.get("provider_action_dispatch_capability")
+            is False
+        ),
     }
     gate["status"] = "PASS" if all(gate.values()) else "FAIL"
     report_body = {
@@ -723,6 +792,30 @@ def finalize(args: argparse.Namespace) -> None:
         "embedding_model": state["embedding_model"],
         "agent_model": state["agent_model"],
         "agent_region": state["agent_region"],
+        "reconciliation": {
+            "mode": "cross-head-resume" if cross_head_resume else "same-head",
+            "candidate_source_head": candidate_head,
+            "candidate_deployment_artifact_sha256": state[
+                "deployment_artifact_sha256"
+            ],
+            "reconciler_source_head": reconciler_head,
+            "reconciler_deployment_artifact_sha256": reconciler_artifact,
+            "predecessor_workflow_run_id": (
+                args.predecessor_workflow_run_id or None
+            ),
+            "reconciliation_workflow_run_id": (
+                args.reconciliation_workflow_run_id or None
+            ),
+            "reconciliation_workflow_run_attempt": (
+                args.reconciliation_workflow_run_attempt or None
+            ),
+            "provider_action_reexecutions": 0,
+            "input_receipt_sha256": (
+                _sha256_file(args.reconciliation_input)
+                if args.reconciliation_input is not None
+                else None
+            ),
+        },
         "methodology": {
             "architectural_pairs": 1,
             "target_cases": 2,
@@ -743,12 +836,21 @@ def finalize(args: argparse.Namespace) -> None:
         "targets": target_lineage,
         "gate": gate,
         "claim_boundary": (
-            "This exact-head run proves one preregistered source family across one "
-            "same-cause and one near-neighbor target. It closes provider receipt, "
-            "canonical CockroachDB promotion, Titan vector retrieval, non-bypass RLS, "
-            "server admission, durable proposal, later provider action, verified "
-            "outcome, and next promotion. It is an architectural proof, not a new "
-            "population-level superiority estimate."
+            (
+                "This candidate/reconciler-bound recovery reuses the exact two "
+                "provider action receipts without redispatch after an evaluator "
+                "failure. "
+            )
+            if cross_head_resume
+            else "This exact-head run "
+        )
+        + (
+            "proves one preregistered source family across one same-cause and one "
+            "near-neighbor target. It closes provider receipt, canonical CockroachDB "
+            "promotion, Titan vector retrieval, non-bypass RLS, server admission, "
+            "durable proposal, later provider action, verified outcome, and next "
+            "promotion. It is an architectural proof, not a new population-level "
+            "superiority estimate."
         ),
     }
     report = {
@@ -768,18 +870,30 @@ def main() -> None:
     parser.add_argument("--agent-region", default="ap-southeast-2")
     parser.add_argument("--agent-model", default="amazon.nova-micro-v1:0")
     parser.add_argument("--migrator-secret-id", required=True)
-    parser.add_argument("--runtime-secret-id", required=True)
+    parser.add_argument("--runtime-secret-id")
     parser.add_argument("--ca-cert", required=True)
     parser.add_argument("--source-head", default="")
     parser.add_argument("--deployment-artifact-sha256", default="")
     parser.add_argument("--provider-preparation", type=Path)
     parser.add_argument("--proposals", type=Path)
     parser.add_argument("--provider-outcomes", type=Path)
+    parser.add_argument("--reconciler-source-head", default="")
+    parser.add_argument("--reconciler-deployment-artifact-sha256", default="")
+    parser.add_argument("--predecessor-workflow-run-id", type=int, default=0)
+    parser.add_argument("--reconciliation-workflow-run-id", type=int, default=0)
+    parser.add_argument("--reconciliation-workflow-run-attempt", type=int, default=0)
+    parser.add_argument("--reconciliation-input", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.command == "prepare":
-        if not args.provider_preparation or not args.source_head:
-            parser.error("prepare requires provider preparation and source head")
+        if (
+            not args.provider_preparation
+            or not args.source_head
+            or not args.runtime_secret_id
+        ):
+            parser.error(
+                "prepare requires provider preparation, source head, and runtime secret"
+            )
         prepare(args)
     else:
         if not args.proposals or not args.provider_outcomes:

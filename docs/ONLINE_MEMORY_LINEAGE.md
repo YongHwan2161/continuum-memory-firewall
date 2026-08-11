@@ -33,6 +33,18 @@ target action was produced. Cleanup removed the temporary IAM policy and the
 sealed preflight/provider artifacts were retained. The repair changes only the
 private package allowlist and removes an uninstalled `scripts.*` dependency.
 
+Live predecessor `31503686643` progressed through the complete candidate path:
+source promotion, real Titan/RLS retrieval, two durable proposals, and two
+later successful target provider actions. Final reconciliation then failed
+before either target approval or promotion because it read `fixture_id` from
+the inner attestation payload instead of the registered patch-family mapping.
+The temporary IAM policy was removed and the exact proposals/outcomes artifact
+was retained. The recovery path deliberately does not dispatch new provider
+actions: a main-only OIDC workflow with `actions: read` validates that artifact,
+deploys the repaired reconciler, and resumes the existing database proposals.
+Its public receipt binds both the candidate head and reconciler head and must
+report provider action reexecution count zero.
+
 ```mermaid
 flowchart LR
   A[Provider-success source receipt] --> B[CockroachDB outcome + canonical memory]

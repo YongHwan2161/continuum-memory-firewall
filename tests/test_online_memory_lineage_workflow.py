@@ -10,6 +10,9 @@ class OnlineMemoryLineageWorkflowTests(unittest.TestCase):
         self.workflow = (
             ROOT / ".github/workflows/aws-online-memory-lineage.yml"
         ).read_text(encoding="utf-8")
+        self.recovery = (
+            ROOT / ".github/workflows/aws-online-memory-lineage-reconcile.yml"
+        ).read_text(encoding="utf-8")
         self.runner = (ROOT / "scripts/run_online_memory_lineage.py").read_text(
             encoding="utf-8"
         )
@@ -80,6 +83,42 @@ class OnlineMemoryLineageWorkflowTests(unittest.TestCase):
             '.gate.status == "PASS"',
         ):
             self.assertIn(predicate, self.workflow)
+
+    def test_recovery_reuses_receipts_without_provider_dispatch_authority(self) -> None:
+        self.assertIn("actions: read", self.recovery)
+        self.assertNotIn("actions: write", self.recovery)
+        self.assertIn("environment: continuum-production", self.recovery)
+        self.assertIn('test "$GITHUB_REF" = refs/heads/main', self.recovery)
+        self.assertIn("provider_action_dispatch_capability:false", self.recovery)
+        self.assertIn("run_online_memory_lineage.py finalize", self.recovery)
+        self.assertNotIn("run_online_lineage_provider.py", self.recovery)
+        self.assertNotIn("transfer-firewall-child.yml", self.recovery)
+
+    def test_recovery_is_exact_predecessor_bound_and_self_revoking(self) -> None:
+        for value in (
+            "31503686643",
+            "9fed05095f2283d919915387d02198bf4faa677f",
+            "ContinuumOnlineLineageReconcileOneCommand",
+            "aws iam delete-role-policy",
+            "provider_action_reexecutions == 0",
+            ".gate.database_episode_rows_joined == true",
+            ".gate.reconciliation_lineage_bound == true",
+            '.gate.status == "PASS"',
+        ):
+            self.assertIn(value, self.recovery)
+        self.assertIn("if: always()", self.recovery)
+        self.assertNotIn("continue-on-error", self.recovery)
+
+    def test_runner_binds_candidate_and_reconciler_heads(self) -> None:
+        for value in (
+            "cross-head-resume",
+            "reconciler_source_head",
+            "reconciler_deployment_artifact_sha256",
+            "provider_action_reexecutions_zero",
+            "provider_action_dispatch_capability",
+        ):
+            self.assertIn(value, self.runner)
+        self.assertIn("family_for_patch", self.runner)
 
 
 if __name__ == "__main__":
