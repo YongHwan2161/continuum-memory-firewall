@@ -260,9 +260,14 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         )
         online_bytes = online_path.read_bytes()
         online = json.loads(online_bytes)
+        outcome_path = (
+            self.repo_root / "public-demo/evidence/outcome-replay-cas-v1.json"
+        )
+        outcome_bytes = outcome_path.read_bytes()
+        outcome = json.loads(outcome_bytes)
 
-        self.assertEqual(judge["schema_version"], 14)
-        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v21")
+        self.assertEqual(judge["schema_version"], 15)
+        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v22")
         self.assertEqual(
             judge["release_envelope"]["ci_recovery_asset_name"],
             "ci-recovery-v1.json",
@@ -320,6 +325,22 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         )
         self.assertEqual(online["gate"]["status"], "PASS")
         self.assertFalse(online["identity"]["server_owned_scope_ids_disclosed"])
+        self.assertEqual(
+            judge["release_envelope"]["outcome_replay_cas_asset_name"],
+            "outcome-replay-cas-v1.json",
+        )
+        self.assertEqual(
+            hashlib.sha256(outcome_bytes.replace(b"\r\n", b"\n")).hexdigest(),
+            judge["outcome_replay_cas"]["public_sha256"],
+        )
+        self.assertEqual(outcome["cas"]["outcome_rows"], 1)
+        self.assertEqual(outcome["cas"]["canonical_promotions"], 1)
+        self.assertEqual(outcome["cas"]["journal_rows"], 3)
+        self.assertEqual(
+            [item["decision"] for item in outcome["cas"]["journal"]],
+            ["accepted", "exact_replay", "conflict"],
+        )
+        self.assertEqual(outcome["gate"]["status"], "PASS")
         self.assertEqual(
             judge["network_sign_once"]["required_total_attestation_count"],
             2,

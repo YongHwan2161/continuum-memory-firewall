@@ -6,7 +6,7 @@ on:
       release_tag:
         description: New or resumable immutable GitHub Release tag
         required: true
-        default: hackathon-v21
+        default: hackathon-v22
       release_target:
         description: Exact existing release target to reconcile; blank uses the workflow SHA
         required: false
@@ -74,7 +74,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           judge=public-demo/evidence/judge-verification.json
-          for plane in source vector_scale agent_pressure managed_mcp sandbox_provider agent_ablation release_guardian time_distributed_replication blind_holdout sequential_blind_campaign ci_recovery adaptive_diagnosis transfer_firewall online_memory_lineage; do
+          for plane in source vector_scale agent_pressure managed_mcp sandbox_provider agent_ablation release_guardian time_distributed_replication blind_holdout sequential_blind_campaign ci_recovery adaptive_diagnosis transfer_firewall online_memory_lineage outcome_replay_cas; do
             case "$plane" in
               source)
                 run_id="$(jq -r '.source.workflow_run_id' "$judge")"
@@ -132,6 +132,10 @@ jobs:
                 run_id="$(jq -r '.online_memory_lineage.workflow_run_id' "$judge")"
                 expected_head="$(jq -r '.online_memory_lineage.reconciler_head_sha' "$judge")"
                 ;;
+              outcome_replay_cas)
+                run_id="$(jq -r '.outcome_replay_cas.workflow_run_id' "$judge")"
+                expected_head="$(jq -r '.outcome_replay_cas.head_sha' "$judge")"
+                ;;
             esac
             provider_receipt="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
             test "$(jq -r '.conclusion' <<<"$provider_receipt")" = success
@@ -168,8 +172,8 @@ jobs:
         run: |
           set -euo pipefail
           judge=public-demo/evidence/judge-verification.json
-          mkdir -p build/evidence/sandbox build/evidence/ablation build/evidence/guardian build/evidence/replication build/evidence/blind build/evidence/sequential build/evidence/ci-recovery build/evidence/adaptive-diagnosis build/evidence/transfer-firewall build/evidence/online-lineage
-          for plane in sandbox_provider agent_ablation release_guardian time_distributed_replication blind_holdout sequential_blind_campaign ci_recovery adaptive_diagnosis transfer_firewall online_memory_lineage; do
+          mkdir -p build/evidence/sandbox build/evidence/ablation build/evidence/guardian build/evidence/replication build/evidence/blind build/evidence/sequential build/evidence/ci-recovery build/evidence/adaptive-diagnosis build/evidence/transfer-firewall build/evidence/online-lineage build/evidence/outcome-replay-cas
+          for plane in sandbox_provider agent_ablation release_guardian time_distributed_replication blind_holdout sequential_blind_campaign ci_recovery adaptive_diagnosis transfer_firewall online_memory_lineage outcome_replay_cas; do
             artifact_id="$(jq -r ".$plane.artifact_id" "$judge")"
             artifact_name="$(jq -r ".$plane.artifact_name" "$judge")"
             expected_archive="sha256:$(jq -r ".$plane.artifact_archive_sha256" "$judge")"
@@ -187,6 +191,7 @@ jobs:
             if [ "$plane" = adaptive_diagnosis ]; then target=build/evidence/adaptive-diagnosis; fi
             if [ "$plane" = transfer_firewall ]; then target=build/evidence/transfer-firewall; fi
             if [ "$plane" = online_memory_lineage ]; then target=build/evidence/online-lineage; fi
+            if [ "$plane" = outcome_replay_cas ]; then target=build/evidence/outcome-replay-cas; fi
             gh run download \
               "$(jq -r ".$plane.workflow_run_id" "$judge")" \
               --name "$artifact_name" \
@@ -232,6 +237,12 @@ jobs:
             public-demo/evidence/transfer-firewall-v1.json
           test "$(sha256sum public-demo/evidence/online-memory-lineage-v1.json | cut -d' ' -f1)" = \
             "$(jq -r '.online_memory_lineage.public_sha256' "$judge")"
+          test "$(sha256sum build/evidence/outcome-replay-cas/outcome-replay-cas-private-v1.json | cut -d' ' -f1)" = \
+            "$(jq -r '.outcome_replay_cas.private_report_sha256' "$judge")"
+          test "$(sha256sum build/evidence/outcome-replay-cas/outcome-replay-cas-v1.json | cut -d' ' -f1)" = \
+            "$(jq -r '.outcome_replay_cas.public_sha256' "$judge")"
+          cmp build/evidence/outcome-replay-cas/outcome-replay-cas-v1.json \
+            public-demo/evidence/outcome-replay-cas-v1.json
           PYTHONPATH=src python - <<'PY'
           import json
           from pathlib import Path
@@ -242,6 +253,7 @@ jobs:
           from continuum.ci_recovery import build_public_ci_recovery
           from continuum.adaptive_diagnosis import build_public_adaptive_diagnosis
           from continuum.online_memory_lineage import build_public_online_memory_lineage
+          from continuum.outcome_replay_proof import build_public_outcome_replay_proof
           from continuum.transfer_firewall import build_public_transfer_firewall
           from scripts.promote_online_memory_lineage_evidence import _validate_reconciliation_inputs
           raw = json.loads(Path("build/evidence/guardian/release-guardian-v1.json").read_text())
@@ -276,6 +288,10 @@ jobs:
           online_public = json.loads(Path("public-demo/evidence/online-memory-lineage-v1.json").read_text())
           if online_public != build_public_online_memory_lineage(online_raw):
               raise SystemExit("public online memory lineage projection does not match raw report")
+          outcome_raw = json.loads(Path("build/evidence/outcome-replay-cas/outcome-replay-cas-private-v1.json").read_text())
+          outcome_public = json.loads(Path("public-demo/evidence/outcome-replay-cas-v1.json").read_text())
+          if outcome_public != build_public_outcome_replay_proof(outcome_raw):
+              raise SystemExit("public outcome replay CAS projection does not match raw report")
           input_path = Path("build/evidence/online-lineage/reconciliation-input-v1.json")
           proposals_path = Path("build/evidence/online-lineage/predecessor/proposals-v1.json")
           outcomes_path = Path("build/evidence/online-lineage/predecessor/provider-outcomes-v1.json")
@@ -314,6 +330,7 @@ jobs:
             --adaptive-diagnosis-public public-demo/evidence/adaptive-diagnosis-v1.json \
             --transfer-firewall-public public-demo/evidence/transfer-firewall-v1.json \
             --online-memory-lineage-public public-demo/evidence/online-memory-lineage-v1.json \
+            --outcome-replay-cas-public public-demo/evidence/outcome-replay-cas-v1.json \
             --repo-root . \
             --repository "$GITHUB_REPOSITORY" \
             --commit-sha "$RELEASE_TARGET" \
@@ -345,6 +362,8 @@ jobs:
             build/release/transfer-firewall-v1.json
           cp public-demo/evidence/online-memory-lineage-v1.json \
             build/release/online-memory-lineage-v1.json
+          cp public-demo/evidence/outcome-replay-cas-v1.json \
+            build/release/outcome-replay-cas-v1.json
           (
             cd build/release
             sha256sum sandbox-provider-proof.json >sandbox-provider-proof.json.sha256
@@ -359,6 +378,7 @@ jobs:
             sha256sum adaptive-diagnosis-v1.json >adaptive-diagnosis-v1.json.sha256
             sha256sum transfer-firewall-v1.json >transfer-firewall-v1.json.sha256
             sha256sum online-memory-lineage-v1.json >online-memory-lineage-v1.json.sha256
+            sha256sum outcome-replay-cas-v1.json >outcome-replay-cas-v1.json.sha256
           )
 
       - name: Create the durable draft before author signing
@@ -396,6 +416,8 @@ jobs:
             build/release/transfer-firewall-v1.json.sha256 \
             build/release/online-memory-lineage-v1.json \
             build/release/online-memory-lineage-v1.json.sha256 \
+            build/release/outcome-replay-cas-v1.json \
+            build/release/outcome-replay-cas-v1.json.sha256 \
             --target "$RELEASE_TARGET" \
             --draft \
             --title "Continuum Memory Firewall evidence envelope" \
@@ -483,6 +505,8 @@ jobs:
               "transfer-firewall-v1.json.sha256",
               "online-memory-lineage-v1.json",
               "online-memory-lineage-v1.json.sha256",
+              "outcome-replay-cas-v1.json",
+              "outcome-replay-cas-v1.json.sha256",
           )
           root = Path("build/release")
           print(json.dumps({name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}, sort_keys=True))
@@ -688,6 +712,8 @@ jobs:
               "transfer-firewall-v1.json.sha256",
               "online-memory-lineage-v1.json",
               "online-memory-lineage-v1.json.sha256",
+              "outcome-replay-cas-v1.json",
+              "outcome-replay-cas-v1.json.sha256",
           )
           root = Path("build/release")
           print(json.dumps({name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}, sort_keys=True))

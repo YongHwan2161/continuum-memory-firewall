@@ -21,6 +21,10 @@ from continuum.release_guardian_replication import (
     EXPECTED_REPLICATION_IDS,
     build_public_release_guardian_replication,
 )
+from continuum.outcome_replay_proof import (
+    PUBLIC_KIND as OUTCOME_REPLAY_PUBLIC_KIND,
+    validate_outcome_replay_proof,
+)
 from continuum.sequential_blind import build_public_sequential_blind
 from continuum.transfer_firewall import build_public_transfer_firewall
 
@@ -603,6 +607,75 @@ def verify_online_memory_lineage(
     )
 
 
+def verify_outcome_replay_cas(
+    evidence: dict[str, Any],
+    *,
+    fetch_json: Callable[[str], dict[str, Any]],
+    fetch_bytes: Callable[[str], bytes],
+) -> bool:
+    """Verify proposal-scoped outcome CAS using only public GET requests."""
+
+    reference = evidence.get("outcome_replay_cas")
+    if reference is None:
+        return True
+    try:
+        workflow = fetch_json(reference["workflow_api_url"])
+        artifact = fetch_json(reference["artifact_api_url"])
+        public_bytes = fetch_bytes(reference["public_url"])
+        public_sha = hashlib.sha256(
+            public_bytes.replace(b"\r\n", b"\n")
+        ).hexdigest()
+        report = json.loads(public_bytes.decode("utf-8"))
+        validate_outcome_replay_proof(
+            report,
+            allowed_kinds=(OUTCOME_REPLAY_PUBLIC_KIND,),
+        )
+    except (
+        KeyError,
+        RuntimeError,
+        TypeError,
+        ValueError,
+        json.JSONDecodeError,
+    ):
+        return False
+    return (
+        reference.get("schema_version") == 1
+        and public_sha == reference.get("public_sha256")
+        and report.get("source_head") == reference.get("head_sha")
+        and report.get("deployment_artifact_sha256")
+        == reference.get("deployment_artifact_sha256")
+        and report.get("workflow", {}).get("run_id")
+        == reference.get("workflow_run_id")
+        and report.get("workflow", {}).get("run_attempt")
+        == reference.get("workflow_attempt")
+        and report.get("migration", {}).get("current_version")
+        == reference.get("migration_version")
+        and report.get("provider", {}).get("adapter")
+        == reference.get("provider_adapter")
+        and report.get("provider", {}).get("accepted_receipt_sha256")
+        == reference.get("accepted_receipt_sha256")
+        and report.get("provider", {}).get("conflicting_receipt_sha256")
+        == reference.get("conflicting_receipt_sha256")
+        and report.get("cas", {}).get("journal_rows")
+        == reference.get("journal_rows")
+        and report.get("cas", {}).get("chain_tip")
+        == reference.get("chain_tip")
+        and report.get("cas", {}).get("conflict_error_code")
+        == reference.get("conflict_error_code")
+        and workflow.get("id") == reference.get("workflow_run_id")
+        and workflow.get("run_attempt") == reference.get("workflow_attempt")
+        and workflow.get("head_sha") == reference.get("head_sha")
+        and workflow.get("conclusion") == "success"
+        and artifact.get("id") == reference.get("artifact_id")
+        and artifact.get("name") == reference.get("artifact_name")
+        and artifact.get("digest")
+        == "sha256:" + str(reference.get("artifact_archive_sha256", ""))
+        and artifact.get("expired") is False
+        and artifact.get("workflow_run", {}).get("id")
+        == reference.get("workflow_run_id")
+    )
+
+
 def verify_blind_holdout(
     evidence: dict[str, Any],
     *,
@@ -1041,7 +1114,7 @@ def verify_evidence(
             and runtime["control_plane_and_migrator_role_options_empty"] is True
         ),
         "representative_scale_gate": (
-            schema_version in {4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}
+            schema_version in {4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
             and scale_report.get("gate", {}).get("status") == "PASS"
             and [scale.get("row_count") for scale in scales] == [10_000, 50_000]
         ),
@@ -1133,6 +1206,12 @@ def verify_evidence(
             fetch_json=fetch_json,
             fetch_bytes=fetch_bytes,
         )
+    if "outcome_replay_cas" in evidence:
+        checks["outcome_replay_cas_closure"] = verify_outcome_replay_cas(
+            evidence,
+            fetch_json=fetch_json,
+            fetch_bytes=fetch_bytes,
+        )
     if "evidence_story" in evidence:
         checks["receipt_compiled_evidence_story"] = verify_evidence_story(
             evidence,
@@ -1200,6 +1279,7 @@ def verify_evidence(
         adaptive_diagnosis_asset: dict[str, Any] = {}
         transfer_firewall_asset: dict[str, Any] = {}
         online_memory_lineage_asset: dict[str, Any] = {}
+        outcome_replay_cas_asset: dict[str, Any] = {}
         if schema_version >= 8:
             guardian_reference = evidence["release_guardian"]
             guardian_workflow = fetch_json(
@@ -1270,6 +1350,11 @@ def verify_evidence(
             if "online_memory_lineage" in evidence:
                 online_memory_lineage_asset = release_assets.get(
                     release_reference["online_memory_lineage_asset_name"],
+                    {},
+                )
+            if "outcome_replay_cas" in evidence:
+                outcome_replay_cas_asset = release_assets.get(
+                    release_reference["outcome_replay_cas_asset_name"],
                     {},
                 )
         network_reference: dict[str, Any] = {}
@@ -1612,6 +1697,12 @@ def verify_evidence(
                         == "sha256:"
                         + evidence["online_memory_lineage"]["public_sha256"]
                     )
+                    and (
+                        "outcome_replay_cas" not in evidence
+                        or outcome_replay_cas_asset.get("digest")
+                        == "sha256:"
+                        + evidence["outcome_replay_cas"]["public_sha256"]
+                    )
                 ),
                 "release_envelope_gate": (
                     envelope.get("schema_version") == 2
@@ -1815,6 +1906,39 @@ def verify_evidence(
                                 "provider_action_reexecutions"
                             )
                             == 0
+                        )
+                    )
+                    and (
+                        "outcome_replay_cas" not in evidence
+                        or (
+                            envelope.get("outcome_replay_cas", {}).get(
+                                "public_sha256"
+                            )
+                            == evidence["outcome_replay_cas"].get(
+                                "public_sha256"
+                            )
+                            and envelope.get("outcome_replay_cas", {}).get(
+                                "workflow_run_id"
+                            )
+                            == evidence["outcome_replay_cas"].get(
+                                "workflow_run_id"
+                            )
+                            and envelope.get("outcome_replay_cas", {}).get(
+                                "artifact_archive_sha256"
+                            )
+                            == evidence["outcome_replay_cas"].get(
+                                "artifact_archive_sha256"
+                            )
+                            and envelope.get("outcome_replay_cas", {}).get(
+                                "cas", {}
+                            ).get("chain_tip")
+                            == evidence["outcome_replay_cas"].get("chain_tip")
+                            and envelope.get("outcome_replay_cas", {}).get(
+                                "cas", {}
+                            ).get("conflict_error_code")
+                            == evidence["outcome_replay_cas"].get(
+                                "conflict_error_code"
+                            )
                         )
                     )
                 ),

@@ -21,6 +21,7 @@ from continuum.release_guardian_replication import (
     build_public_release_guardian_replication,
 )
 from continuum.online_memory_lineage import validate_public_online_memory_lineage
+from continuum.outcome_replay_proof import validate_outcome_replay_proof
 from continuum.sequential_blind import build_public_sequential_blind
 from continuum.transfer_firewall import build_public_transfer_firewall
 
@@ -55,6 +56,7 @@ CI_RECOVERY_ASSET = "ci-recovery-v1.json"
 ADAPTIVE_DIAGNOSIS_ASSET = "adaptive-diagnosis-v1.json"
 TRANSFER_FIREWALL_ASSET = "transfer-firewall-v1.json"
 ONLINE_MEMORY_LINEAGE_ASSET = "online-memory-lineage-v1.json"
+OUTCOME_REPLAY_CAS_ASSET = "outcome-replay-cas-v1.json"
 SIGNATURE_BUNDLE_ASSET = "continuum-release-envelope-v2.sigstore.jsonl"
 
 
@@ -151,6 +153,7 @@ def build_envelope(
     adaptive_diagnosis_public: dict[str, Any] | None = None,
     transfer_firewall_public: dict[str, Any] | None = None,
     online_memory_lineage_public: dict[str, Any] | None = None,
+    outcome_replay_cas_public: dict[str, Any] | None = None,
     *,
     judge_bytes: bytes,
     scale_bytes: bytes,
@@ -169,6 +172,7 @@ def build_envelope(
     adaptive_diagnosis_public_bytes: bytes = b"",
     transfer_firewall_public_bytes: bytes = b"",
     online_memory_lineage_public_bytes: bytes = b"",
+    outcome_replay_cas_public_bytes: bytes = b"",
     repo_root: Path,
     repository: str,
     commit_sha: str,
@@ -177,8 +181,8 @@ def build_envelope(
     release_tag: str,
     generated_at: str | None = None,
 ) -> dict[str, Any]:
-    if judge.get("schema_version") not in {8, 9, 10, 11, 12, 13, 14}:
-        raise RuntimeError("judge evidence schema 8 through 14 is required")
+    if judge.get("schema_version") not in {8, 9, 10, 11, 12, 13, 14, 15}:
+        raise RuntimeError("judge evidence schema 8 through 15 is required")
     if not SHA_PATTERN.fullmatch(commit_sha):
         raise RuntimeError("release commit must be a full lowercase SHA")
     if workflow_run_id < 1 or not workflow_url.startswith("https://github.com/"):
@@ -205,6 +209,7 @@ def build_envelope(
     adaptive_diagnosis_reference = judge.get("adaptive_diagnosis")
     transfer_firewall_reference = judge.get("transfer_firewall")
     online_memory_lineage_reference = judge.get("online_memory_lineage")
+    outcome_replay_cas_reference = judge.get("outcome_replay_cas")
     database_policy_reference = judge["database_policy"]
     release_reference = judge["release_envelope"]
     network_sign_once = judge["network_sign_once"]
@@ -272,6 +277,11 @@ def build_envelope(
         if online_memory_lineage_public is not None
         else ""
     )
+    outcome_replay_cas_public_sha = (
+        sha256_bytes(repository_text_bytes(outcome_replay_cas_public_bytes))
+        if outcome_replay_cas_public is not None
+        else ""
+    )
     public_ablation = build_public_ablation_aggregate(ablation)
     public_drilldown = build_public_episode_drilldown(ablation)
     public_guardian = build_public_release_guardian(release_guardian)
@@ -307,6 +317,8 @@ def build_envelope(
     )
     if online_memory_lineage_public is not None:
         validate_public_online_memory_lineage(online_memory_lineage_public)
+    if outcome_replay_cas_public is not None:
+        validate_outcome_replay_proof(outcome_replay_cas_public)
     adaptive_receipts = (
         [
             item["provider_receipt"]
@@ -1335,6 +1347,71 @@ def build_envelope(
                 )
             )
         ),
+        "outcome_replay_cas_artifact_bound": (
+            outcome_replay_cas_reference is None
+            or (
+                outcome_replay_cas_public is not None
+                and outcome_replay_cas_public_sha
+                == outcome_replay_cas_reference.get("public_sha256")
+                and outcome_replay_cas_public.get("source_head")
+                == outcome_replay_cas_reference.get("head_sha")
+                and outcome_replay_cas_public.get("deployment_artifact_sha256")
+                == outcome_replay_cas_reference.get(
+                    "deployment_artifact_sha256"
+                )
+                and outcome_replay_cas_public.get("workflow", {}).get("run_id")
+                == outcome_replay_cas_reference.get("workflow_run_id")
+                and outcome_replay_cas_public.get("workflow", {}).get(
+                    "run_attempt"
+                )
+                == outcome_replay_cas_reference.get("workflow_attempt")
+                and outcome_replay_cas_public.get("migration", {}).get(
+                    "current_version"
+                )
+                == outcome_replay_cas_reference.get("migration_version")
+                and outcome_replay_cas_public.get("provider", {}).get("adapter")
+                == outcome_replay_cas_reference.get("provider_adapter")
+                and outcome_replay_cas_public.get("cas", {}).get("journal_rows")
+                == outcome_replay_cas_reference.get("journal_rows")
+                and outcome_replay_cas_public.get("cas", {}).get("chain_tip")
+                == outcome_replay_cas_reference.get("chain_tip")
+                and outcome_replay_cas_public.get("cas", {}).get(
+                    "conflict_error_code"
+                )
+                == outcome_replay_cas_reference.get("conflict_error_code")
+                and outcome_replay_cas_reference.get("artifact_name")
+                == (
+                    "continuum-outcome-replay-cas-"
+                    + str(outcome_replay_cas_reference.get("head_sha", ""))
+                    + "-"
+                    + str(
+                        outcome_replay_cas_reference.get("workflow_run_id", "")
+                    )
+                    + "-"
+                    + str(
+                        outcome_replay_cas_reference.get("workflow_attempt", "")
+                    )
+                )
+                and int(outcome_replay_cas_reference.get("artifact_id", 0)) > 0
+                and SHA256_PATTERN.fullmatch(
+                    str(
+                        outcome_replay_cas_reference.get(
+                            "artifact_archive_sha256", ""
+                        )
+                    )
+                )
+                is not None
+                and outcome_replay_cas_public.get("gate", {}).get("status")
+                == "PASS"
+                and all(
+                    value is True
+                    for key, value in outcome_replay_cas_public.get(
+                        "gate", {}
+                    ).items()
+                    if key != "status"
+                )
+            )
+        ),
         "citation_grounding_failures_zero": grounding_failures == 0,
         "public_rls_checksum_matches_source": (
             database_policy_reference.get("rls_combined_sha256")
@@ -1546,6 +1623,18 @@ def build_envelope(
                     )
                 )
             )
+            and (
+                outcome_replay_cas_reference is None
+                or (
+                    release_reference.get("outcome_replay_cas_asset_name")
+                    == OUTCOME_REPLAY_CAS_ASSET
+                    and release_reference.get("outcome_replay_cas_asset_url")
+                    == (
+                        f"https://github.com/{repository}/releases/download/"
+                        f"{release_tag}/{OUTCOME_REPLAY_CAS_ASSET}"
+                    )
+                )
+            )
         ),
         "network_sign_once_contract_bound": (
             network_sign_once.get("schema_version") == 2
@@ -1720,6 +1809,15 @@ def build_envelope(
                         ]
                     }
                     if online_memory_lineage_reference is not None
+                    else {}
+                ),
+                **(
+                    {
+                        "outcome_replay_cas": release_reference[
+                            "outcome_replay_cas_asset_url"
+                        ]
+                    }
+                    if outcome_replay_cas_reference is not None
                     else {}
                 ),
             },
@@ -2243,6 +2341,57 @@ def build_envelope(
             and online_memory_lineage_public is not None
             else {}
         ),
+        **(
+            {
+                "outcome_replay_cas": {
+                    "schema_version": outcome_replay_cas_public[
+                        "schema_version"
+                    ],
+                    "head_sha": outcome_replay_cas_reference["head_sha"],
+                    "workflow_run_id": outcome_replay_cas_reference[
+                        "workflow_run_id"
+                    ],
+                    "workflow_attempt": outcome_replay_cas_reference[
+                        "workflow_attempt"
+                    ],
+                    "workflow_url": outcome_replay_cas_reference[
+                        "workflow_url"
+                    ],
+                    "artifact_id": outcome_replay_cas_reference["artifact_id"],
+                    "artifact_name": outcome_replay_cas_reference[
+                        "artifact_name"
+                    ],
+                    "artifact_archive_sha256": outcome_replay_cas_reference[
+                        "artifact_archive_sha256"
+                    ],
+                    "private_report_sha256": outcome_replay_cas_reference[
+                        "private_report_sha256"
+                    ],
+                    "public_sha256": outcome_replay_cas_public_sha,
+                    "public_url": outcome_replay_cas_reference["public_url"],
+                    "page_url": outcome_replay_cas_reference["page_url"],
+                    "immutable_release_asset_url": release_reference[
+                        "outcome_replay_cas_asset_url"
+                    ],
+                    "deployment_artifact_sha256": outcome_replay_cas_public[
+                        "deployment_artifact_sha256"
+                    ],
+                    "migration_version": outcome_replay_cas_public[
+                        "migration"
+                    ]["current_version"],
+                    "provider": outcome_replay_cas_public["provider"],
+                    "database": outcome_replay_cas_public["database"],
+                    "cas": outcome_replay_cas_public["cas"],
+                    "gate": outcome_replay_cas_public["gate"],
+                    "claim_boundary": outcome_replay_cas_public[
+                        "claim_boundary"
+                    ],
+                }
+            }
+            if outcome_replay_cas_reference is not None
+            and outcome_replay_cas_public is not None
+            else {}
+        ),
         "public_judge_evidence": {
             "url": judge["public_demo"]["evidence_url"],
             "sha256": judge_sha,
@@ -2287,6 +2436,7 @@ def main() -> None:
     parser.add_argument("--adaptive-diagnosis-public", type=Path)
     parser.add_argument("--transfer-firewall-public", type=Path)
     parser.add_argument("--online-memory-lineage-public", type=Path)
+    parser.add_argument("--outcome-replay-cas-public", type=Path)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--repository", required=True)
     parser.add_argument("--commit-sha", required=True)
@@ -2344,6 +2494,11 @@ def main() -> None:
         if args.online_memory_lineage_public is not None
         else b""
     )
+    outcome_replay_cas_public_bytes = (
+        args.outcome_replay_cas_public.read_bytes()
+        if args.outcome_replay_cas_public is not None
+        else b""
+    )
     envelope = build_envelope(
         json.loads(judge_bytes),
         json.loads(scale_bytes),
@@ -2394,6 +2549,11 @@ def main() -> None:
             if online_memory_lineage_public_bytes
             else None
         ),
+        (
+            json.loads(outcome_replay_cas_public_bytes)
+            if outcome_replay_cas_public_bytes
+            else None
+        ),
         judge_bytes=judge_bytes,
         scale_bytes=scale_bytes,
         pressure_bytes=pressure_bytes,
@@ -2411,6 +2571,7 @@ def main() -> None:
         adaptive_diagnosis_public_bytes=adaptive_diagnosis_public_bytes,
         transfer_firewall_public_bytes=transfer_firewall_public_bytes,
         online_memory_lineage_public_bytes=online_memory_lineage_public_bytes,
+        outcome_replay_cas_public_bytes=outcome_replay_cas_public_bytes,
         repo_root=args.repo_root.resolve(),
         repository=args.repository,
         commit_sha=args.commit_sha,

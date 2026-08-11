@@ -176,12 +176,17 @@ a redacted deterministic projection. The full verifier independently reads the
 failed candidate, successful reconciler, both Actions artifacts, both action
 runs, public bytes, and immutable release asset.
 
-The next fundamental P0 is **outcome-receipt compare-and-set plus a
-database-native reconciliation journal**. The current SQL replay path returns a
-previous outcome for the proposal without first proving that the replayed
-provider, receipt ID, status, and receipt digest are identical. The workflow
-artifact made this recovery safe, but that invariant belongs at the durable
-database boundary. A retry with a different receipt must become a typed
-conflict, while an exact replay must return the same outcome and promotion.
-This removes the remaining cross-head trust gap instead of adding another
-benchmark or security feature around it.
+The former next P0—**outcome-receipt compare-and-set plus a database-native
+reconciliation journal**—is now complete and live-proven. An exact replay must
+match provider, status, receipt ID, and receipt digest; it returns the same
+outcome and promotion. Any mismatch commits a typed conflict to a per-proposal
+SHA-256 journal before returning `OUTCOME_REPLAY_CONFLICT`. See the
+[live outcome replay CAS receipt](evidence/2026-08-12-outcome-replay-cas-live.md).
+
+The next authority gap is provider-origin verification at the promotion
+boundary. The database currently compares a caller-supplied receipt identity
+correctly, but the caller still supplies that identity. A provider-verifier
+attestation should resolve the receipt from the provider, bind proposal,
+provider, policy version, freshness, and evidence digest, and become the only
+input accepted by outcome promotion. That would make fabricated, stale, and
+cross-proposal receipts fail before CAS rather than merely conflict safely.

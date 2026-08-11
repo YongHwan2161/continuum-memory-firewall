@@ -13,7 +13,8 @@ then [inspect all five time-distributed real-provider batches](https://yonghwan2
 and the [three-batch sequential blind memory-compounding proof](https://yonghwan2161.github.io/continuum-memory-firewall/sequential-blind.html),
 inspect the [S3-preregistered ambiguity-first adaptive diagnosis proof](https://yonghwan2161.github.io/continuum-memory-firewall/adaptive-diagnosis.html),
 run the [counterfactual cross-environment transfer firewall](https://yonghwan2161.github.io/continuum-memory-firewall/transfer-firewall.html),
-or inspect the [online CockroachDB memory-lineage closure](https://yonghwan2161.github.io/continuum-memory-firewall/online-memory-lineage.html).
+inspect the [online CockroachDB memory-lineage closure](https://yonghwan2161.github.io/continuum-memory-firewall/online-memory-lineage.html),
+or recompute the [participant-cluster outcome replay CAS journal](https://yonghwan2161.github.io/continuum-memory-firewall/outcome-replay-cas.html).
 In the incident-response story, trusted telemetry becomes durable memory,
 poisoned model output remains quarantined, a later agent retrieves the accepted
 resolution, and CockroachDB grants exactly one action owner.
@@ -84,6 +85,7 @@ of truth for whether the promotion and action claim committed.
 - `src/continuum/migrate.py` — checksum, lease, retry, adoption, and validation runner
 - `src/continuum/db_smoke.py` — synthetic live-database promotion/retrieval smoke path
 - `src/continuum/ci_recovery.py` — real GitHub Actions red-to-green recovery contract and metrics
+- `src/continuum/outcome_replay_proof.py` — public-safe outcome CAS and journal-chain verifier
 - `infra/aws/` — cost-bounded CloudFormation and Lambda dependency manifest
 - `scripts/` — dry-by-default CockroachDB/AWS preflight, packaging, and deployment
 - `tests/` — policy, retry, promotion, replay, retrieval, MCP, and concurrency tests
@@ -196,6 +198,15 @@ evaluator failed after both actions, so a separate `actions: read` reconciler
 completed only the database side with zero provider redispatch. This is a
 one-pair architectural closure, not a new comparative effect estimate.
 
+The [outcome replay CAS proof](https://yonghwan2161.github.io/continuum-memory-firewall/outcome-replay-cas.html)
+then closes the remaining replay split-brain seam on the participant cluster.
+One real disposable S3 receipt produced exactly one durable outcome and one
+canonical promotion; its exact replay returned the same identity; a second
+real S3 receipt for the same proposal committed `OUTCOME_REPLAY_CONFLICT` to a
+three-entry SHA-256 database journal before the typed error reached the caller.
+The scope SQL identity saw exactly those three rows under RLS. This is one
+retained-proposal architectural closure, not a population estimate.
+
 The current receipt-compiled 97.02-second judge demo is public at
 <https://youtu.be/QQxfQaDVz9c>. Its nine scenes are generated from the immutable
 v14 sequential receipt rather than copied from hand-edited metric text. It shows
@@ -213,7 +224,7 @@ receives a token or database credential. The executable database evidence is
 the integration suite and linked exact-head workflows in
 [Project Status](docs/PROJECT_STATUS.md).
 
-The v21 release envelope receives exactly one author-controlled signature in
+The v22 release envelope receives exactly one author-controlled signature in
 the same main-only workflow that publishes it. Its Fulcio/Rekor Sigstore bundle
 is an immutable release asset and a byte-identical Pages resource. GitHub also
 adds one distinguishable immutable-release countersignature; the verifier
@@ -222,7 +233,7 @@ a second author signing operation. Perform strict cryptographic policy
 verification of the author signature with:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v21
+python scripts/verify_network_sign_once.py --release-tag hackathon-v22
 ```
 
 Version 21 preserves the v20 evidence and adds the exact failed candidate,
