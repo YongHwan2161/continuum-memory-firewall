@@ -38,10 +38,14 @@ from continuum.store import (
     psycopg_connection_factory,
 )
 from continuum.tenant_control import DatabaseTenantControlPlane
-from scripts.build_release_envelope import RLS_MIGRATIONS, _migration_receipt
 
 
 INITIAL_HEAD = "0" * 64
+RLS_MIGRATIONS = (
+    "0009_enable_canonical_memory_rls.sql",
+    "0010_enable_retrieval_audit_rls.sql",
+    "0011_enable_incident_rls.sql",
+)
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -58,6 +62,29 @@ def _write(path: Path, value: Mapping[str, Any]) -> None:
         json.dump(value, handle, ensure_ascii=False, indent=2, sort_keys=True)
         handle.write("\n")
     os.chmod(path, 0o600)
+
+
+def _migration_receipt(repo_root: Path, names: tuple[str, ...]) -> dict[str, Any]:
+    root = repo_root / "src" / "continuum" / "migrations"
+    files = []
+    for name in names:
+        path = root / name
+        if not path.is_file():
+            raise RuntimeError(f"required migration is missing: {name}")
+        content = path.read_bytes().replace(b"\r\n", b"\n")
+        files.append(
+            {
+                "path": path.relative_to(repo_root).as_posix(),
+                "sha256": hashlib.sha256(content).hexdigest(),
+            }
+        )
+    combined = "".join(
+        f"{item['path']}:{item['sha256']}\n" for item in files
+    ).encode("utf-8")
+    return {
+        "files": files,
+        "combined_sha256": hashlib.sha256(combined).hexdigest(),
+    }
 
 
 def _secret_payload(client: Any, secret_id: str) -> Any:

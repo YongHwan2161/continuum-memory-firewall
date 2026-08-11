@@ -10,6 +10,9 @@ class OnlineMemoryLineageWorkflowTests(unittest.TestCase):
         self.workflow = (
             ROOT / ".github/workflows/aws-online-memory-lineage.yml"
         ).read_text(encoding="utf-8")
+        self.runner = (ROOT / "scripts/run_online_memory_lineage.py").read_text(
+            encoding="utf-8"
+        )
 
     def test_workflow_orders_provider_db_provider_db(self) -> None:
         generation = self.workflow.index("generate_transfer_firewall.py")
@@ -57,6 +60,14 @@ class OnlineMemoryLineageWorkflowTests(unittest.TestCase):
             self.workflow.index("test -s /tmp/cockroach-ca.crt"),
             self.workflow.index("deploy_mcp_host.sh"),
         )
+
+    def test_packaged_runner_has_no_uninstalled_scripts_dependency(self) -> None:
+        package = (ROOT / "scripts/build_mcp_host_package.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("run_online_memory_lineage.py", package)
+        self.assertNotIn("from scripts.", self.runner)
+        self.assertIn("0009_enable_canonical_memory_rls.sql", self.runner)
 
     def test_gate_requires_actual_retrieval_isolation_and_both_promotions(self) -> None:
         for predicate in (
