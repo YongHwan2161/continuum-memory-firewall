@@ -20,6 +20,7 @@ from continuum.release_guardian import build_public_release_guardian
 from continuum.release_guardian_replication import (
     build_public_release_guardian_replication,
 )
+from continuum.online_memory_lineage import validate_public_online_memory_lineage
 from continuum.sequential_blind import build_public_sequential_blind
 from continuum.transfer_firewall import build_public_transfer_firewall
 
@@ -53,6 +54,7 @@ EVIDENCE_STORY_ASSET = "evidence-story-v1.json"
 CI_RECOVERY_ASSET = "ci-recovery-v1.json"
 ADAPTIVE_DIAGNOSIS_ASSET = "adaptive-diagnosis-v1.json"
 TRANSFER_FIREWALL_ASSET = "transfer-firewall-v1.json"
+ONLINE_MEMORY_LINEAGE_ASSET = "online-memory-lineage-v1.json"
 SIGNATURE_BUNDLE_ASSET = "continuum-release-envelope-v2.sigstore.jsonl"
 
 
@@ -148,6 +150,7 @@ def build_envelope(
     ci_recovery_public: dict[str, Any] | None = None,
     adaptive_diagnosis_public: dict[str, Any] | None = None,
     transfer_firewall_public: dict[str, Any] | None = None,
+    online_memory_lineage_public: dict[str, Any] | None = None,
     *,
     judge_bytes: bytes,
     scale_bytes: bytes,
@@ -165,6 +168,7 @@ def build_envelope(
     ci_recovery_public_bytes: bytes = b"",
     adaptive_diagnosis_public_bytes: bytes = b"",
     transfer_firewall_public_bytes: bytes = b"",
+    online_memory_lineage_public_bytes: bytes = b"",
     repo_root: Path,
     repository: str,
     commit_sha: str,
@@ -173,8 +177,8 @@ def build_envelope(
     release_tag: str,
     generated_at: str | None = None,
 ) -> dict[str, Any]:
-    if judge.get("schema_version") not in {8, 9, 10, 11, 12, 13}:
-        raise RuntimeError("judge evidence schema 8 through 13 is required")
+    if judge.get("schema_version") not in {8, 9, 10, 11, 12, 13, 14}:
+        raise RuntimeError("judge evidence schema 8 through 14 is required")
     if not SHA_PATTERN.fullmatch(commit_sha):
         raise RuntimeError("release commit must be a full lowercase SHA")
     if workflow_run_id < 1 or not workflow_url.startswith("https://github.com/"):
@@ -200,6 +204,7 @@ def build_envelope(
     ci_recovery_reference = judge.get("ci_recovery")
     adaptive_diagnosis_reference = judge.get("adaptive_diagnosis")
     transfer_firewall_reference = judge.get("transfer_firewall")
+    online_memory_lineage_reference = judge.get("online_memory_lineage")
     database_policy_reference = judge["database_policy"]
     release_reference = judge["release_envelope"]
     network_sign_once = judge["network_sign_once"]
@@ -262,6 +267,11 @@ def build_envelope(
         if transfer_firewall_public is not None
         else ""
     )
+    online_memory_lineage_public_sha = (
+        sha256_bytes(repository_text_bytes(online_memory_lineage_public_bytes))
+        if online_memory_lineage_public is not None
+        else ""
+    )
     public_ablation = build_public_ablation_aggregate(ablation)
     public_drilldown = build_public_episode_drilldown(ablation)
     public_guardian = build_public_release_guardian(release_guardian)
@@ -295,6 +305,8 @@ def build_envelope(
         if transfer_firewall_public is not None
         else None
     )
+    if online_memory_lineage_public is not None:
+        validate_public_online_memory_lineage(online_memory_lineage_public)
     adaptive_receipts = (
         [
             item["provider_receipt"]
@@ -1264,6 +1276,65 @@ def build_envelope(
                 in str(transfer_firewall_public.get("claim_boundary", "")).lower()
             )
         ),
+        "online_memory_lineage_artifact_bound": (
+            online_memory_lineage_reference is None
+            or (
+                online_memory_lineage_public is not None
+                and online_memory_lineage_public_sha
+                == online_memory_lineage_reference.get("public_sha256")
+                and online_memory_lineage_public.get("source_head")
+                == online_memory_lineage_reference.get("candidate_head_sha")
+                and online_memory_lineage_public.get("raw_receipt_sha256")
+                == online_memory_lineage_reference.get("raw_receipt_sha256")
+                and online_memory_lineage_public.get("rls", {}).get(
+                    "combined_sha256"
+                )
+                == online_memory_lineage_reference.get("rls_combined_sha256")
+                and online_memory_lineage_public.get("reconciliation", {}).get(
+                    "reconciler_source_head"
+                )
+                == online_memory_lineage_reference.get("reconciler_head_sha")
+                and online_memory_lineage_public.get("reconciliation", {}).get(
+                    "reconciliation_workflow_run_id"
+                )
+                == online_memory_lineage_reference.get("workflow_run_id")
+                and online_memory_lineage_public.get("reconciliation", {}).get(
+                    "provider_action_reexecutions"
+                )
+                == 0
+                and online_memory_lineage_reference.get("artifact_name")
+                == (
+                    "continuum-online-memory-lineage-reconciliation-"
+                    + str(
+                        online_memory_lineage_reference.get(
+                            "reconciler_head_sha", ""
+                        )
+                    )
+                    + "-"
+                    + str(online_memory_lineage_reference.get("workflow_run_id", ""))
+                    + "-"
+                    + str(online_memory_lineage_reference.get("workflow_attempt", ""))
+                )
+                and int(online_memory_lineage_reference.get("artifact_id", 0)) > 0
+                and SHA256_PATTERN.fullmatch(
+                    str(
+                        online_memory_lineage_reference.get(
+                            "artifact_archive_sha256", ""
+                        )
+                    )
+                )
+                is not None
+                and online_memory_lineage_public.get("gate", {}).get("status")
+                == "PASS"
+                and all(
+                    value is True
+                    for key, value in online_memory_lineage_public.get(
+                        "gate", {}
+                    ).items()
+                    if key != "status"
+                )
+            )
+        ),
         "citation_grounding_failures_zero": grounding_failures == 0,
         "public_rls_checksum_matches_source": (
             database_policy_reference.get("rls_combined_sha256")
@@ -1463,6 +1534,18 @@ def build_envelope(
                     )
                 )
             )
+            and (
+                online_memory_lineage_reference is None
+                or (
+                    release_reference.get("online_memory_lineage_asset_name")
+                    == ONLINE_MEMORY_LINEAGE_ASSET
+                    and release_reference.get("online_memory_lineage_asset_url")
+                    == (
+                        f"https://github.com/{repository}/releases/download/"
+                        f"{release_tag}/{ONLINE_MEMORY_LINEAGE_ASSET}"
+                    )
+                )
+            )
         ),
         "network_sign_once_contract_bound": (
             network_sign_once.get("schema_version") == 2
@@ -1628,6 +1711,15 @@ def build_envelope(
                         ]
                     }
                     if transfer_firewall_reference is not None
+                    else {}
+                ),
+                **(
+                    {
+                        "online_memory_lineage": release_reference[
+                            "online_memory_lineage_asset_url"
+                        ]
+                    }
+                    if online_memory_lineage_reference is not None
                     else {}
                 ),
             },
@@ -2086,6 +2178,71 @@ def build_envelope(
             and transfer_firewall_public is not None
             else {}
         ),
+        **(
+            {
+                "online_memory_lineage": {
+                    "schema_version": online_memory_lineage_public[
+                        "schema_version"
+                    ],
+                    "candidate_head_sha": online_memory_lineage_reference[
+                        "candidate_head_sha"
+                    ],
+                    "reconciler_head_sha": online_memory_lineage_reference[
+                        "reconciler_head_sha"
+                    ],
+                    "workflow_run_id": online_memory_lineage_reference[
+                        "workflow_run_id"
+                    ],
+                    "workflow_attempt": online_memory_lineage_reference[
+                        "workflow_attempt"
+                    ],
+                    "workflow_url": online_memory_lineage_reference[
+                        "workflow_url"
+                    ],
+                    "predecessor_workflow_run_id": (
+                        online_memory_lineage_reference[
+                            "predecessor_workflow_run_id"
+                        ]
+                    ),
+                    "artifact_id": online_memory_lineage_reference[
+                        "artifact_id"
+                    ],
+                    "artifact_name": online_memory_lineage_reference[
+                        "artifact_name"
+                    ],
+                    "artifact_archive_sha256": online_memory_lineage_reference[
+                        "artifact_archive_sha256"
+                    ],
+                    "public_sha256": online_memory_lineage_public_sha,
+                    "public_url": online_memory_lineage_reference["public_url"],
+                    "page_url": online_memory_lineage_reference["page_url"],
+                    "immutable_release_asset_url": release_reference[
+                        "online_memory_lineage_asset_url"
+                    ],
+                    "raw_receipt_sha256": online_memory_lineage_reference[
+                        "raw_receipt_sha256"
+                    ],
+                    "rls_combined_sha256": online_memory_lineage_reference[
+                        "rls_combined_sha256"
+                    ],
+                    "provider_action_run_ids": online_memory_lineage_reference[
+                        "provider_action_run_ids"
+                    ],
+                    "provider_action_reexecutions": 0,
+                    "methodology": online_memory_lineage_public["methodology"],
+                    "reconciliation": online_memory_lineage_public[
+                        "reconciliation"
+                    ],
+                    "gate": online_memory_lineage_public["gate"],
+                    "claim_boundary": online_memory_lineage_public[
+                        "claim_boundary"
+                    ],
+                }
+            }
+            if online_memory_lineage_reference is not None
+            and online_memory_lineage_public is not None
+            else {}
+        ),
         "public_judge_evidence": {
             "url": judge["public_demo"]["evidence_url"],
             "sha256": judge_sha,
@@ -2129,6 +2286,7 @@ def main() -> None:
     parser.add_argument("--ci-recovery-public", type=Path)
     parser.add_argument("--adaptive-diagnosis-public", type=Path)
     parser.add_argument("--transfer-firewall-public", type=Path)
+    parser.add_argument("--online-memory-lineage-public", type=Path)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--repository", required=True)
     parser.add_argument("--commit-sha", required=True)
@@ -2181,6 +2339,11 @@ def main() -> None:
         if args.transfer_firewall_public is not None
         else b""
     )
+    online_memory_lineage_public_bytes = (
+        args.online_memory_lineage_public.read_bytes()
+        if args.online_memory_lineage_public is not None
+        else b""
+    )
     envelope = build_envelope(
         json.loads(judge_bytes),
         json.loads(scale_bytes),
@@ -2226,6 +2389,11 @@ def main() -> None:
             if transfer_firewall_public_bytes
             else None
         ),
+        (
+            json.loads(online_memory_lineage_public_bytes)
+            if online_memory_lineage_public_bytes
+            else None
+        ),
         judge_bytes=judge_bytes,
         scale_bytes=scale_bytes,
         pressure_bytes=pressure_bytes,
@@ -2242,6 +2410,7 @@ def main() -> None:
         ci_recovery_public_bytes=ci_recovery_public_bytes,
         adaptive_diagnosis_public_bytes=adaptive_diagnosis_public_bytes,
         transfer_firewall_public_bytes=transfer_firewall_public_bytes,
+        online_memory_lineage_public_bytes=online_memory_lineage_public_bytes,
         repo_root=args.repo_root.resolve(),
         repository=args.repository,
         commit_sha=args.commit_sha,

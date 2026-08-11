@@ -12,7 +12,8 @@ or [inspect 36 paired incidents with real GitHub effects](https://yonghwan2161.g
 then [inspect all five time-distributed real-provider batches](https://yonghwan2161.github.io/continuum-memory-firewall/release-guardian-replication.html)
 and the [three-batch sequential blind memory-compounding proof](https://yonghwan2161.github.io/continuum-memory-firewall/sequential-blind.html),
 inspect the [S3-preregistered ambiguity-first adaptive diagnosis proof](https://yonghwan2161.github.io/continuum-memory-firewall/adaptive-diagnosis.html),
-or run the [counterfactual cross-environment transfer firewall](https://yonghwan2161.github.io/continuum-memory-firewall/transfer-firewall.html).
+run the [counterfactual cross-environment transfer firewall](https://yonghwan2161.github.io/continuum-memory-firewall/transfer-firewall.html),
+or inspect the [online CockroachDB memory-lineage closure](https://yonghwan2161.github.io/continuum-memory-firewall/online-memory-lineage.html).
 In the incident-response story, trusted telemetry becomes durable memory,
 poisoned model output remains quarantined, a later agent retrieves the accepted
 resolution, and CockroachDB grants exactly one action owner.
@@ -185,6 +186,16 @@ The result binds 84 unique exact-head workflow, artifact, and digest receipts.
 It proves this reviewed causal-transfer contract, not arbitrary repair or
 open-world semantic generalization.
 
+The [online memory-lineage proof](https://yonghwan2161.github.io/continuum-memory-firewall/online-memory-lineage.html)
+then drives one real provider-success outcome through canonical CockroachDB
+promotion, Titan embedding, non-bypass RLS search, server-side causal admission,
+durable proposal, a later provider action, and verified target promotion. The
+same-cause target selected the exact source memory with zero diagnostics; the
+near neighbour selected none and used one current diagnostic. The candidate
+evaluator failed after both actions, so a separate `actions: read` reconciler
+completed only the database side with zero provider redispatch. This is a
+one-pair architectural closure, not a new comparative effect estimate.
+
 The current receipt-compiled 97.02-second judge demo is public at
 <https://youtu.be/QQxfQaDVz9c>. Its nine scenes are generated from the immutable
 v14 sequential receipt rather than copied from hand-edited metric text. It shows
@@ -202,7 +213,7 @@ receives a token or database credential. The executable database evidence is
 the integration suite and linked exact-head workflows in
 [Project Status](docs/PROJECT_STATUS.md).
 
-The v20 release envelope receives exactly one author-controlled signature in
+The v21 release envelope receives exactly one author-controlled signature in
 the same main-only workflow that publishes it. Its Fulcio/Rekor Sigstore bundle
 is an immutable release asset and a byte-identical Pages resource. GitHub also
 adds one distinguishable immutable-release countersignature; the verifier
@@ -211,8 +222,16 @@ a second author signing operation. Perform strict cryptographic policy
 verification of the author signature with:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v20
+python scripts/verify_network_sign_once.py --release-tag hackathon-v21
 ```
+
+Version 21 preserves the v20 evidence and adds the exact failed candidate,
+successful cross-head reconciler, both Actions artifacts, two non-reexecuted
+provider actions, raw report receipt, redacted online-memory projection,
+CockroachDB/Titan/RLS episode lineage, judge page, and immutable release asset.
+It is published at
+<https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v21>
+after the v21 release coordinator and Pages materializer pass.
 
 Version 20 preserves the v19 evidence and adds the S3-sealed counterfactual
 transfer parent, artifact archive digest, challenge/labels/commitment/seal
@@ -342,6 +361,7 @@ production remediation systems.
 - [Closed-loop CI recovery](docs/CI_RECOVERY_BENCHMARK.md) — actual failed/green GitHub Actions receipts and three-arm recovery metrics
 - [Ambiguity-first adaptive diagnosis](docs/ADAPTIVE_DIAGNOSIS_BENCHMARK.md) — preregistered label-free red summaries, 84 actual provider receipts, and a paired memory information-value gate
 - [Counterfactual transfer firewall](docs/TRANSFER_FIREWALL_BENCHMARK.md) — disjoint source/target environments, provider-attested causal compatibility, and near-neighbour false-transfer rejection
+- [Online CockroachDB memory lineage](docs/ONLINE_MEMORY_LINEAGE.md) — real provider receipt through Titan/RLS retrieval, durable proposal, crash reconciliation, and next promotion
 - [Devpost Checklist](docs/DEVPOST_CHECKLIST.md) — submission readiness SSOT
 - [Cost Safety](docs/COST_SAFETY.md) — spending assumptions and guardrails
 - [Cloud Deployment Runbook](docs/CLOUD_DEPLOYMENT_RUNBOOK.md) — participant-owned setup, guarded deployment, proof, and teardown

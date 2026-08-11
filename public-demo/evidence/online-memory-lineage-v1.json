@@ -1,0 +1,379 @@
+{
+  "agent_model": "amazon.nova-micro-v1:0",
+  "agent_region": "ap-southeast-2",
+  "campaign_id": "online-lineage-v1-31503686643",
+  "claim_boundary": "This candidate/reconciler-bound recovery reuses the exact two provider action receipts without redispatch after an evaluator failure. proves one preregistered source family across one same-cause and one near-neighbor target. It closes provider receipt, canonical CockroachDB promotion, Titan vector retrieval, non-bypass RLS, server admission, durable proposal, later provider action, verified outcome, and next promotion. It is an architectural proof, not a new population-level superiority estimate.",
+  "deployment_artifact_sha256": "3ece49e3652a48e902577106e58acacea9cfcedccc32f1d4282c31603648ace8",
+  "embedding_model": "amazon.titan-embed-text-v2:0/512",
+  "gate": {
+    "both_exact_patches_proposed": true,
+    "both_provider_outcomes_succeeded": true,
+    "both_verified_outcomes_promoted": true,
+    "cleanup_residuals_zero": true,
+    "cross_scope_rows_zero": true,
+    "database_episode_rows_joined": true,
+    "exact_source_head": true,
+    "near_neighbor_current_diagnostic_used": true,
+    "near_neighbor_memory_not_selected": true,
+    "provider_action_reexecutions_zero": true,
+    "provider_actions_follow_durable_proposals": true,
+    "provider_receipts_unique": true,
+    "reconciliation_lineage_bound": true,
+    "repository_mutations_zero": true,
+    "retrieval_audit_ids_present": true,
+    "same_cause_memory_selected": true,
+    "same_cause_zero_diagnostics": true,
+    "scope_role_is_expected": true,
+    "source_provider_outcome_canonical_and_indexed": true,
+    "status": "PASS"
+  },
+  "generated_at": "2026-08-11T15:17:59.530672+00:00",
+  "identity": {
+    "binding_version": 1,
+    "caller_id_sha256": "c647b8f6a0bdb23694d8dd621d89e5ca5f8892adb38d518f1d1a6e634fac4401",
+    "server_owned_scope_ids_disclosed": false,
+    "sql_role_sha256": "0ebf1d2037db4b377bfc60359a30a32eb0f91cc239aca5ddd8cb41c9dc251c77"
+  },
+  "isolation": {
+    "all_visible_audits_in_scope": true,
+    "all_visible_incidents_in_scope": true,
+    "all_visible_rows_in_scope": true,
+    "forbidden_memory_visible": false,
+    "negative_checks": [
+      "row_security_off",
+      "canonical_update",
+      "candidate_update",
+      "action_update"
+    ]
+  },
+  "kind": "continuum.online-memory-lineage.public",
+  "methodology": {
+    "architectural_pairs": 1,
+    "candidate_visible_label_fields": 0,
+    "claim_design": "end-to-end architectural closure, not a powered benchmark",
+    "database": "cockroachdb-cloud",
+    "lineage_provider_receipts": 6,
+    "near_neighbor_cases": 1,
+    "provider": "github-actions",
+    "real_external_provider": true,
+    "retrieval": "titan-v2-vector-search-through-non-bypass-rls-role",
+    "same_cause_cases": 1,
+    "target_cases": 2
+  },
+  "migration_version": 31,
+  "raw_receipt_sha256": "dd249605d58884391cb5adca45f48f871593435381307624f73b5573b98e6929",
+  "reconciliation": {
+    "candidate_deployment_artifact_sha256": "3ece49e3652a48e902577106e58acacea9cfcedccc32f1d4282c31603648ace8",
+    "candidate_source_head": "9fed05095f2283d919915387d02198bf4faa677f",
+    "input_receipt_sha256": "3d202f8eede9f275b90351583e378cf3b648fc6d7952472543958ee00994911a",
+    "mode": "cross-head-resume",
+    "predecessor_workflow_run_id": 31503686643,
+    "provider_action_reexecutions": 0,
+    "reconciler_deployment_artifact_sha256": "3ece49e3652a48e902577106e58acacea9cfcedccc32f1d4282c31603648ace8",
+    "reconciler_source_head": "9bfb9017e03b33b56fa0af942ed111b4362336d9",
+    "reconciliation_workflow_run_attempt": 1,
+    "reconciliation_workflow_run_id": 31506117708
+  },
+  "repository": "YongHwan2161/continuum-memory-firewall",
+  "rls": {
+    "combined_sha256": "69a168e1e55440bf563483947f5438855e93a715a56eb702f49a845d360b4e02",
+    "files": [
+      {
+        "path": "src/continuum/migrations/0009_enable_canonical_memory_rls.sql",
+        "sha256": "1c4152e0f438e328a0e53c17f2fc394e375282ef117cef664341a19d27e6f8fb"
+      },
+      {
+        "path": "src/continuum/migrations/0010_enable_retrieval_audit_rls.sql",
+        "sha256": "3bdb145268d6ddccbc318512a1a99d108fdcbc463f526d5f5ffda2dd575254ff"
+      },
+      {
+        "path": "src/continuum/migrations/0011_enable_incident_rls.sql",
+        "sha256": "4684b02ca4220ff5e1a62b4ddfeeda425d7442a484eac8f347980346ee6ad929"
+      }
+    ]
+  },
+  "schema_version": 1,
+  "source": {
+    "embedding_model": "amazon.titan-embed-text-v2:0/512",
+    "event_hash": "3b81cd9c8ac849aabbdb8fafda72b494841c3ed35e6e094e03186a1d338d07ba",
+    "memory_id": "281c3d05-3741-4bf8-b30e-64b0e183eff5",
+    "outcome_id": "6d5593c2-a873-4448-8955-a427abbc23ab",
+    "proposal_id": "266d0793-87df-4410-beb7-d093791ec14e",
+    "provider_receipt": {
+      "artifact_digest": "sha256:3e4edcfa7896936daab5fbaf8c931cd4692e338521c2a254c418b6d541f497e9",
+      "artifact_id": 9106161968,
+      "artifact_name": "transfer-firewall-tfr-online-lineage-v1-31-88b21aeefbbfa3981cb5",
+      "cleanup_residual_count": 0,
+      "completed_at": "2026-08-11T14:51:22+00:00",
+      "conclusion": "success",
+      "created_at": "2026-08-11T14:51:08+00:00",
+      "duration_ms": 14000.0,
+      "exercise_passed": true,
+      "head_sha": "9fed05095f2283d919915387d02198bf4faa677f",
+      "provider": "github-actions",
+      "provider_payload": {
+        "causal_evidence_sha256": "322bf63bf1456dab5bca8da8b7dadef1b6102f084868ce1583f1d797881d847d",
+        "causal_signature": "322bf63bf1456dab5bca8da8b7dadef1b6102f084868ce1583f1d797881d847d",
+        "contract_passed": true,
+        "environment_fingerprint": "env-8ba7989aaa9ac7c55920",
+        "environment_profile_id": "source-monorepo",
+        "kind": "continuum.transfer-firewall.remediation",
+        "operation_kind": "source-calibration",
+        "patch_id": "set_python_312",
+        "schema_version": 1,
+        "transfer_contract": "provider-attested-causal-signature-v1",
+        "workspace_sha256_after": "669645afb65ac5f06105e681b4ca1a2e519ceb04cf1bc92b73c4fb700e645531",
+        "workspace_sha256_before": "97a0721b127150f679ea4e61aad12665e6f92e833285d258ba57026335c01a98"
+      },
+      "receipt_sha256": "7880aa58ae2991758b7ccfdf3d4158ebb9fc1e3965c2581ea49d9dedb66d24a8",
+      "repository_mutation": false,
+      "workflow_name": "transfer-firewall / tfr-online-lineage-v1-31-88b21aeefbbfa3981cb5",
+      "workflow_run_attempt": 1,
+      "workflow_run_id": 31503813476,
+      "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31503813476"
+    },
+    "provider_receipt_sha256": "7880aa58ae2991758b7ccfdf3d4158ebb9fc1e3965c2581ea49d9dedb66d24a8",
+    "receipt_digest": "74a081b24d70f7f3cff81c77747853243a7224fe3cd5958eb886b0a338e1725f",
+    "run_id": "43baedfb-fc73-4850-b8c1-c23c62d031b9"
+  },
+  "source_head": "9fed05095f2283d919915387d02198bf4faa677f",
+  "targets": [
+    {
+      "admission_receipt": {
+        "compatible_memory_ids": [],
+        "kind": "continuum.online-transfer-admission",
+        "retrieval_ids": [
+          "1a0fdcef-bffc-4f97-8a43-631bd12f5248"
+        ],
+        "schema_version": 1,
+        "searched_memory_ids": [
+          "281c3d05-3741-4bf8-b30e-64b0e183eff5"
+        ],
+        "target_attestation_receipt_sha256": "830d32a4b2ba70ae3894ba54d88004940fbee21d1dd9a57bd8b0c47547e76c30",
+        "target_causal_signature": "3cba93f4193e3d278f80342332749c3110810cf0db73c8ae9c650b4cba764c90",
+        "target_environment_fingerprint": "env-e325ae1c314e8b920531",
+        "target_workflow_run_id": 31503815866,
+        "transfer_contract": "provider-attested-causal-signature-v1"
+      },
+      "case_id": "tf-f0c177f361b24fc9aa7c",
+      "diagnostic_receipts": [
+        {
+          "artifact_digest": "sha256:a8bd78d38c647537dfbb4330916495d480a8f236665fcee46d4d92d1ca816777",
+          "artifact_id": 9106163758,
+          "artifact_name": "transfer-firewall-tfr-online-lineage-v1-31-e559573ccd7c7af333d4",
+          "cleanup_residual_count": 0,
+          "completed_at": "2026-08-11T14:51:24+00:00",
+          "conclusion": "success",
+          "created_at": "2026-08-11T14:51:10+00:00",
+          "duration_ms": 14000.0,
+          "exercise_passed": true,
+          "head_sha": "9fed05095f2283d919915387d02198bf4faa677f",
+          "provider": "github-actions",
+          "provider_payload": {
+            "environment_fingerprint": "env-e325ae1c314e8b920531",
+            "environment_profile_id": "target-service",
+            "facts": {
+              "module_root": "app",
+              "settings_present": true
+            },
+            "finding": "anomaly",
+            "kind": "continuum.adaptive-diagnosis.probe",
+            "probe_id": "inspect_package_settings",
+            "read_only": true,
+            "schema_version": 1,
+            "workspace_sha256_after": "8bd8ac9360594094364d2f28269c41876fe01a7aec1390ba47993afbf2d275ca",
+            "workspace_sha256_before": "8bd8ac9360594094364d2f28269c41876fe01a7aec1390ba47993afbf2d275ca"
+          },
+          "receipt_sha256": "c0ca4c3c65ee29ed43dfb4b38459873d670220c32f340e2a68aa9e9e06e13adc",
+          "repository_mutation": false,
+          "workflow_name": "transfer-firewall / tfr-online-lineage-v1-31-e559573ccd7c7af333d4",
+          "workflow_run_attempt": 1,
+          "workflow_run_id": 31503817675,
+          "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31503817675"
+        }
+      ],
+      "episode_latency_ms": 2413.974,
+      "expected_patch_id": "normalize_package_root",
+      "fetched_memory_ids": [],
+      "input_tokens": 3150,
+      "model_turns": 3,
+      "outcome_id": "379ee20b-cc66-4fb8-8a6c-4d41e9c777b2",
+      "outcome_receipt_digest": "d29e94419cc0275b6c9ba24f1965f8affb8cbe99a19c54c2e09cf52db4f543a5",
+      "outcome_status": "succeeded",
+      "output_tokens": 108,
+      "promoted_event_hash": "06a2734dc0b2242aeb6a0ccdcaafa3499d0a330317afae99f102ad3b2914f896",
+      "promoted_memory_id": "5e07a4f1-929a-4de4-a4d3-2a621232afa8",
+      "proposal_id": "8bed7734-1e9e-41ca-8cb8-3fa74b1a0f09",
+      "proposed_patch_id": "normalize_package_root",
+      "provider_receipt": {
+        "artifact_digest": "sha256:a90f23cade28e627a657c6b1f52eb9e66fa0ca6eb9a9a2af2b9c28a2593fb65d",
+        "artifact_id": 9106208411,
+        "artifact_name": "transfer-firewall-tfr-online-lineage-v1-31-4866c58865e91c3248a1",
+        "cleanup_residual_count": 0,
+        "completed_at": "2026-08-11T14:52:37+00:00",
+        "conclusion": "success",
+        "created_at": "2026-08-11T14:52:18+00:00",
+        "duration_ms": 19000.0,
+        "exercise_passed": true,
+        "head_sha": "9fed05095f2283d919915387d02198bf4faa677f",
+        "provider": "github-actions",
+        "provider_payload": {
+          "contract_passed": true,
+          "environment_fingerprint": "env-e325ae1c314e8b920531",
+          "environment_profile_id": "target-service",
+          "kind": "continuum.transfer-firewall.remediation",
+          "operation_kind": "remediation",
+          "patch_id": "normalize_package_root",
+          "schema_version": 1,
+          "workspace_sha256_after": "973fcdd7b99528e2b0da8423974e8029b5f9b9b9e98059954cf6c6f34856b549",
+          "workspace_sha256_before": "8bd8ac9360594094364d2f28269c41876fe01a7aec1390ba47993afbf2d275ca"
+        },
+        "receipt_sha256": "251ff4c95e3f4b1cd3c3f2a31c8ca08e4ce0a19b4a95b75f8cc9c94a30e153d8",
+        "repository_mutation": false,
+        "workflow_name": "transfer-firewall / tfr-online-lineage-v1-31-4866c58865e91c3248a1",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31503922040,
+        "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31503922040"
+      },
+      "relationship": "near-neighbor-rejection",
+      "run_id": "01af9ad9-0755-45aa-a8e2-8707ae9f46b1",
+      "selected_memory_ids": [],
+      "target_attestation_receipt": {
+        "artifact_digest": "sha256:ef34662f3623aa9006d62db6f7ac72d9a561307dc89241a51a50cefb2a419ab1",
+        "artifact_id": 9106163190,
+        "artifact_name": "transfer-firewall-tfr-online-lineage-v1-31-7f4d1f2c1ae92f49d186",
+        "cleanup_residual_count": 0,
+        "completed_at": "2026-08-11T14:51:24+00:00",
+        "conclusion": "success",
+        "created_at": "2026-08-11T14:51:09+00:00",
+        "duration_ms": 15000.0,
+        "exercise_passed": true,
+        "head_sha": "9fed05095f2283d919915387d02198bf4faa677f",
+        "provider": "github-actions",
+        "provider_payload": {
+          "causal_evidence_sha256": "3cba93f4193e3d278f80342332749c3110810cf0db73c8ae9c650b4cba764c90",
+          "causal_signature": "3cba93f4193e3d278f80342332749c3110810cf0db73c8ae9c650b4cba764c90",
+          "environment_fingerprint": "env-e325ae1c314e8b920531",
+          "environment_profile_id": "target-service",
+          "kind": "continuum.transfer-firewall.attestation",
+          "read_only": true,
+          "schema_version": 1,
+          "transfer_contract": "provider-attested-causal-signature-v1",
+          "workspace_sha256_after": "8bd8ac9360594094364d2f28269c41876fe01a7aec1390ba47993afbf2d275ca",
+          "workspace_sha256_before": "8bd8ac9360594094364d2f28269c41876fe01a7aec1390ba47993afbf2d275ca"
+        },
+        "receipt_sha256": "830d32a4b2ba70ae3894ba54d88004940fbee21d1dd9a57bd8b0c47547e76c30",
+        "repository_mutation": false,
+        "workflow_name": "transfer-firewall / tfr-online-lineage-v1-31-7f4d1f2c1ae92f49d186",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31503815866,
+        "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31503815866"
+      },
+      "tool_calls": 3
+    },
+    {
+      "admission_receipt": {
+        "compatible_memory_ids": [
+          "281c3d05-3741-4bf8-b30e-64b0e183eff5"
+        ],
+        "kind": "continuum.online-transfer-admission",
+        "retrieval_ids": [
+          "22b4d538-2cae-4108-84a2-d2f5ce278b56"
+        ],
+        "schema_version": 1,
+        "searched_memory_ids": [
+          "281c3d05-3741-4bf8-b30e-64b0e183eff5"
+        ],
+        "target_attestation_receipt_sha256": "15428b5dc7557429e86c7e192087bf7f6783e4d2f525dcdb52f4ee3f194f8a14",
+        "target_causal_signature": "322bf63bf1456dab5bca8da8b7dadef1b6102f084868ce1583f1d797881d847d",
+        "target_environment_fingerprint": "env-977ef0e97d0d366c92eb",
+        "target_workflow_run_id": 31503821458,
+        "transfer_contract": "provider-attested-causal-signature-v1"
+      },
+      "case_id": "tf-1890d5595ed7d7452f41",
+      "diagnostic_receipts": [],
+      "episode_latency_ms": 1972.322,
+      "expected_patch_id": "set_python_312",
+      "fetched_memory_ids": [
+        "281c3d05-3741-4bf8-b30e-64b0e183eff5"
+      ],
+      "input_tokens": 3785,
+      "model_turns": 3,
+      "outcome_id": "1031654c-7cff-47ac-90f3-8b8dc224ecda",
+      "outcome_receipt_digest": "c29907828076b37e3d746b8309169adb0a5fc1ab4ebcfd7c1e36e421d4a4966c",
+      "outcome_status": "succeeded",
+      "output_tokens": 146,
+      "promoted_event_hash": "d6930c797b3b204aef8e5e301689d6b2cf6479de53dbcc4c4d552c15f0c9f025",
+      "promoted_memory_id": "698c24f2-7ed5-4269-a2b1-64fc193cd026",
+      "proposal_id": "024aaf9a-7d62-4b95-898c-918c29a7bdab",
+      "proposed_patch_id": "set_python_312",
+      "provider_receipt": {
+        "artifact_digest": "sha256:30c0a5be16bad5d47873b681d533834b2bae76b218640ea4158036ed2ca9b50f",
+        "artifact_id": 9106204396,
+        "artifact_name": "transfer-firewall-tfr-online-lineage-v1-31-821f941854e92057e8f1",
+        "cleanup_residual_count": 0,
+        "completed_at": "2026-08-11T14:52:31+00:00",
+        "conclusion": "success",
+        "created_at": "2026-08-11T14:52:19+00:00",
+        "duration_ms": 12000.0,
+        "exercise_passed": true,
+        "head_sha": "9fed05095f2283d919915387d02198bf4faa677f",
+        "provider": "github-actions",
+        "provider_payload": {
+          "contract_passed": true,
+          "environment_fingerprint": "env-977ef0e97d0d366c92eb",
+          "environment_profile_id": "target-service",
+          "kind": "continuum.transfer-firewall.remediation",
+          "operation_kind": "remediation",
+          "patch_id": "set_python_312",
+          "schema_version": 1,
+          "workspace_sha256_after": "72a861ad873c87816f4a666c076a2c99dc59a06835951946785593f379408d41",
+          "workspace_sha256_before": "b05f1c68e61bb84051ef5561917b69598a43c3bf752d5e9e5683a3dd0acbb200"
+        },
+        "receipt_sha256": "fffa7fb4a247af54553e5693e99631836c67d366f4d607ab4f7512fdd4d1d7b3",
+        "repository_mutation": false,
+        "workflow_name": "transfer-firewall / tfr-online-lineage-v1-31-821f941854e92057e8f1",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31503923725,
+        "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31503923725"
+      },
+      "relationship": "same-cause-transfer",
+      "run_id": "3420d0d9-175d-424d-9755-901e3338a7e4",
+      "selected_memory_ids": [
+        "281c3d05-3741-4bf8-b30e-64b0e183eff5"
+      ],
+      "target_attestation_receipt": {
+        "artifact_digest": "sha256:f4c5758f56d4a748707fdee4412465b66bc3451fec60d54dbadfc7df0bdf42dd",
+        "artifact_id": 9106165651,
+        "artifact_name": "transfer-firewall-tfr-online-lineage-v1-31-fb77312d29d65afd7743",
+        "cleanup_residual_count": 0,
+        "completed_at": "2026-08-11T14:51:37+00:00",
+        "conclusion": "success",
+        "created_at": "2026-08-11T14:51:13+00:00",
+        "duration_ms": 24000.0,
+        "exercise_passed": true,
+        "head_sha": "9fed05095f2283d919915387d02198bf4faa677f",
+        "provider": "github-actions",
+        "provider_payload": {
+          "causal_evidence_sha256": "322bf63bf1456dab5bca8da8b7dadef1b6102f084868ce1583f1d797881d847d",
+          "causal_signature": "322bf63bf1456dab5bca8da8b7dadef1b6102f084868ce1583f1d797881d847d",
+          "environment_fingerprint": "env-977ef0e97d0d366c92eb",
+          "environment_profile_id": "target-service",
+          "kind": "continuum.transfer-firewall.attestation",
+          "read_only": true,
+          "schema_version": 1,
+          "transfer_contract": "provider-attested-causal-signature-v1",
+          "workspace_sha256_after": "b05f1c68e61bb84051ef5561917b69598a43c3bf752d5e9e5683a3dd0acbb200",
+          "workspace_sha256_before": "b05f1c68e61bb84051ef5561917b69598a43c3bf752d5e9e5683a3dd0acbb200"
+        },
+        "receipt_sha256": "15428b5dc7557429e86c7e192087bf7f6783e4d2f525dcdb52f4ee3f194f8a14",
+        "repository_mutation": false,
+        "workflow_name": "transfer-firewall / tfr-online-lineage-v1-31-fb77312d29d65afd7743",
+        "workflow_run_attempt": 1,
+        "workflow_run_id": 31503821458,
+        "workflow_url": "https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31503821458"
+      },
+      "tool_calls": 3
+    }
+  ]
+}

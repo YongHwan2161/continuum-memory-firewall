@@ -162,51 +162,49 @@ unique workflow, artifact, and digest identities; the challenge and labels were
 sealed before the first candidate call. See
 [TRANSFER_FIREWALL_BENCHMARK.md](TRANSFER_FIREWALL_BENCHMARK.md).
 
-### Current fundamental P0 — online CockroachDB memory-lineage closure
+### Completed fundamental P0 — online CockroachDB memory-lineage closure
 
-The largest remaining architectural seam is now between the strongest memory
-evaluation and the sponsor database runtime. The transfer runner constructs a
-typed `MemoryToolHit` directly from an exact provider calibration receipt. The
-production path separately persists canonical memory, indexes Titan vectors,
-enforces caller scope with CockroachDB RLS, and exposes read-only MCP search and
-fetch. Both halves are live-proven, but the same transfer decision has not yet
-traversed them as one receipt-bound transaction chain.
+Recovery run `31506117708` completed the previously missing real seam. A
+successful GitHub Actions source receipt became canonical CockroachDB memory,
+was embedded by Titan v2, and was retrieved through the caller's non-bypass RLS
+role. The same-cause target selected that exact memory with zero diagnostics;
+the near-neighbour target rejected it and used exactly one current diagnostic.
+Both exact proposals were durable before action, both later provider outcomes
+succeeded, and both became the next canonical memories. Cross-scope visibility,
+repository mutation, cleanup residuals, and false transfer remained zero.
 
-The next automated evaluation must therefore:
+The candidate run `31503686643` intentionally remains failed after its
+evaluator crashed following the two external actions. The successful cross-head
+reconciler had `actions: read`, no provider-dispatch capability, and reports
+provider action reexecution count zero. The public projection removes
+server-owned tenant and incident identifiers while retaining candidate and
+reconciler SHAs, Actions artifact digests, memory/retrieval/proposal/outcome
+IDs, the RLS checksum, and the bounded one-pair/two-case claim. See
+[ONLINE_MEMORY_LINEAGE.md](ONLINE_MEMORY_LINEAGE.md).
 
-- promote a provider-success source outcome into canonical CockroachDB memory,
-  persist its causal-evidence and promotion receipt lineage, and index it with
-  the deployed Titan embedding path;
-- start a target episode through the authenticated server-owned tenant and SQL
-  identity, retrieve the source via actual CockroachDB vector search and RLS,
-  and expose only a server-issued citation handle;
-- combine the retrieved memory with a separate target provider attestation,
-  then require the transfer firewall to authorize the exact proposal or force a
-  current diagnostic;
-- execute the disposable provider action, reconcile its receipt, and either
-  promote the verified target outcome or prove that no failed/incompatible
-  memory became canonical; and
-- bind database memory ID, retrieval-audit ID, RLS checksum, model/tool policy,
-  target attestation, action receipt, and promotion decision to one public
-  release artifact, while keeping cross-scope rows and false transfer at zero.
+### Next fundamental P0 — outcome-receipt CAS and durable reconciliation journal
 
-This is the highest-value P0 because it turns the current two strong but
-separate claims—CockroachDB is the durable scoped memory system, and verified
-memory causally improves action—into one end-to-end Agentic Memory Design proof.
-It also makes CockroachDB essential to the measured outcome instead of merely
-an independently demonstrated storage layer. Freeze this work if a reviewed
-live PASS is not available by 2026-08-15 KST; preserve v20 and spend the final
-submission window on the judge story and Devpost evidence rather than weakening
-the admitted release.
+The live crash exposed the next narrow architectural seam. The CockroachDB
+`record_outcome_and_promote` replay path returns an existing proposal outcome,
+but does not first compare the incoming provider, receipt ID, status, and
+receipt digest to the stored row. The workflow currently prevents mismatched
+replay by validating the exact failed-run artifact; that invariant should not
+depend only on orchestration code.
 
-**Implementation candidate completed 2026-08-11:** the outcome-fact projection,
-dynamic scoped search/fetch path, receipt-bound causal admission, provider → DB
-→ provider → DB coordinator, exact-source-memory pin, RLS sentinel, database
-lineage joins, main-only OIDC workflow, and fail-closed gate are implemented.
-The full local regression suite passes. The status remains **live HOLD** until
-the exact reviewed main head produces a successful provider/Bedrock/
-CockroachDB receipt. Measurement definitions, limitations, and release gates
-are frozen in [ONLINE_MEMORY_LINEAGE.md](ONLINE_MEMORY_LINEAGE.md).
+Implement one database transaction that:
+
+- inserts the first provider outcome under a proposal-scoped receipt identity;
+- returns the existing outcome only when every replay identity field matches;
+- records a typed conflict and refuses promotion when any replay field differs;
+- persists reconciliation attempt, source head, artifact digest, decision, and
+  terminal reason in an append-only journal; and
+- proves exact replay, conflicting replay, crash-before-commit, and
+  crash-after-commit behavior with CockroachDB integration/property tests.
+
+This is now the highest-value P0 because it converts the successful workflow-
+level recovery contract into a storage-enforced invariant. Another benchmark
+would repeat evidence; this change removes the remaining way a cross-head
+reconciler could disagree with the canonical provider outcome.
 
 The following items should be pulled into the milestone they block:
 

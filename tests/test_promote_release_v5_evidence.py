@@ -214,7 +214,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
                     release_tag="hackathon-v5",
                 )
 
-    def test_repository_public_evidence_has_v20_transfer_firewall_closure(
+    def test_repository_public_evidence_has_v21_online_lineage_closure(
         self,
     ) -> None:
         judge_path = self.repo_root / "public-demo/evidence/judge-verification.json"
@@ -255,9 +255,14 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         )
         transfer_bytes = transfer_path.read_bytes()
         transfer = json.loads(transfer_bytes)
+        online_path = (
+            self.repo_root / "public-demo/evidence/online-memory-lineage-v1.json"
+        )
+        online_bytes = online_path.read_bytes()
+        online = json.loads(online_bytes)
 
-        self.assertEqual(judge["schema_version"], 13)
-        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v20")
+        self.assertEqual(judge["schema_version"], 14)
+        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v21")
         self.assertEqual(
             judge["release_envelope"]["ci_recovery_asset_name"],
             "ci-recovery-v1.json",
@@ -300,6 +305,21 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         )
         self.assertEqual(transfer["arms"]["raw_rag"]["near_neighbor_false_transfers"], 6)
         self.assertEqual(transfer["gate"]["status"], "PASS")
+        self.assertEqual(
+            judge["release_envelope"]["online_memory_lineage_asset_name"],
+            "online-memory-lineage-v1.json",
+        )
+        self.assertEqual(
+            hashlib.sha256(online_bytes.replace(b"\r\n", b"\n")).hexdigest(),
+            judge["online_memory_lineage"]["public_sha256"],
+        )
+        self.assertEqual(online["methodology"]["architectural_pairs"], 1)
+        self.assertEqual(online["methodology"]["target_cases"], 2)
+        self.assertEqual(
+            online["reconciliation"]["provider_action_reexecutions"], 0
+        )
+        self.assertEqual(online["gate"]["status"], "PASS")
+        self.assertFalse(online["identity"]["server_owned_scope_ids_disclosed"])
         self.assertEqual(
             judge["network_sign_once"]["required_total_attestation_count"],
             2,

@@ -467,6 +467,142 @@ def verify_transfer_firewall(
     )
 
 
+def verify_online_memory_lineage(
+    evidence: dict[str, Any],
+    *,
+    fetch_json: Callable[[str], dict[str, Any]],
+    fetch_bytes: Callable[[str], bytes],
+) -> bool:
+    """Verify the cross-head provider/DB lineage without any write capability."""
+
+    reference = evidence.get("online_memory_lineage")
+    if reference is None:
+        return True
+    repository = evidence.get("source", {}).get("repository", "")
+    try:
+        workflow = fetch_json(reference["workflow_api_url"])
+        predecessor = fetch_json(reference["predecessor_workflow_api_url"])
+        artifact = fetch_json(reference["artifact_api_url"])
+        predecessor_artifact = fetch_json(
+            f"https://api.github.com/repos/{repository}/actions/artifacts/"
+            f"{reference['predecessor_artifact_id']}"
+        )
+        actions = [
+            fetch_json(
+                f"https://api.github.com/repos/{repository}/actions/runs/{run_id}"
+            )
+            for run_id in reference["provider_action_run_ids"]
+        ]
+        public_bytes = fetch_bytes(reference["public_url"])
+        public_sha = hashlib.sha256(
+            public_bytes.replace(b"\r\n", b"\n")
+        ).hexdigest()
+        report = json.loads(public_bytes.decode("utf-8"))
+        targets = report["targets"]
+        same = next(
+            item for item in targets if item["relationship"] == "same-cause-transfer"
+        )
+        near = next(
+            item
+            for item in targets
+            if item["relationship"] == "near-neighbor-rejection"
+        )
+    except (
+        KeyError,
+        RuntimeError,
+        StopIteration,
+        TypeError,
+        ValueError,
+        json.JSONDecodeError,
+    ):
+        return False
+    gate = report.get("gate", {})
+    gate_checks = [value for key, value in gate.items() if key != "status"]
+    return (
+        reference.get("schema_version") == 1
+        and public_sha == reference.get("public_sha256")
+        and report.get("schema_version") == 1
+        and report.get("kind") == "continuum.online-memory-lineage.public"
+        and report.get("raw_receipt_sha256")
+        == reference.get("raw_receipt_sha256")
+        and report.get("source_head") == reference.get("candidate_head_sha")
+        and report.get("reconciliation", {}).get("candidate_source_head")
+        == reference.get("candidate_head_sha")
+        and report.get("reconciliation", {}).get("reconciler_source_head")
+        == reference.get("reconciler_head_sha")
+        and report.get("reconciliation", {}).get("predecessor_workflow_run_id")
+        == reference.get("predecessor_workflow_run_id")
+        and report.get("reconciliation", {}).get(
+            "reconciliation_workflow_run_id"
+        )
+        == reference.get("workflow_run_id")
+        and report.get("reconciliation", {}).get("input_receipt_sha256")
+        == reference.get("reconciliation_input_sha256")
+        and report.get("reconciliation", {}).get("provider_action_reexecutions")
+        == 0
+        and report.get("methodology", {}).get("architectural_pairs") == 1
+        and report.get("methodology", {}).get("target_cases") == 2
+        and report.get("methodology", {}).get("candidate_visible_label_fields")
+        == 0
+        and report.get("identity", {}).get("server_owned_scope_ids_disclosed")
+        is False
+        and report.get("rls", {}).get("combined_sha256")
+        == reference.get("rls_combined_sha256")
+        and len(targets) == 2
+        and same.get("selected_memory_ids")
+        == [reference.get("source_memory_id")]
+        and same.get("fetched_memory_ids")
+        == [reference.get("source_memory_id")]
+        and same.get("diagnostic_receipts") == []
+        and near.get("selected_memory_ids") == []
+        and near.get("fetched_memory_ids") == []
+        and len(near.get("diagnostic_receipts", [])) == 1
+        and all(
+            item.get("proposed_patch_id") == item.get("expected_patch_id")
+            and item.get("outcome_status") == "succeeded"
+            and bool(item.get("promoted_memory_id"))
+            and len(item.get("admission_receipt", {}).get("retrieval_ids", []))
+            >= 1
+            for item in targets
+        )
+        and workflow.get("id") == reference.get("workflow_run_id")
+        and workflow.get("run_attempt") == reference.get("workflow_attempt")
+        and workflow.get("conclusion") == "success"
+        and workflow.get("head_sha") == reference.get("reconciler_head_sha")
+        and predecessor.get("id") == reference.get("predecessor_workflow_run_id")
+        and predecessor.get("conclusion") == "failure"
+        and predecessor.get("head_sha") == reference.get("candidate_head_sha")
+        and artifact.get("id") == reference.get("artifact_id")
+        and artifact.get("name") == reference.get("artifact_name")
+        and artifact.get("digest")
+        == "sha256:" + str(reference.get("artifact_archive_sha256", ""))
+        and artifact.get("expired") is False
+        and artifact.get("workflow_run", {}).get("id")
+        == reference.get("workflow_run_id")
+        and predecessor_artifact.get("id")
+        == reference.get("predecessor_artifact_id")
+        and predecessor_artifact.get("name")
+        == reference.get("predecessor_artifact_name")
+        and predecessor_artifact.get("digest")
+        == "sha256:"
+        + str(reference.get("predecessor_artifact_archive_sha256", ""))
+        and predecessor_artifact.get("expired") is False
+        and len(actions) == 2
+        and [item.get("id") for item in actions]
+        == reference.get("provider_action_run_ids")
+        and all(
+            item.get("conclusion") == "success"
+            and item.get("head_sha") == reference.get("candidate_head_sha")
+            for item in actions
+        )
+        and gate.get("status") == "PASS"
+        and bool(gate_checks)
+        and all(value is True for value in gate_checks)
+        and "not a new population-level superiority estimate"
+        in str(report.get("claim_boundary", "")).lower()
+    )
+
+
 def verify_blind_holdout(
     evidence: dict[str, Any],
     *,
@@ -905,7 +1041,7 @@ def verify_evidence(
             and runtime["control_plane_and_migrator_role_options_empty"] is True
         ),
         "representative_scale_gate": (
-            schema_version in {4, 5, 6, 7, 8, 9, 10, 11, 12, 13}
+            schema_version in {4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}
             and scale_report.get("gate", {}).get("status") == "PASS"
             and [scale.get("row_count") for scale in scales] == [10_000, 50_000]
         ),
@@ -991,6 +1127,12 @@ def verify_evidence(
                 fetch_bytes=fetch_bytes,
             )
         )
+    if "online_memory_lineage" in evidence:
+        checks["online_memory_lineage_closure"] = verify_online_memory_lineage(
+            evidence,
+            fetch_json=fetch_json,
+            fetch_bytes=fetch_bytes,
+        )
     if "evidence_story" in evidence:
         checks["receipt_compiled_evidence_story"] = verify_evidence_story(
             evidence,
@@ -1057,6 +1199,7 @@ def verify_evidence(
         ci_recovery_asset: dict[str, Any] = {}
         adaptive_diagnosis_asset: dict[str, Any] = {}
         transfer_firewall_asset: dict[str, Any] = {}
+        online_memory_lineage_asset: dict[str, Any] = {}
         if schema_version >= 8:
             guardian_reference = evidence["release_guardian"]
             guardian_workflow = fetch_json(
@@ -1122,6 +1265,11 @@ def verify_evidence(
             if "transfer_firewall" in evidence:
                 transfer_firewall_asset = release_assets.get(
                     release_reference["transfer_firewall_asset_name"],
+                    {},
+                )
+            if "online_memory_lineage" in evidence:
+                online_memory_lineage_asset = release_assets.get(
+                    release_reference["online_memory_lineage_asset_name"],
                     {},
                 )
         network_reference: dict[str, Any] = {}
@@ -1458,6 +1606,12 @@ def verify_evidence(
                         == "sha256:"
                         + evidence["transfer_firewall"]["public_sha256"]
                     )
+                    and (
+                        "online_memory_lineage" not in evidence
+                        or online_memory_lineage_asset.get("digest")
+                        == "sha256:"
+                        + evidence["online_memory_lineage"]["public_sha256"]
+                    )
                 ),
                 "release_envelope_gate": (
                     envelope.get("schema_version") == 2
@@ -1628,6 +1782,39 @@ def verify_evidence(
                             == evidence["transfer_firewall"].get(
                                 "seal_receipt_sha256"
                             )
+                        )
+                    )
+                    and (
+                        "online_memory_lineage" not in evidence
+                        or (
+                            envelope.get("online_memory_lineage", {}).get(
+                                "public_sha256"
+                            )
+                            == evidence["online_memory_lineage"].get(
+                                "public_sha256"
+                            )
+                            and envelope.get("online_memory_lineage", {}).get(
+                                "workflow_run_id"
+                            )
+                            == evidence["online_memory_lineage"].get(
+                                "workflow_run_id"
+                            )
+                            and envelope.get("online_memory_lineage", {}).get(
+                                "artifact_archive_sha256"
+                            )
+                            == evidence["online_memory_lineage"].get(
+                                "artifact_archive_sha256"
+                            )
+                            and envelope.get("online_memory_lineage", {}).get(
+                                "raw_receipt_sha256"
+                            )
+                            == evidence["online_memory_lineage"].get(
+                                "raw_receipt_sha256"
+                            )
+                            and envelope.get("online_memory_lineage", {}).get(
+                                "provider_action_reexecutions"
+                            )
+                            == 0
                         )
                     )
                 ),

@@ -466,6 +466,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         ci_recovery_public=None,
         adaptive_diagnosis_public=None,
         transfer_firewall_public=None,
+        online_memory_lineage_public=None,
     ):
         blind_bytes = (
             (json.dumps(blind_holdout_public, sort_keys=True) + "\n").encode()
@@ -497,6 +498,11 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             if transfer_firewall_public is not None
             else b""
         )
+        online_memory_lineage_bytes = (
+            (json.dumps(online_memory_lineage_public, sort_keys=True) + "\n").encode()
+            if online_memory_lineage_public is not None
+            else b""
+        )
         return build_envelope(
             self.judge,
             self.scale,
@@ -513,6 +519,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             ci_recovery_public=ci_recovery_public,
             adaptive_diagnosis_public=adaptive_diagnosis_public,
             transfer_firewall_public=transfer_firewall_public,
+            online_memory_lineage_public=online_memory_lineage_public,
             judge_bytes=self.judge_bytes,
             scale_bytes=self.scale_bytes,
             pressure_bytes=self.pressure_bytes,
@@ -528,6 +535,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             ci_recovery_public_bytes=ci_recovery_bytes,
             adaptive_diagnosis_public_bytes=adaptive_diagnosis_bytes,
             transfer_firewall_public_bytes=transfer_firewall_bytes,
+            online_memory_lineage_public_bytes=online_memory_lineage_bytes,
             repo_root=Path(__file__).parents[1],
             repository="o/r",
             commit_sha="d" * 40,
@@ -704,6 +712,51 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(RuntimeError, "counterfactual_transfer"):
             self.build(transfer_firewall_public=transfer)
+
+    def test_binds_cross_head_online_memory_lineage_projection(self) -> None:
+        root = Path(__file__).parents[1]
+        online = json.loads(
+            (root / "public-demo/evidence/online-memory-lineage-v1.json").read_bytes()
+        )
+        live_judge = json.loads(
+            (root / "public-demo/evidence/judge-verification.json").read_bytes()
+        )
+        self.judge["online_memory_lineage"] = live_judge[
+            "online_memory_lineage"
+        ]
+        online_bytes = (json.dumps(online, sort_keys=True) + "\n").encode()
+        self.judge["online_memory_lineage"]["public_sha256"] = sha256_bytes(
+            online_bytes
+        )
+        self.judge["release_envelope"].update(
+            {
+                "online_memory_lineage_asset_name": (
+                    "online-memory-lineage-v1.json"
+                ),
+                "online_memory_lineage_asset_url": (
+                    "https://github.com/o/r/releases/download/hackathon-v1/"
+                    "online-memory-lineage-v1.json"
+                ),
+            }
+        )
+        self.judge_bytes = (json.dumps(self.judge, sort_keys=True) + "\n").encode()
+        envelope = self.build(online_memory_lineage_public=online)
+        self.assertEqual(envelope["gates"]["status"], "PASS")
+        self.assertEqual(
+            envelope["online_memory_lineage"]["workflow_run_id"], 31506117708
+        )
+        self.assertEqual(
+            envelope["online_memory_lineage"]["provider_action_reexecutions"],
+            0,
+        )
+        self.assertEqual(
+            envelope["online_memory_lineage"]["reconciliation"]["mode"],
+            "cross-head-resume",
+        )
+
+        online["reconciliation"]["provider_action_reexecutions"] = 1
+        with self.assertRaisesRegex(RuntimeError, "public online lineage"):
+            self.build(online_memory_lineage_public=online)
 
     def test_binds_preregistered_blind_holdout(self) -> None:
         blind = json.loads(
