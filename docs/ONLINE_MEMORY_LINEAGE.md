@@ -146,10 +146,10 @@ for comparative behavior.
 - GitHub Actions is a disposable real external provider, not a customer
   production remediation system. The claim is bounded to its registered
   capability and receipt contract.
-- A live failure preserved the immutable v20 release. It was not
+- A live failure preserved the immutable v20 release. It could not
   be converted to PASS by weakening label, retrieval, isolation, timing, or
-  provider-success predicates; only the later exact-receipt recovery became the
-  v21 candidate.
+  provider-success predicates; only the later exact-receipt recovery was
+  promoted and bound to immutable v21, Pages, and the credential-free monitor.
 
 ## Release gate
 

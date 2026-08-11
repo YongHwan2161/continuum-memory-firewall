@@ -230,8 +230,13 @@ successful cross-head reconciler, both Actions artifacts, two non-reexecuted
 provider actions, raw report receipt, redacted online-memory projection,
 CockroachDB/Titan/RLS episode lineage, judge page, and immutable release asset.
 It is published at
-<https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v21>
-after the v21 release coordinator and Pages materializer pass.
+<https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v21>.
+Coordinator run `31510629746`, Pages run `31510716374`, and credential-free
+monitor run `31511054570` passed on exact target
+`0ac85de1835c3235634e963d313e62fa82ed63da`. The terminal
+`PAGES_MATERIALIZED` receipt is `5413142863…aae2f5`; the immutable envelope
+asset is `sha256:dd776c07…41f0e7`, and the online-lineage asset is
+`sha256:28e41475…0f9d`.
 
 Version 20 preserves the v19 evidence and adds the S3-sealed counterfactual
 transfer parent, artifact archive digest, challenge/labels/commitment/seal

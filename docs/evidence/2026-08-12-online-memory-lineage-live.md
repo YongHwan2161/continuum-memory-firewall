@@ -78,8 +78,13 @@ memory/retrieval/proposal/outcome identifiers needed to audit the episode.
 - Recovery workflow:
   <https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31506117708>
 
-The public URLs become authoritative only after the reviewed source PR, Pages
-deployment, immutable v21 release, and credential-free verifier all pass.
+The public URLs are authoritative for this evidence release. PR `#139` merged
+as exact target `0ac85de1835c3235634e963d313e62fa82ed63da`; coordinator run
+`31510629746` published immutable `hackathon-v21`; Pages run `31510716374`
+recorded `PAGES_MATERIALIZED`; and credential-free monitor run `31511054570`
+passed. The terminal receipt is `5413142863…aae2f5`, coordinator artifact
+`9108919996` is `sha256:c17af791…3f816`, and the deployed public projection is
+byte-identical to release asset `sha256:28e41475…0f9d`.
 
 ## Next fundamental P0
 
