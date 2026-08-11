@@ -71,6 +71,21 @@ class FakeAdaptiveModel:
         }
 
 
+class RecordingMemoryTools:
+    def __init__(self, hit: MemoryToolHit) -> None:
+        self.hit = hit
+        self.searches: list[tuple[str, int]] = []
+        self.fetches: list[str] = []
+
+    def search(self, *, query: str, limit: int):
+        self.searches.append((query, limit))
+        return (self.hit,)
+
+    def fetch(self, *, memory_id: str):
+        self.fetches.append(memory_id)
+        return self.hit
+
+
 def probe_receipt() -> dict:
     return {
         "conclusion": "success",
@@ -156,6 +171,33 @@ class AdaptiveDiagnosisAgentTests(unittest.TestCase):
                 ["propose_set_python_312"],
             ],
         )
+
+    def test_model_query_and_fetch_execute_scoped_memory_tools(self) -> None:
+        fingerprint = self.incident["environment_fingerprint"]
+        memory = MemoryToolHit(
+            memory_id="verified-runtime-memory",
+            retrieval_id="retrieval-123",
+            similarity=0.99,
+            payload={
+                "environment_fingerprint": fingerprint,
+                "patch_id": "set_python_312",
+                "provider_conclusion": "success",
+                "provider_receipt_sha256": "c" * 64,
+                "summary": "Exact fingerprint produced a green provider receipt.",
+            },
+        )
+        tools = RecordingMemoryTools(memory)
+        result = AdaptiveDiagnosisAgent(
+            model=FakeAdaptiveModel(), model_id="fake"
+        ).run(
+            arm=AgentArm.CONTINUUM,
+            incident=self.incident,
+            memory_tools=tools,
+            run_probe=lambda _: self.fail("verified memory should avoid a probe"),
+        )
+        self.assertEqual(result.selected_memory_ids, (memory.memory_id,))
+        self.assertEqual(tools.searches, [("exact environment fingerprint", 5)])
+        self.assertEqual(tools.fetches, [memory.memory_id])
 
 
 if __name__ == "__main__":

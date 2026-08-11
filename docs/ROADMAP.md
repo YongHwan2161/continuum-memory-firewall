@@ -199,6 +199,15 @@ live PASS is not available by 2026-08-15 KST; preserve v20 and spend the final
 submission window on the judge story and Devpost evidence rather than weakening
 the admitted release.
 
+**Implementation candidate completed 2026-08-11:** the outcome-fact projection,
+dynamic scoped search/fetch path, receipt-bound causal admission, provider → DB
+→ provider → DB coordinator, exact-source-memory pin, RLS sentinel, database
+lineage joins, main-only OIDC workflow, and fail-closed gate are implemented.
+The full local regression suite passes. The status remains **live HOLD** until
+the exact reviewed main head produces a successful provider/Bedrock/
+CockroachDB receipt. Measurement definitions, limitations, and release gates
+are frozen in [ONLINE_MEMORY_LINEAGE.md](ONLINE_MEMORY_LINEAGE.md).
+
 The following items should be pulled into the milestone they block:
 
 - persist policy/evaluator version, candidate digest, and structured decision

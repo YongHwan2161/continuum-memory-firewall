@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from enum import StrEnum
 import hashlib
 import json
+import re
 from typing import Any, Callable, Mapping, Protocol, Sequence
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
@@ -28,6 +29,20 @@ from continuum.store import CockroachMemoryStore, ConnectionFactory
 MAX_INPUT_BYTES = 32 * 1024
 MAX_ACTION_BYTES = 16 * 1024
 MAX_CITATIONS = 20
+CANONICAL_OUTCOME_FACT_KEYS = frozenset(
+    {
+        "causal_evidence_sha256",
+        "causal_signature",
+        "environment_fingerprint",
+        "environment_profile_id",
+        "family",
+        "patch_id",
+        "provider_conclusion",
+        "provider_receipt_sha256",
+        "summary",
+        "transfer_contract",
+    }
+)
 
 
 class AgentArm(StrEnum):
@@ -262,6 +277,54 @@ def validate_outcome(outcome: ProviderOutcome) -> str | None:
     if outcome.verified_at is not None:
         raise ValueError("failed or ambiguous outcomes cannot be verified")
     return None
+
+
+def canonical_outcome_facts(outcome: ProviderOutcome) -> Mapping[str, str]:
+    """Return the bounded provider facts eligible for canonical retrieval.
+
+    Outcome evidence remains the durable verification record.  Only this
+    explicit projection may cross into future model-visible memory, which
+    prevents an arbitrary provider payload from becoming prompt authority.
+    """
+
+    raw = outcome.evidence.get("canonical_memory")
+    if raw is None:
+        return {}
+    if outcome.status is not OutcomeStatus.SUCCEEDED:
+        raise ValueError("only successful outcomes may expose canonical facts")
+    if not isinstance(raw, Mapping) or set(raw) - CANONICAL_OUTCOME_FACT_KEYS:
+        raise ValueError("canonical outcome facts do not match the allowlist")
+    required = {
+        "environment_fingerprint",
+        "patch_id",
+        "provider_conclusion",
+        "provider_receipt_sha256",
+        "summary",
+    }
+    if not required.issubset(raw):
+        raise ValueError("canonical outcome facts are incomplete")
+    facts: dict[str, str] = {}
+    for key, value in raw.items():
+        if (
+            not isinstance(value, str)
+            or not value.strip()
+            or len(value) > (2_048 if key == "summary" else 512)
+            or any(character in value for character in "\r\n\x00")
+        ):
+            raise ValueError("canonical outcome facts must be bounded strings")
+        facts[str(key)] = value.strip()
+    if facts["provider_conclusion"] != "success":
+        raise ValueError("canonical outcome facts require provider success")
+    for key in (
+        "provider_receipt_sha256",
+        "causal_evidence_sha256",
+        "causal_signature",
+    ):
+        if key in facts and re.fullmatch(r"[0-9a-f]{64}", facts[key]) is None:
+            raise ValueError(f"canonical outcome {key} must be SHA-256")
+    if "transfer_contract" in facts and "causal_signature" not in facts:
+        raise ValueError("transfer facts require a causal signature")
+    return facts
 
 
 def outcome_candidate_id(proposal_id: str, receipt_digest: str) -> str:
@@ -765,6 +828,7 @@ class CockroachEpisodeStore:
                     "type": "verified_outcome_episode_v1",
                     "verified_at": outcome.verified_at.isoformat(),
                 }
+                payload.update(canonical_outcome_facts(outcome))
                 candidate = MemoryCandidate(
                     candidate_id=candidate_id,
                     tenant_id=tenant_id,
@@ -1049,6 +1113,7 @@ class InMemoryEpisodeStore:
                 "provider_receipt_id": outcome.provider_receipt_id,
                 "receipt_digest": digest,
                 "status": outcome.status.value,
+                **canonical_outcome_facts(outcome),
             }
         result = OutcomePromotionResult(
             outcome_id=outcome_id,
