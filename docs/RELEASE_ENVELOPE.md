@@ -6,12 +6,17 @@ counterfactual cross-environment transfer plus online CockroachDB memory-lineage
 evidence. It is published only by
 `.github/workflows/release-envelope.yml` after every fail-closed gate passes.
 
-The prior published v20 receipt remains exact and terminal: coordinator run `31441863985`
-targeted `16a84d10c6fce8af5e82a39b7c67b24c27603327`; immutable envelope SHA-256 is
-`4efed2befbb4ebf97a2e78a72f426c8afb1ed6871089b10a30be4f0bfcba4acf`;
-Pages run `31441902936` recorded `PAGES_MATERIALIZED`; and the public terminal
+The published v21 receipt is exact and terminal: coordinator run `31510629746`
+targeted `0ac85de1835c3235634e963d313e62fa82ed63da`; immutable envelope SHA-256 is
+`dd776c0770397bd0209c66b6cbbebca7b04d11a2b0985b4c3bef6c18b341f0e7`;
+Pages run `31510716374` recorded `PAGES_MATERIALIZED`; and the public terminal
 receipt SHA-256 is
-`454b29f515b4504b8b72bc1c4f0c5b98553736a7bcfd530ecde3abb05d326bb6`.
+`54131428638743171f2f8d02b1be4c78b63051366892dc18e8f9c12d26aae2f5`.
+The receipt binds coordinator artifact `9108919996` with digest
+`sha256:c17af7915f79c3ecea44794712f9adba97e9753a6579a3f650f9f69b3333f816`.
+Credential-free monitor run `31511054570` passed and retained artifact
+`9109067285` (`sha256:82d8737a9ae0206c69258ca49086b0532d6cabddd4cb853e1f1f8c17188f4030`).
+The prior v20 terminal receipt remains immutable audit history.
 
 `hackathon-v1` through `hackathon-v9` remain immutable audit history. Version 6
 adds the outcome-first public video and refreshed Devpost version 14 receipt to
