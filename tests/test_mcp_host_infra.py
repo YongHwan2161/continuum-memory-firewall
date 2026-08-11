@@ -127,6 +127,7 @@ class McpHostInfrastructureTests(unittest.TestCase):
             "run_live_sequential_blind.py",
             "run_live_outbox_faults.py",
             "run_online_memory_lineage.py",
+            "run_outcome_replay_cas_proof.py",
             "seed_judge_story.py",
             "remote_oidc_smoke.py",
             "semantic-retrieval-v1.json",

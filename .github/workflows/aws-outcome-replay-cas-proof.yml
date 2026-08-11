@@ -1,0 +1,220 @@
+name: aws-outcome-replay-cas-proof
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: continuum-outcome-replay-cas-proof
+  cancel-in-progress: false
+
+jobs:
+  participant-cluster-cas:
+    runs-on: ubuntu-latest
+    environment: continuum-production
+    timeout-minutes: 45
+    env:
+      AWS_REGION: ap-southeast-1
+      CONTINUUM_MCP_STACK_NAME: continuum-authenticated-mcp
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0, Node 24
+        with:
+          python-version: "3.12"
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3, Node 24
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          role-session-name: continuum-outcome-replay-cas
+      - name: Prove reviewed main-only deployment identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          ./scripts/assert_deployer_identity.sh
+      - name: Resolve fixed-egress runtime and checksum-addressed evidence prefix
+        shell: bash
+        run: |
+          set -euo pipefail
+          parameter() {
+            aws cloudformation describe-stacks --region "$AWS_REGION" \
+              --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+              --query "Stacks[0].Parameters[?ParameterKey=='$1'].ParameterValue | [0]" \
+              --output text
+          }
+          output() {
+            aws cloudformation describe-stacks --region "$AWS_REGION" \
+              --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue | [0]" \
+              --output text
+          }
+          runtime_secret_arn="$(parameter RuntimeSecretArn)"
+          deploy_bucket="$(parameter PackageBucket)"
+          deploy_key="$(parameter PackageKey)"
+          instance_role_arn="$(output RuntimeRoleArn)"
+          instance_id="$(output InstanceId)"
+          prefix="evidence/outcome-replay-cas/$GITHUB_SHA/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          test -n "$runtime_secret_arn" && test "$runtime_secret_arn" != None
+          test -n "$deploy_bucket" && test "$deploy_bucket" != None
+          test -n "$instance_id" && test "$instance_id" != None
+          aws s3 cp "s3://$deploy_bucket/$deploy_key" /tmp/continuum-current.zip \
+            --region "$AWS_REGION" --only-show-errors
+          unzip -p /tmp/continuum-current.zip cockroach-ca.crt >/tmp/cockroach-ca.crt
+          chmod 0600 /tmp/cockroach-ca.crt
+          test -s /tmp/cockroach-ca.crt
+          work=build/evidence/outcome-replay-cas
+          mkdir -p "$work"
+          jq -n \
+            --arg source_head "$GITHUB_SHA" \
+            --argjson workflow_run_id "$GITHUB_RUN_ID" \
+            --argjson workflow_run_attempt "$GITHUB_RUN_ATTEMPT" \
+            '{schema_version:1,kind:"continuum.outcome-replay-cas.preflight",source_head:$source_head,workflow_run_id:$workflow_run_id,workflow_run_attempt:$workflow_run_attempt}' \
+            >"$work/preflight-v1.json"
+          echo "CONTINUUM_RUNTIME_SECRET_ARN=$runtime_secret_arn" >>"$GITHUB_ENV"
+          echo "CONTINUUM_DEPLOY_BUCKET=$deploy_bucket" >>"$GITHUB_ENV"
+          echo "CONTINUUM_INSTANCE_ROLE_NAME=${instance_role_arn##*/}" >>"$GITHUB_ENV"
+          echo "CONTINUUM_INSTANCE_ID=$instance_id" >>"$GITHUB_ENV"
+          echo "CONTINUUM_CAS_PREFIX=$prefix" >>"$GITHUB_ENV"
+          echo "CONTINUUM_CA_CERT_PATH=/tmp/cockroach-ca.crt" >>"$GITHUB_ENV"
+      - name: Deploy exact-head database runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          stack_status="$(aws cloudformation describe-stacks \
+            --region "$AWS_REGION" \
+            --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+            --query 'Stacks[0].StackStatus' --output text)"
+          if [[ "$stack_status" == "UPDATE_ROLLBACK_FAILED" || \
+                "$stack_status" == "UPDATE_ROLLBACK_COMPLETE" ]]; then
+            ./scripts/deploy_mcp_host_direct_recovery.sh
+          else
+            ./scripts/deploy_mcp_host.sh
+          fi
+          artifact_sha="$(aws cloudformation describe-stacks \
+            --region "$AWS_REGION" \
+            --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='ArtifactSha256'].OutputValue | [0]" \
+            --output text)"
+          test "${#artifact_sha}" = 64
+          echo "CONTINUUM_CAS_DEPLOYMENT_ARTIFACT_SHA256=$artifact_sha" >>"$GITHUB_ENV"
+      - name: Grant one-command secret and exact-prefix S3 access
+        shell: bash
+        run: |
+          set -euo pipefail
+          migrator_arn="$(aws secretsmanager describe-secret \
+            --region "$AWS_REGION" \
+            --secret-id continuum/cockroach/sql-migrator \
+            --query ARN --output text)"
+          prefix_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_CAS_PREFIX/*"
+          policy="$(jq -cn \
+            --arg migrator "$migrator_arn" \
+            --arg runtime "$CONTINUUM_RUNTIME_SECRET_ARN" \
+            --arg prefix "$prefix_arn" \
+            '{Version:"2012-10-17",Statement:[
+              {Effect:"Allow",Action:"secretsmanager:GetSecretValue",Resource:[$migrator,$runtime]},
+              {Effect:"Allow",Action:["s3:GetObject","s3:PutObject"],Resource:$prefix}
+            ]}')"
+          aws iam put-role-policy \
+            --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+            --policy-name ContinuumOutcomeReplayCasOneCommand \
+            --policy-document "$policy"
+          sleep 10
+      - name: Execute participant-cluster replay CAS proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          command_text="set -eu
+          work=\$(mktemp -d /run/continuum-outcome-cas.XXXXXX)
+          trap 'rm -rf -- \"\$work\"' EXIT
+          cd /opt/continuum
+          /opt/continuum/.venv/bin/python scripts/run_outcome_replay_cas_proof.py \\
+            --region '$AWS_REGION' \\
+            --migrator-secret-id continuum/cockroach/sql-migrator \\
+            --runtime-secret-id '$CONTINUUM_RUNTIME_SECRET_ARN' \\
+            --ca-cert /opt/continuum/cockroach-ca.crt \\
+            --source-head '$GITHUB_SHA' \\
+            --deployment-artifact-sha256 '$CONTINUUM_CAS_DEPLOYMENT_ARTIFACT_SHA256' \\
+            --workflow-run-id '$GITHUB_RUN_ID' \\
+            --workflow-run-attempt '$GITHUB_RUN_ATTEMPT' \\
+            --bucket '$CONTINUUM_DEPLOY_BUCKET' \\
+            --prefix '$CONTINUUM_CAS_PREFIX' \\
+            --output \"\$work/outcome-replay-cas-private-v1.json\" \\
+            --public-output \"\$work/outcome-replay-cas-v1.json\"
+          aws s3 cp \"\$work/outcome-replay-cas-private-v1.json\" 's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_CAS_PREFIX/outcome-replay-cas-private-v1.json' --region '$AWS_REGION' --only-show-errors
+          aws s3 cp \"\$work/outcome-replay-cas-v1.json\" 's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_CAS_PREFIX/outcome-replay-cas-v1.json' --region '$AWS_REGION' --only-show-errors"
+          parameters="$(jq -cn --arg command "$command_text" '{commands:[$command]}')"
+          command_id="$(aws ssm send-command \
+            --region "$AWS_REGION" \
+            --instance-ids "$CONTINUUM_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment 'participant CockroachDB outcome replay CAS proof' \
+            --parameters "$parameters" \
+            --query 'Command.CommandId' --output text)"
+          status=Pending
+          for _attempt in $(seq 1 240); do
+            status="$(aws ssm get-command-invocation \
+              --region "$AWS_REGION" --command-id "$command_id" \
+              --instance-id "$CONTINUUM_INSTANCE_ID" --query Status --output text)"
+            case "$status" in Success|Failed|Cancelled|TimedOut) break ;; esac
+            sleep 5
+          done
+          aws ssm get-command-invocation \
+            --region "$AWS_REGION" --command-id "$command_id" \
+            --instance-id "$CONTINUUM_INSTANCE_ID" \
+            --query '{Status:Status,ResponseCode:ResponseCode,Output:StandardOutputContent,Error:StandardErrorContent}' \
+            --output table
+          test "$status" = Success
+      - name: Download and validate public-safe proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          work=build/evidence/outcome-replay-cas
+          aws s3 cp \
+            "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_CAS_PREFIX/outcome-replay-cas-private-v1.json" \
+            "$work/outcome-replay-cas-private-v1.json" \
+            --region "$AWS_REGION" --only-show-errors
+          aws s3 cp \
+            "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_CAS_PREFIX/outcome-replay-cas-v1.json" \
+            "$work/outcome-replay-cas-v1.json" \
+            --region "$AWS_REGION" --only-show-errors
+          PYTHONPATH=src python - <<'PY'
+          import json
+          from pathlib import Path
+          from continuum.outcome_replay_proof import build_public_outcome_replay_proof, validate_outcome_replay_proof
+          root = Path("build/evidence/outcome-replay-cas")
+          private = json.loads((root / "outcome-replay-cas-private-v1.json").read_text())
+          public = json.loads((root / "outcome-replay-cas-v1.json").read_text())
+          validate_outcome_replay_proof(private)
+          validate_outcome_replay_proof(public)
+          if public != build_public_outcome_replay_proof(private):
+              raise SystemExit("public outcome replay projection drift")
+          PY
+          sha256sum "$work"/*.json
+      - name: Revoke temporary instance authority
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${CONTINUUM_INSTANCE_ROLE_NAME:-}" ]]; then
+            aws iam delete-role-policy \
+              --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+              --policy-name ContinuumOutcomeReplayCasOneCommand || true
+            if aws iam get-role-policy \
+              --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+              --policy-name ContinuumOutcomeReplayCasOneCommand >/dev/null 2>&1; then
+              echo "temporary outcome replay authority remains attached" >&2
+              exit 1
+            fi
+          fi
+          rm -f -- /tmp/continuum-current.zip /tmp/cockroach-ca.crt
+      - name: Upload proof receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        with:
+          name: continuum-outcome-replay-cas-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/evidence/outcome-replay-cas
+          if-no-files-found: error
+          retention-days: 90
