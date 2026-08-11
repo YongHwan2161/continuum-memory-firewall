@@ -129,6 +129,52 @@ class OutcomePromotionResult:
     replayed: bool = False
 
 
+OUTCOME_REPLAY_CONFLICT = "OUTCOME_REPLAY_CONFLICT"
+OUTCOME_RECONCILIATION_GENESIS_HASH = "0" * 64
+
+
+@dataclass(frozen=True, slots=True)
+class OutcomeReplayIdentity:
+    provider: str
+    status: OutcomeStatus
+    provider_receipt_id: str | None
+    receipt_digest: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class OutcomeReconciliationEntry:
+    reconciliation_id: str
+    proposal_id: str
+    outcome_id: str
+    run_id: str
+    tenant_id: str
+    incident_id: str
+    decision: str
+    incoming: OutcomeReplayIdentity
+    durable: OutcomeReplayIdentity
+    error_code: str | None
+    sequence_no: int
+    previous_entry_hash: str
+    entry_hash: str
+    recorded_at: datetime
+
+
+class OutcomeReplayConflictError(RuntimeError):
+    """A proposal already owns a different durable provider outcome."""
+
+    code = OUTCOME_REPLAY_CONFLICT
+
+    def __init__(self, entry: OutcomeReconciliationEntry) -> None:
+        self.entry = entry
+        self.reconciliation_id = entry.reconciliation_id
+        self.proposal_id = entry.proposal_id
+        self.outcome_id = entry.outcome_id
+        super().__init__(
+            f"{self.code}: proposal {entry.proposal_id} already has outcome "
+            f"{entry.outcome_id}; reconciliation {entry.reconciliation_id}"
+        )
+
+
 class EpisodeStore(Protocol):
     def start_run(
         self,
@@ -277,6 +323,92 @@ def validate_outcome(outcome: ProviderOutcome) -> str | None:
     if outcome.verified_at is not None:
         raise ValueError("failed or ambiguous outcomes cannot be verified")
     return None
+
+
+def outcome_replay_identity(
+    outcome: ProviderOutcome,
+    receipt_digest: str | None,
+) -> OutcomeReplayIdentity:
+    return OutcomeReplayIdentity(
+        provider=outcome.provider,
+        status=outcome.status,
+        provider_receipt_id=outcome.provider_receipt_id,
+        receipt_digest=receipt_digest,
+    )
+
+
+def build_outcome_reconciliation_entry(
+    *,
+    reconciliation_id: str,
+    proposal_id: str,
+    outcome_id: str,
+    run_id: str,
+    tenant_id: str,
+    incident_id: str,
+    decision: str,
+    incoming: OutcomeReplayIdentity,
+    durable: OutcomeReplayIdentity,
+    sequence_no: int,
+    previous_entry_hash: str,
+    recorded_at: datetime,
+) -> OutcomeReconciliationEntry:
+    if decision not in {"accepted", "exact_replay", "conflict"}:
+        raise ValueError("invalid outcome reconciliation decision")
+    if sequence_no < 1:
+        raise ValueError("outcome reconciliation sequence must be positive")
+    if len(previous_entry_hash) != 64:
+        raise ValueError("outcome reconciliation predecessor must be SHA-256")
+    if recorded_at.tzinfo is None:
+        raise ValueError("outcome reconciliation time must be timezone-aware")
+    identities_match = incoming == durable
+    if decision == "conflict" and identities_match:
+        raise ValueError("conflict reconciliation requires different identities")
+    if decision != "conflict" and not identities_match:
+        raise ValueError("accepted reconciliation requires matching identities")
+    error_code = OUTCOME_REPLAY_CONFLICT if decision == "conflict" else None
+    entry_hash = payload_digest(
+        {
+            "decision": decision,
+            "durable": {
+                "provider": durable.provider,
+                "provider_receipt_id": durable.provider_receipt_id,
+                "receipt_digest": durable.receipt_digest,
+                "status": durable.status.value,
+            },
+            "error_code": error_code,
+            "incident_id": incident_id,
+            "incoming": {
+                "provider": incoming.provider,
+                "provider_receipt_id": incoming.provider_receipt_id,
+                "receipt_digest": incoming.receipt_digest,
+                "status": incoming.status.value,
+            },
+            "outcome_id": outcome_id,
+            "previous_entry_hash": previous_entry_hash,
+            "proposal_id": proposal_id,
+            "reconciliation_id": reconciliation_id,
+            "recorded_at": recorded_at.isoformat(),
+            "run_id": run_id,
+            "sequence_no": sequence_no,
+            "tenant_id": tenant_id,
+        }
+    )
+    return OutcomeReconciliationEntry(
+        reconciliation_id=reconciliation_id,
+        proposal_id=proposal_id,
+        outcome_id=outcome_id,
+        run_id=run_id,
+        tenant_id=tenant_id,
+        incident_id=incident_id,
+        decision=decision,
+        incoming=incoming,
+        durable=durable,
+        error_code=error_code,
+        sequence_no=sequence_no,
+        previous_entry_hash=previous_entry_hash,
+        entry_hash=entry_hash,
+        recorded_at=recorded_at,
+    )
 
 
 def canonical_outcome_facts(outcome: ProviderOutcome) -> Mapping[str, str]:
@@ -663,8 +795,13 @@ class CockroachEpisodeStore:
         outcome: ProviderOutcome,
     ) -> OutcomePromotionResult:
         receipt_digest = validate_outcome(outcome)
+        incoming_identity = outcome_replay_identity(outcome, receipt_digest)
+        reconciliation_id = str(uuid4())
+        reconciliation_time = datetime.now(timezone.utc)
 
-        def operation(connection: Any) -> OutcomePromotionResult:
+        def operation(
+            connection: Any,
+        ) -> OutcomePromotionResult | OutcomeReconciliationEntry:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
@@ -716,9 +853,104 @@ class CockroachEpisodeStore:
                 if not isinstance(approval_evidence, Mapping):
                     raise RuntimeError("provider outcome requires approval evidence")
 
+                def append_reconciliation(
+                    *,
+                    decision: str,
+                    durable: OutcomeReplayIdentity,
+                    outcome_id: str,
+                ) -> OutcomeReconciliationEntry:
+                    cursor.execute(
+                        """
+                        SELECT sequence_no, entry_hash
+                        FROM outcome_reconciliation_journal
+                        WHERE proposal_id = %s
+                        ORDER BY sequence_no DESC
+                        LIMIT 1
+                        """,
+                        (proposal_id,),
+                    )
+                    previous = cursor.fetchone()
+                    sequence_no = int(previous[0]) + 1 if previous else 1
+                    previous_hash = (
+                        str(previous[1])
+                        if previous
+                        else OUTCOME_RECONCILIATION_GENESIS_HASH
+                    )
+                    entry = build_outcome_reconciliation_entry(
+                        reconciliation_id=reconciliation_id,
+                        proposal_id=proposal_id,
+                        outcome_id=outcome_id,
+                        run_id=run_id,
+                        tenant_id=tenant_id,
+                        incident_id=incident_id,
+                        decision=decision,
+                        incoming=incoming_identity,
+                        durable=durable,
+                        sequence_no=sequence_no,
+                        previous_entry_hash=previous_hash,
+                        recorded_at=reconciliation_time,
+                    )
+                    cursor.execute(
+                        """
+                        INSERT INTO outcome_reconciliation_journal (
+                            reconciliation_id,
+                            proposal_id,
+                            outcome_id,
+                            run_id,
+                            tenant_id,
+                            incident_id,
+                            decision,
+                            incoming_provider,
+                            incoming_status,
+                            incoming_provider_receipt_id,
+                            incoming_receipt_digest,
+                            durable_provider,
+                            durable_status,
+                            durable_provider_receipt_id,
+                            durable_receipt_digest,
+                            error_code,
+                            sequence_no,
+                            previous_entry_hash,
+                            entry_hash,
+                            recorded_at
+                        ) VALUES (
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        )
+                        """,
+                        (
+                            entry.reconciliation_id,
+                            entry.proposal_id,
+                            entry.outcome_id,
+                            entry.run_id,
+                            entry.tenant_id,
+                            entry.incident_id,
+                            entry.decision,
+                            entry.incoming.provider,
+                            entry.incoming.status.value,
+                            entry.incoming.provider_receipt_id,
+                            entry.incoming.receipt_digest,
+                            entry.durable.provider,
+                            entry.durable.status.value,
+                            entry.durable.provider_receipt_id,
+                            entry.durable.receipt_digest,
+                            entry.error_code,
+                            entry.sequence_no,
+                            entry.previous_entry_hash,
+                            entry.entry_hash,
+                            entry.recorded_at,
+                        ),
+                    )
+                    return entry
+
                 cursor.execute(
                     """
-                    SELECT outcome_id::STRING, status, receipt_digest
+                    SELECT
+                        outcome_id::STRING,
+                        provider,
+                        status,
+                        provider_receipt_id,
+                        receipt_digest
                     FROM outcome_evidence
                     WHERE proposal_id = %s
                     """,
@@ -726,7 +958,25 @@ class CockroachEpisodeStore:
                 )
                 prior = cursor.fetchone()
                 if prior is not None:
-                    prior_outcome_id, prior_status, prior_digest = prior
+                    (
+                        prior_outcome_id,
+                        prior_provider,
+                        prior_status,
+                        prior_receipt_id,
+                        prior_digest,
+                    ) = prior
+                    durable_identity = OutcomeReplayIdentity(
+                        provider=str(prior_provider),
+                        status=OutcomeStatus(prior_status),
+                        provider_receipt_id=prior_receipt_id,
+                        receipt_digest=prior_digest,
+                    )
+                    if incoming_identity != durable_identity:
+                        return append_reconciliation(
+                            decision="conflict",
+                            durable=durable_identity,
+                            outcome_id=prior_outcome_id,
+                        )
                     memory_id = None
                     event_hash = None
                     if prior_status == OutcomeStatus.SUCCEEDED.value and prior_digest:
@@ -745,6 +995,11 @@ class CockroachEpisodeStore:
                                 "successful outcome is missing canonical memory"
                             )
                         memory_id, event_hash = memory_row
+                    append_reconciliation(
+                        decision="exact_replay",
+                        durable=durable_identity,
+                        outcome_id=prior_outcome_id,
+                    )
                     return OutcomePromotionResult(
                         outcome_id=prior_outcome_id,
                         status=OutcomeStatus(prior_status),
@@ -803,6 +1058,11 @@ class CockroachEpisodeStore:
                     )
                     if cursor.rowcount != 1:
                         raise RuntimeError("agent run outcome transition failed")
+                    append_reconciliation(
+                        decision="accepted",
+                        durable=incoming_identity,
+                        outcome_id=outcome_id,
+                    )
                     return OutcomePromotionResult(
                         outcome_id=outcome_id,
                         status=outcome.status,
@@ -943,6 +1203,11 @@ class CockroachEpisodeStore:
                 )
                 if cursor.rowcount != 1:
                     raise RuntimeError("agent run success transition failed")
+                append_reconciliation(
+                    decision="accepted",
+                    durable=incoming_identity,
+                    outcome_id=outcome_id,
+                )
                 return OutcomePromotionResult(
                     outcome_id=outcome_id,
                     status=outcome.status,
@@ -951,7 +1216,10 @@ class CockroachEpisodeStore:
                     event_hash=event.event_hash,
                 )
 
-        return self._transactions.run_transaction(operation)
+        result = self._transactions.run_transaction(operation)
+        if isinstance(result, OutcomeReconciliationEntry):
+            raise OutcomeReplayConflictError(result)
+        return result
 
 
 class InMemoryEpisodeStore:
@@ -966,6 +1234,8 @@ class InMemoryEpisodeStore:
         self.final_text: dict[str, str] = {}
         self.approvals: dict[str, Mapping[str, Any]] = {}
         self.outcomes: dict[str, OutcomePromotionResult] = {}
+        self.outcome_identities: dict[str, OutcomeReplayIdentity] = {}
+        self.reconciliation_journal: list[OutcomeReconciliationEntry] = []
         self.canonical_outcomes: dict[str, Mapping[str, Any]] = {}
         self._provider_receipts: set[tuple[str, str]] = set()
 
@@ -1078,8 +1348,24 @@ class InMemoryEpisodeStore:
         outcome: ProviderOutcome,
     ) -> OutcomePromotionResult:
         digest = validate_outcome(outcome)
+        incoming_identity = outcome_replay_identity(outcome, digest)
         prior = self.outcomes.get(proposal_id)
         if prior is not None:
+            durable_identity = self.outcome_identities[proposal_id]
+            decision = (
+                "exact_replay"
+                if incoming_identity == durable_identity
+                else "conflict"
+            )
+            entry = self._append_outcome_reconciliation(
+                proposal_id=proposal_id,
+                outcome_id=prior.outcome_id,
+                decision=decision,
+                incoming=incoming_identity,
+                durable=durable_identity,
+            )
+            if decision == "conflict":
+                raise OutcomeReplayConflictError(entry)
             return replace(prior, replayed=True)
         if proposal_id not in self.approvals:
             raise RuntimeError("provider outcome requires an approved proposal")
@@ -1123,8 +1409,54 @@ class InMemoryEpisodeStore:
             event_hash=event_hash,
         )
         self.outcomes[proposal_id] = result
+        self.outcome_identities[proposal_id] = incoming_identity
         self.runs[run_id] = replace(
             run,
             status=AgentRunStatus(outcome.status.value),
         )
+        self._append_outcome_reconciliation(
+            proposal_id=proposal_id,
+            outcome_id=outcome_id,
+            decision="accepted",
+            incoming=incoming_identity,
+            durable=incoming_identity,
+        )
         return result
+
+    def _append_outcome_reconciliation(
+        self,
+        *,
+        proposal_id: str,
+        outcome_id: str,
+        decision: str,
+        incoming: OutcomeReplayIdentity,
+        durable: OutcomeReplayIdentity,
+    ) -> OutcomeReconciliationEntry:
+        run_id, _proposal = self.proposals[proposal_id]
+        run = self.runs[run_id]
+        prior = [
+            item
+            for item in self.reconciliation_journal
+            if item.proposal_id == proposal_id
+        ]
+        previous = prior[-1] if prior else None
+        entry = build_outcome_reconciliation_entry(
+            reconciliation_id=self._id_factory(),
+            proposal_id=proposal_id,
+            outcome_id=outcome_id,
+            run_id=run_id,
+            tenant_id=run.tenant_id,
+            incident_id=run.incident_id,
+            decision=decision,
+            incoming=incoming,
+            durable=durable,
+            sequence_no=(previous.sequence_no + 1 if previous else 1),
+            previous_entry_hash=(
+                previous.entry_hash
+                if previous
+                else OUTCOME_RECONCILIATION_GENESIS_HASH
+            ),
+            recorded_at=datetime.now(timezone.utc),
+        )
+        self.reconciliation_journal.append(entry)
+        return entry

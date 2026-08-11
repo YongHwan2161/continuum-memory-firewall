@@ -57,6 +57,9 @@ def configure_scope_read_policies(
             "action_outbox",
         )
     }
+    episode_policy_names["outcome_reconciliation_journal"] = (
+        f"continuum_reconcile_select_{suffix}"
+    )
     connect = psycopg_connection_factory(migrator_database_url)
     from psycopg import sql
 
@@ -335,6 +338,17 @@ def verify_scope_role(
         ).fetchone()
         if not all_audits_in_scope:
             raise RuntimeError("retrieval audit row isolation failed")
+        visible_reconciliations, all_reconciliations_in_scope = connection.execute(
+            """
+            SELECT
+                count(*),
+                coalesce(bool_and(tenant_id = %s AND incident_id = %s), true)
+            FROM outcome_reconciliation_journal
+            """,
+            (tenant_id, incident_id),
+        ).fetchone()
+        if not all_reconciliations_in_scope:
+            raise RuntimeError("outcome reconciliation row isolation failed")
 
     denied: list[str] = []
     negative_checks: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -375,9 +389,13 @@ def verify_scope_role(
         "visible_rows": visible_count,
         "visible_incidents": visible_incidents,
         "visible_audits": visible_audits,
+        "visible_reconciliations": visible_reconciliations,
         "all_visible_rows_in_scope": bool(all_rows_in_scope),
         "all_visible_incidents_in_scope": bool(all_incidents_in_scope),
         "all_visible_audits_in_scope": bool(all_audits_in_scope),
+        "all_visible_reconciliations_in_scope": bool(
+            all_reconciliations_in_scope
+        ),
         "forbidden_memory_visible": forbidden_visible,
         "denied": denied,
     }

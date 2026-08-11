@@ -22,7 +22,7 @@ class MigrationDefinitionTests(unittest.TestCase):
 
         self.assertEqual(
             [migration.version for migration in migrations],
-            list(range(1, 32)),
+            list(range(1, 34)),
         )
         self.assertTrue(
             all(len(migration.checksum) == 64 for migration in migrations)

@@ -1,0 +1,1 @@
+ALTER TABLE outcome_reconciliation_journal ENABLE ROW LEVEL SECURITY

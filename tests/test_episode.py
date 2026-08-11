@@ -8,6 +8,8 @@ from continuum.episode import (
     AgentArm,
     AgentRunStatus,
     InMemoryEpisodeStore,
+    OUTCOME_RECONCILIATION_GENESIS_HASH,
+    OutcomeReplayConflictError,
     ProposedAction,
     ProviderOutcome,
     RetrievedCitation,
@@ -168,6 +170,75 @@ class EpisodeContractTests(unittest.TestCase):
         self.assertEqual(len(self.store.canonical_outcomes), 1)
         self.assertTrue(replay.replayed)
         self.assertEqual(replay.memory_id, first.memory_id)
+        self.assertEqual(
+            [entry.decision for entry in self.store.reconciliation_journal],
+            ["accepted", "exact_replay"],
+        )
+        self.assertEqual(
+            self.store.reconciliation_journal[0].previous_entry_hash,
+            OUTCOME_RECONCILIATION_GENESIS_HASH,
+        )
+        self.assertEqual(
+            self.store.reconciliation_journal[1].previous_entry_hash,
+            self.store.reconciliation_journal[0].entry_hash,
+        )
+
+    def test_conflicting_replay_is_journaled_without_replacing_outcome(self):
+        proposal_id = self.store.record_proposal(
+            run=self.run,
+            proposal=ProposedAction(
+                action_key="inspect:v1",
+                action_type="inspect_service",
+                parameters={"service": "checkout"},
+                rationale="inspect",
+                citation_memory_ids=(),
+                risk_class=RiskClass.READ_ONLY,
+            ),
+        )
+        self.store.approve_proposal(
+            proposal_id=proposal_id,
+            actor="policy:synthetic-eval-v1",
+            reason="read-only",
+        )
+        observed = datetime(2026, 8, 2, tzinfo=timezone.utc)
+        first = self.store.record_outcome_and_promote(
+            proposal_id=proposal_id,
+            outcome=ProviderOutcome(
+                provider="synthetic-provider",
+                status=OutcomeStatus.SUCCEEDED,
+                provider_receipt_id="receipt-1",
+                evidence={"expected_action_matched": True},
+                observed_at=observed,
+                verified_at=observed,
+            ),
+        )
+
+        with self.assertRaises(OutcomeReplayConflictError) as raised:
+            self.store.record_outcome_and_promote(
+                proposal_id=proposal_id,
+                outcome=ProviderOutcome(
+                    provider="synthetic-provider",
+                    status=OutcomeStatus.SUCCEEDED,
+                    provider_receipt_id="receipt-2",
+                    evidence={"expected_action_matched": True},
+                    observed_at=observed,
+                    verified_at=observed,
+                ),
+            )
+
+        conflict = raised.exception.entry
+        self.assertEqual(raised.exception.code, "OUTCOME_REPLAY_CONFLICT")
+        self.assertEqual(conflict.decision, "conflict")
+        self.assertEqual(conflict.error_code, "OUTCOME_REPLAY_CONFLICT")
+        self.assertEqual(conflict.durable.provider_receipt_id, "receipt-1")
+        self.assertEqual(conflict.incoming.provider_receipt_id, "receipt-2")
+        self.assertEqual(self.store.outcomes[proposal_id], first)
+        self.assertEqual(len(self.store.outcomes), 1)
+        self.assertEqual(len(self.store.canonical_outcomes), 1)
+        self.assertEqual(
+            [entry.decision for entry in self.store.reconciliation_journal],
+            ["accepted", "conflict"],
+        )
 
     def test_failed_outcome_is_evidence_but_never_canonical(self):
         stateless = self.store.start_run(
