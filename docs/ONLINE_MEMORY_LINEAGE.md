@@ -24,6 +24,15 @@ repair adds the missing contract and creates a non-secret preflight receipt
 before deployment so even an early failure has an artifact; it does not weaken
 any evaluation predicate.
 
+Live predecessor `31501943324` is also retained as FAIL. It successfully
+deployed exact head `1393435918e7f7b8e3eb0ff065a76b2ff2cac4fd`, sealed the
+challenge, obtained all seven preparation receipts, and granted the bounded
+one-command role policy. The first EC2 command then stopped because the private
+host package omitted `run_online_memory_lineage.py`; no target proposal or
+target action was produced. Cleanup removed the temporary IAM policy and the
+sealed preflight/provider artifacts were retained. The repair changes only the
+private package allowlist and removes an uninstalled `scripts.*` dependency.
+
 ```mermaid
 flowchart LR
   A[Provider-success source receipt] --> B[CockroachDB outcome + canonical memory]
