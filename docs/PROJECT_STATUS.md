@@ -6,7 +6,7 @@
 MCP contract are implemented and tested. A private, cost-bounded AWS Lambda
 worker is deployed and has completed two live read-only CockroachDB Cloud
 Managed MCP calls while rejecting a write tool before credential access. The
-participant cluster is at migration version 31. A verified caller resolves
+participant cluster is at migration version 33. A verified caller resolves
 through an audited, versioned database binding to a matching NOBYPASSRLS SQL
 identity; database-native row policies enforce the same tenant and incident
 scope. The public `/mcp` endpoint accepts only five-minute Cognito
@@ -75,6 +75,19 @@ residuals, and RLS checksum `69a168e1…b4e02`. The result is one architectural
 pair/two targets, not a population-level superiority estimate. See
 [ONLINE_MEMORY_LINEAGE.md](ONLINE_MEMORY_LINEAGE.md).
 
+The proposal-scoped outcome replay boundary is now live-complete. Main run
+`31546885169` applied migrations 32 and 33 on the participant cluster, accepted
+one real disposable S3 receipt, replayed that exact receipt idempotently, and
+rejected a second real S3 receipt for the same proposal with typed
+`OUTCOME_REPLAY_CONFLICT`. CockroachDB retained exactly one outcome, one
+canonical promotion, and a three-row SHA-256 reconciliation journal with
+decisions `accepted → exact_replay → conflict`; the conflict row committed
+before the error returned. The scoped SQL role saw exactly the three in-scope
+rows. Artifact `9122846707` is bound by archive digest
+`a951eed8…a6cd`; public proof SHA-256 is `7218a296…42b9c`. This is one
+retained-proposal architectural closure, not a population estimate. See
+[2026-08-12-outcome-replay-cas-live.md](evidence/2026-08-12-outcome-replay-cas-live.md).
+
 Publication is also complete. PR `#139` merged as `0ac85de1`; release
 coordinator run `31510629746` published immutable `hackathon-v21` at exact
 target `0ac85de1835c3235634e963d313e62fa82ed63da`, and Pages run `31510716374`
@@ -124,7 +137,7 @@ evidence, and explicit non-claims.
 | AWS Managed MCP worker | Deployed and live-smoked | Private direct-invoke Lambda returned `ok: true` for `list_databases` and `list_tables`; `insert_rows` returned `INVALID_REQUEST` before secret access |
 | AWS infrastructure and package | Deployed and verified | Budget, private Lambda, and authenticated-MCP stacks are complete. The EC2 host has no SSH, requires IMDSv2, reads one runtime secret and one exact S3 object, verifies a deterministic artifact hash, and is managed through SSM |
 | Reviewer experience | Deployed public simulation and read-only verifier | GitHub Pages opens without login; `verify.html` checks the public exact-head workflow, 60-query metrics, MCP health, Devpost receipt, RLS, control plane, bounded pools, vector-index contract, and exactly one network-visible Sigstore subject using HTTP GET only. Full signature verification is available as one CLI command. |
-| Live CockroachDB Cloud | Migrated, semantically evaluated, RLS-confined, and egress-restricted | Migration version 31 is current; all visible rows in each protected table matched the caller scope; the allowlist contains only the AWS Elastic IP `/32` |
+| Live CockroachDB Cloud | Migrated, semantically evaluated, RLS-confined, and egress-restricted | Migration version 33 is current; all visible rows in each protected table matched the caller scope; the allowlist contains only the AWS Elastic IP `/32` |
 | Public MCP endpoint | Deployed and cross-scope-smoked | `https://47-131-98-12.sslip.io/mcp` has valid TLS, health `200`, missing auth `401`, five-minute OIDC, allowed search/fetch PASS, hidden forbidden memory, and cross-scope fetch denial |
 | CockroachDB Managed MCP | Live read-only evidence and guarded v3 rotation complete | Run `30709230016` replaced the AWS secret, waited beyond the five-minute cache bound, passed `list_databases` and `list_tables`, and retained pre-secret write denial; the v2 provider key and temporary GitHub secret were then deleted |
 | AWS service use | Live deployment evidenced | Lambda, EC2, Elastic IP, SSM, Secrets Manager, S3, CloudWatch Logs, CloudFormation, Cognito, Bedrock, IAM OIDC, and AWS Budgets are active; the USD 20 judging-window budget retains forecast-at-80% and actual-at-100% email alerts |

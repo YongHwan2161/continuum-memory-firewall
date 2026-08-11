@@ -467,6 +467,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         adaptive_diagnosis_public=None,
         transfer_firewall_public=None,
         online_memory_lineage_public=None,
+        outcome_replay_cas_public=None,
     ):
         blind_bytes = (
             (json.dumps(blind_holdout_public, sort_keys=True) + "\n").encode()
@@ -503,6 +504,11 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             if online_memory_lineage_public is not None
             else b""
         )
+        outcome_replay_cas_bytes = (
+            (json.dumps(outcome_replay_cas_public, sort_keys=True) + "\n").encode()
+            if outcome_replay_cas_public is not None
+            else b""
+        )
         return build_envelope(
             self.judge,
             self.scale,
@@ -520,6 +526,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             adaptive_diagnosis_public=adaptive_diagnosis_public,
             transfer_firewall_public=transfer_firewall_public,
             online_memory_lineage_public=online_memory_lineage_public,
+            outcome_replay_cas_public=outcome_replay_cas_public,
             judge_bytes=self.judge_bytes,
             scale_bytes=self.scale_bytes,
             pressure_bytes=self.pressure_bytes,
@@ -536,6 +543,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             adaptive_diagnosis_public_bytes=adaptive_diagnosis_bytes,
             transfer_firewall_public_bytes=transfer_firewall_bytes,
             online_memory_lineage_public_bytes=online_memory_lineage_bytes,
+            outcome_replay_cas_public_bytes=outcome_replay_cas_bytes,
             repo_root=Path(__file__).parents[1],
             repository="o/r",
             commit_sha="d" * 40,
@@ -757,6 +765,47 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         online["reconciliation"]["provider_action_reexecutions"] = 1
         with self.assertRaisesRegex(RuntimeError, "public online lineage"):
             self.build(online_memory_lineage_public=online)
+
+    def test_binds_participant_outcome_replay_cas_projection(self) -> None:
+        root = Path(__file__).parents[1]
+        outcome = json.loads(
+            (root / "public-demo/evidence/outcome-replay-cas-v1.json").read_bytes()
+        )
+        live_judge = json.loads(
+            (root / "public-demo/evidence/judge-verification.json").read_bytes()
+        )
+        self.judge["outcome_replay_cas"] = live_judge["outcome_replay_cas"]
+        outcome_bytes = (json.dumps(outcome, sort_keys=True) + "\n").encode()
+        self.judge["outcome_replay_cas"]["public_sha256"] = sha256_bytes(
+            outcome_bytes
+        )
+        self.judge["release_envelope"].update(
+            {
+                "outcome_replay_cas_asset_name": "outcome-replay-cas-v1.json",
+                "outcome_replay_cas_asset_url": (
+                    "https://github.com/o/r/releases/download/hackathon-v1/"
+                    "outcome-replay-cas-v1.json"
+                ),
+            }
+        )
+        self.judge_bytes = (json.dumps(self.judge, sort_keys=True) + "\n").encode()
+
+        envelope = self.build(outcome_replay_cas_public=outcome)
+
+        self.assertEqual(envelope["gates"]["status"], "PASS")
+        self.assertEqual(envelope["outcome_replay_cas"]["workflow_run_id"], 31546885169)
+        self.assertEqual(envelope["outcome_replay_cas"]["cas"]["outcome_rows"], 1)
+        self.assertEqual(
+            [
+                item["decision"]
+                for item in envelope["outcome_replay_cas"]["cas"]["journal"]
+            ],
+            ["accepted", "exact_replay", "conflict"],
+        )
+
+        outcome["cas"]["outcome_rows"] = 2
+        with self.assertRaisesRegex(ValueError, "cardinality"):
+            self.build(outcome_replay_cas_public=outcome)
 
     def test_binds_preregistered_blind_holdout(self) -> None:
         blind = json.loads(

@@ -24,6 +24,27 @@ class OutcomeReplayProofWorkflowTests(unittest.TestCase):
         self.assertNotIn("AWS_ACCESS_KEY_ID", text)
         self.assertNotIn("AWS_SECRET_ACCESS_KEY", text)
 
+    def test_public_judge_surface_binds_chain_and_immutable_asset(self):
+        page = (ROOT / "public-demo" / "outcome-replay-cas.html").read_text(
+            encoding="utf-8"
+        )
+        verifier = (ROOT / "public-demo" / "verify.html").read_text(
+            encoding="utf-8"
+        )
+        index = (ROOT / "public-demo" / "index.html").read_text(
+            encoding="utf-8"
+        )
+        release = (ROOT / ".github" / "workflows" / "release-envelope.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("outcome-replay-cas-v1.json", page)
+        self.assertIn("item.entry_hash===computed", page)
+        self.assertIn("outcomeCasChain", verifier)
+        self.assertIn("outcomeCasReleaseAsset", verifier)
+        self.assertIn("./outcome-replay-cas.html", index)
+        self.assertIn("outcome-replay-cas-v1.json.sha256", release)
+
 
 if __name__ == "__main__":
     unittest.main()

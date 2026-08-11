@@ -16,6 +16,7 @@
     <nav>
       <a href="./verify.html">Judge verifier</a>
       <a href="./online-memory-lineage.html">Online lineage</a>
+      <a href="./outcome-replay-cas.html">Outcome CAS</a>
       <a href="./transfer-firewall.html">Transfer firewall</a>
       <a href="./adaptive-diagnosis.html">Adaptive diagnosis</a>
       <a href="./ci-recovery.html">CI recovery</a>
@@ -100,6 +101,18 @@
       </div>
       <p class="claim">Bounded claim: this closes the real provider → CockroachDB memory → Titan/RLS retrieval → durable proposal → later provider outcome → next promotion seam for one registered pair. It is architectural evidence, not a new population-level superiority estimate.</p>
       <div class="actions"><a class="button primary" href="./online-memory-lineage.html">Inspect the full lineage <span>→</span></a><a class="button quiet" id="online-workflow" target="_blank" rel="noreferrer">Open recovery workflow ↗</a></div>
+    </section>
+
+    <section class="stage guardian" id="outcome-replay-cas">
+      <div class="section-title"><p class="kicker">REAL S3 RECEIPTS · PARTICIPANT COCKROACHDB · HASH-CHAINED CAS</p><h2>One proposal can acquire only one durable provider truth.</h2><p class="copy">The first real S3 receipt was accepted and promoted. Its exact replay was idempotent. A second real S3 receipt committed <code>OUTCOME_REPLAY_CONFLICT</code> to the same proposal journal before the caller received the typed error.</p></div>
+      <div class="guardian-summary">
+        <article><span>Durable outcomes</span><strong id="cas-outcomes">—</strong><small>same proposal</small></article>
+        <article><span>Promotions</span><strong id="cas-promotions">—</strong><small>verified memory only</small></article>
+        <article><span>Journal decisions</span><strong id="cas-journal">—</strong><small>accepted → replay → conflict</small></article>
+        <article><span>RLS-visible rows</span><strong id="cas-rls">—</strong><small>server-owned scope</small></article>
+      </div>
+      <p class="claim">Bounded claim: one retained proposal with two real disposable S3 receipts. This closes the replay-split-brain seam; it is architectural evidence, not a population estimate.</p>
+      <div class="actions"><a class="button primary" href="./outcome-replay-cas.html">Recompute the journal chain <span>→</span></a><a class="button quiet" id="cas-workflow" target="_blank" rel="noreferrer">Open exact workflow ↗</a></div>
     </section>
 
     <section class="stage guardian" id="sequential-blind">

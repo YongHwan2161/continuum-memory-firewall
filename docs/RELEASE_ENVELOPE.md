@@ -1,9 +1,9 @@
 # Immutable competition release envelope
 
-`hackathon-v21` is the proof unit for the receipt-compiled competition story,
+`hackathon-v22` is the proof unit for the receipt-compiled competition story,
 closed-loop CI recovery, preregistered ambiguity-first diagnosis, and
 counterfactual cross-environment transfer plus online CockroachDB memory-lineage
-evidence. It is published only by
+and proposal-scoped outcome replay CAS evidence. It is published only by
 `.github/workflows/release-envelope.yml` after every fail-closed gate passes.
 
 The published v21 receipt is exact and terminal: coordinator run `31510629746`
@@ -92,6 +92,11 @@ The envelope binds:
   exact Actions artifacts, two already-executed provider actions, raw report
   self receipt, redacted public projection, CockroachDB/Titan/RLS joins, four
   negative SQL capability checks, and provider reexecution count zero; and
+- the participant-cluster outcome CAS source head and deployment artifact,
+  exact workflow/artifact/archive receipts, migrations 32/33, two real S3
+  receipt commitments, one durable outcome, one canonical promotion, the
+  `accepted → exact_replay → conflict` SHA-256 journal, typed conflict code,
+  scoped-RLS visibility, and bounded one-proposal claim; and
 - the Devpost submission ID, updated project timestamp, public project URL,
   current video URL, duration, local-render SHA-256, and English subtitle
   SHA-256.
@@ -100,7 +105,8 @@ The immutable release carries the exact sandbox JSON, full ablation JSON,
 public-safe episode drill-down JSON, full real-provider guardian JSON, the
 time-distributed aggregate JSON, public blind-holdout JSON, public
 sequential-campaign JSON, public CI-recovery JSON, public adaptive-diagnosis
-JSON, public transfer-firewall JSON, and public online-memory-lineage JSON as
+JSON, public transfer-firewall JSON, public online-memory-lineage JSON, and
+public outcome-replay-CAS JSON as
 release assets in addition to the
 envelope. Each has a SHA-256 sidecar; the release also carries
 `evidence-story-v1.json`.
@@ -280,7 +286,7 @@ asset state, and SHA-256 digest. A judge can independently download the envelope
 and validate its sidecar without trusting the public page:
 
 ```bash
-gh release download hackathon-v21 --pattern 'continuum-release-envelope-v2.json*'
+gh release download hackathon-v22 --pattern 'continuum-release-envelope-v2.json*'
 sha256sum -c continuum-release-envelope-v2.json.sha256
 ```
 
@@ -291,7 +297,7 @@ attestation API and the in-toto subject digest. Full cryptographic policy
 verification is one repository command:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v21
+python scripts/verify_network_sign_once.py --release-tag hackathon-v22
 ```
 
 That command downloads the immutable envelope, detached author bundle, and both

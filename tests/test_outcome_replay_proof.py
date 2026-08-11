@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 import hashlib
+import json
 import unittest
 
 from continuum.episode import (
@@ -16,6 +17,8 @@ from continuum.outcome_replay_proof import (
     build_public_outcome_replay_proof,
     validate_outcome_replay_proof,
 )
+from scripts.judge_readonly_verify import verify_outcome_replay_cas
+from scripts.promote_outcome_replay_cas_evidence import build_reference
 
 
 def _entry_dict(entry):
@@ -166,6 +169,68 @@ class OutcomeReplayProofTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "gate"):
             validate_outcome_replay_proof(report)
+
+    def test_readonly_judge_binds_exact_workflow_artifact_and_chain(self):
+        raw = valid_report()
+        public = build_public_outcome_replay_proof(raw)
+        private_bytes = (json.dumps(raw, sort_keys=True) + "\n").encode()
+        public_bytes = (
+            json.dumps(public, indent=2, sort_keys=True) + "\n"
+        ).encode()
+        reference = build_reference(
+            raw,
+            public,
+            private_bytes=private_bytes,
+            public_bytes=public_bytes,
+            repository="owner/repo",
+            artifact_id=456,
+            artifact_name=(
+                "continuum-outcome-replay-cas-" + raw["source_head"] + "-123-1"
+            ),
+            artifact_archive_sha256="a" * 64,
+            page_url="https://example.test/outcome-replay-cas.html",
+            public_url="https://example.test/outcome-replay-cas-v1.json",
+        )
+        evidence = {
+            "source": {"repository": "owner/repo"},
+            "outcome_replay_cas": reference,
+        }
+
+        def fetch_json(url):
+            if url == reference["workflow_api_url"]:
+                return {
+                    "id": 123,
+                    "run_attempt": 1,
+                    "head_sha": raw["source_head"],
+                    "conclusion": "success",
+                }
+            if url == reference["artifact_api_url"]:
+                return {
+                    "id": 456,
+                    "name": reference["artifact_name"],
+                    "digest": "sha256:" + "a" * 64,
+                    "expired": False,
+                    "workflow_run": {"id": 123},
+                }
+            raise AssertionError(url)
+
+        self.assertTrue(
+            verify_outcome_replay_cas(
+                evidence,
+                fetch_json=fetch_json,
+                fetch_bytes=lambda url: public_bytes,
+            )
+        )
+
+        tampered = json.loads(public_bytes)
+        tampered["cas"]["outcome_rows"] = 2
+        self.assertFalse(
+            verify_outcome_replay_cas(
+                evidence,
+                fetch_json=fetch_json,
+                fetch_bytes=lambda url: json.dumps(tampered).encode(),
+            )
+        )
 
 
 if __name__ == "__main__":
