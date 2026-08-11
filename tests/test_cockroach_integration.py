@@ -11,6 +11,8 @@ from continuum.db_smoke import run_smoke
 from continuum.episode import (
     AgentArm,
     CockroachEpisodeStore,
+    OUTCOME_RECONCILIATION_GENESIS_HASH,
+    OutcomeReplayConflictError,
     ProposedAction,
     ProviderOutcome,
     RetrievedCitation,
@@ -211,6 +213,18 @@ class CockroachIntegrationTests(unittest.TestCase):
             proposal_id=proposal_id,
             outcome=outcome,
         )
+        with self.assertRaises(OutcomeReplayConflictError) as conflict:
+            self.episodes.record_outcome_and_promote(
+                proposal_id=proposal_id,
+                outcome=ProviderOutcome(
+                    provider="integration-provider",
+                    status=OutcomeStatus.SUCCEEDED,
+                    provider_receipt_id="integration-receipt-2",
+                    evidence={"expected_action_matched": True},
+                    observed_at=NOW,
+                    verified_at=NOW,
+                ),
+            )
 
         with self.connect() as connection:
             durable = connection.execute(
@@ -227,12 +241,47 @@ class CockroachIntegrationTests(unittest.TestCase):
                 """,
                 (run.run_id, TENANT_ID, INCIDENT_ID),
             ).fetchone()
+            journal = connection.execute(
+                """
+                SELECT
+                    decision,
+                    error_code,
+                    sequence_no,
+                    previous_entry_hash,
+                    entry_hash,
+                    incoming_provider_receipt_id,
+                    durable_provider_receipt_id
+                FROM outcome_reconciliation_journal
+                WHERE proposal_id = %s
+                ORDER BY sequence_no
+                """,
+                (proposal_id,),
+            ).fetchall()
+            outcome_count = connection.execute(
+                "SELECT count(*) FROM outcome_evidence WHERE proposal_id = %s",
+                (proposal_id,),
+            ).fetchone()[0]
         self.assertEqual(durable, ("succeeded", 1, 1))
         self.assertEqual(len(citations), 1)
         self.assertIsNotNone(proposal_id)
         self.assertIsNotNone(promoted_outcome.memory_id)
         self.assertTrue(replayed_outcome.replayed)
         self.assertEqual(replayed_outcome.memory_id, promoted_outcome.memory_id)
+        self.assertEqual(conflict.exception.code, "OUTCOME_REPLAY_CONFLICT")
+        self.assertEqual(outcome_count, 1)
+        self.assertEqual(
+            [(row[0], row[1], row[2]) for row in journal],
+            [
+                ("accepted", None, 1),
+                ("exact_replay", None, 2),
+                ("conflict", "OUTCOME_REPLAY_CONFLICT", 3),
+            ],
+        )
+        self.assertEqual(journal[0][3], OUTCOME_RECONCILIATION_GENESIS_HASH)
+        self.assertEqual(journal[1][3], journal[0][4])
+        self.assertEqual(journal[2][3], journal[1][4])
+        self.assertEqual(journal[2][5], "integration-receipt-2")
+        self.assertEqual(journal[2][6], "integration-receipt-1")
 
     def test_episode_citation_cannot_bind_a_foreign_scope_memory(self):
         self._insert_incident(

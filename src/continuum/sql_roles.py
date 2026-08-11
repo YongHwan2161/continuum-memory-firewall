@@ -31,6 +31,7 @@ OWNED_TABLES = (
     "proposed_actions",
     "outcome_evidence",
     "action_outbox",
+    "outcome_reconciliation_journal",
 )
 
 

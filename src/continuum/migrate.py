@@ -197,6 +197,28 @@ EXPECTED_COLUMNS = {
         "created_at",
         "updated_at",
     },
+    "outcome_reconciliation_journal": {
+        "reconciliation_id",
+        "proposal_id",
+        "outcome_id",
+        "run_id",
+        "tenant_id",
+        "incident_id",
+        "decision",
+        "incoming_provider",
+        "incoming_status",
+        "incoming_provider_receipt_id",
+        "incoming_receipt_digest",
+        "durable_provider",
+        "durable_status",
+        "durable_provider_receipt_id",
+        "durable_receipt_digest",
+        "error_code",
+        "sequence_no",
+        "previous_entry_hash",
+        "entry_hash",
+        "recorded_at",
+    },
 }
 EXPECTED_INDEXES = {
     "memory_candidates_incident_created_idx",
@@ -212,6 +234,7 @@ EXPECTED_INDEXES = {
     "outcome_evidence_provider_receipt_idx",
     "action_outbox_ready_idx",
     "action_outbox_scope_run_idx",
+    "outcome_reconciliation_scope_proposal_idx",
 }
 EXPECTED_SCOPE_FOREIGN_KEYS = {
     "memory_candidates",
@@ -224,6 +247,7 @@ EXPECTED_SCOPE_FOREIGN_KEYS = {
     "proposed_actions",
     "outcome_evidence",
     "action_outbox",
+    "outcome_reconciliation_journal",
 }
 SAFE_UPDATES_OFF_MIGRATIONS = {"create_model_scoped_vector_index"}
 
