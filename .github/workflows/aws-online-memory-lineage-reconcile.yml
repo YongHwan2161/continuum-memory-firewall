@@ -1,0 +1,299 @@
+name: aws-online-memory-lineage-reconcile
+
+on:
+  workflow_dispatch:
+    inputs:
+      predecessor_run_id:
+        description: Failed candidate workflow run with durable proposals and outcomes
+        required: true
+        default: "31503686643"
+        type: string
+      predecessor_run_attempt:
+        description: Exact predecessor attempt
+        required: true
+        default: "1"
+        type: string
+      predecessor_source_head:
+        description: Exact candidate source head
+        required: true
+        default: 9fed05095f2283d919915387d02198bf4faa677f
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+
+concurrency:
+  group: continuum-online-memory-lineage
+  cancel-in-progress: false
+
+jobs:
+  reconcile-without-provider-redispatch:
+    runs-on: ubuntu-latest
+    environment: continuum-production
+    timeout-minutes: 45
+    env:
+      AWS_REGION: ap-southeast-1
+      CONTINUUM_EMBEDDING_REGION: ap-northeast-2
+      CONTINUUM_MCP_STACK_NAME: continuum-authenticated-mcp
+      PREDECESSOR_RUN_ID: ${{ inputs.predecessor_run_id }}
+      PREDECESSOR_RUN_ATTEMPT: ${{ inputs.predecessor_run_attempt }}
+      PREDECESSOR_HEAD: ${{ inputs.predecessor_source_head }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v6.2.0, Node 24
+        with:
+          python-version: "3.12"
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3, Node 24
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          role-session-name: continuum-lineage-reconcile
+      - name: Prove reviewed main-only read-only-provider identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          ./scripts/assert_deployer_identity.sh
+          test "$PREDECESSOR_RUN_ID" = 31503686643
+          test "$PREDECESSOR_RUN_ATTEMPT" = 1
+          test "$PREDECESSOR_HEAD" = 9fed05095f2283d919915387d02198bf4faa677f
+      - name: Recover and validate the exact failed predecessor artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          work=build/evidence/online-memory-lineage-reconciliation
+          mkdir -p "$work/predecessor"
+          run_json="$(gh run view "$PREDECESSOR_RUN_ID" \
+            --json conclusion,headSha,event,workflowName,url)"
+          test "$(jq -r .conclusion <<<"$run_json")" = failure
+          test "$(jq -r .headSha <<<"$run_json")" = "$PREDECESSOR_HEAD"
+          test "$(jq -r .event <<<"$run_json")" = workflow_dispatch
+          test "$(jq -r .workflowName <<<"$run_json")" = aws-online-memory-lineage
+          artifact_name="continuum-online-memory-lineage-${PREDECESSOR_HEAD}-${PREDECESSOR_RUN_ID}-${PREDECESSOR_RUN_ATTEMPT}"
+          artifacts="$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$PREDECESSOR_RUN_ID/artifacts?per_page=100")"
+          artifact_count="$(jq --arg name "$artifact_name" \
+            '[.artifacts[] | select(.name == $name and .expired == false)] | length' \
+            <<<"$artifacts")"
+          test "$artifact_count" = 1
+          artifact_id="$(jq -r --arg name "$artifact_name" \
+            '.artifacts[] | select(.name == $name and .expired == false) | .id' \
+            <<<"$artifacts")"
+          artifact_digest="$(jq -r --arg name "$artifact_name" \
+            '.artifacts[] | select(.name == $name and .expired == false) | .digest' \
+            <<<"$artifacts")"
+          [[ "$artifact_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          gh run download "$PREDECESSOR_RUN_ID" \
+            --name "$artifact_name" --dir "$work/predecessor"
+          test ! -e "$work/predecessor/online-memory-lineage-v1.json"
+          jq -e \
+            --arg head "$PREDECESSOR_HEAD" \
+            --argjson run "$PREDECESSOR_RUN_ID" '
+              .kind == "continuum.online-memory-lineage.preflight" and
+              .source_head == $head and .workflow_run_id == $run
+            ' "$work/predecessor/preflight-v1.json" >/dev/null
+          jq -e --arg head "$PREDECESSOR_HEAD" '
+            .kind == "continuum.online-memory-lineage.proposals" and
+            .source_head == $head and (.proposals | length) == 2 and
+            ([.proposals[].proposal_id] | unique | length) == 2
+          ' "$work/predecessor/proposals-v1.json" >/dev/null
+          jq -e --arg head "$PREDECESSOR_HEAD" '
+            .kind == "continuum.online-memory-lineage.provider-outcomes" and
+            .source_head == $head and (.outcomes | length) == 2 and
+            ([.outcomes[].provider_receipt.conclusion] | all(. == "success")) and
+            ([.outcomes[].provider_receipt.workflow_run_id] | unique | length) == 2
+          ' "$work/predecessor/provider-outcomes-v1.json" >/dev/null
+          proposal_time="$(jq -r .proposal_prepared_at "$work/predecessor/proposals-v1.json")"
+          test "$(jq -r --arg time "$proposal_time" \
+            '[.outcomes[].provider_receipt.created_at >= $time] | all' \
+            "$work/predecessor/provider-outcomes-v1.json")" = true
+          jq -n \
+            --arg candidate_source_head "$PREDECESSOR_HEAD" \
+            --arg reconciler_source_head "$GITHUB_SHA" \
+            --argjson predecessor_workflow_run_id "$PREDECESSOR_RUN_ID" \
+            --argjson reconciliation_workflow_run_id "$GITHUB_RUN_ID" \
+            --argjson reconciliation_workflow_run_attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg artifact_name "$artifact_name" \
+            --argjson artifact_id "$artifact_id" \
+            --arg artifact_digest "$artifact_digest" \
+            --arg proposals_sha256 "$(sha256sum "$work/predecessor/proposals-v1.json" | cut -d' ' -f1)" \
+            --arg provider_outcomes_sha256 "$(sha256sum "$work/predecessor/provider-outcomes-v1.json" | cut -d' ' -f1)" \
+            '{schema_version:1,kind:"continuum.online-memory-lineage.reconciliation-input",candidate_source_head:$candidate_source_head,reconciler_source_head:$reconciler_source_head,predecessor_workflow_run_id:$predecessor_workflow_run_id,reconciliation_workflow_run_id:$reconciliation_workflow_run_id,reconciliation_workflow_run_attempt:$reconciliation_workflow_run_attempt,actions_permission:"read",provider_action_dispatch_capability:false,predecessor_artifact_name:$artifact_name,predecessor_artifact_id:$artifact_id,predecessor_artifact_digest:$artifact_digest,proposals_sha256:$proposals_sha256,provider_outcomes_sha256:$provider_outcomes_sha256}' \
+            >"$work/reconciliation-input-v1.json"
+      - name: Resolve and deploy the exact reconciler head
+        shell: bash
+        run: |
+          set -euo pipefail
+          parameter() {
+            aws cloudformation describe-stacks --region "$AWS_REGION" \
+              --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+              --query "Stacks[0].Parameters[?ParameterKey=='$1'].ParameterValue | [0]" \
+              --output text
+          }
+          output() {
+            aws cloudformation describe-stacks --region "$AWS_REGION" \
+              --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue | [0]" \
+              --output text
+          }
+          runtime_secret_arn="$(parameter RuntimeSecretArn)"
+          deploy_bucket="$(parameter PackageBucket)"
+          deploy_key="$(parameter PackageKey)"
+          instance_role_arn="$(output RuntimeRoleArn)"
+          instance_id="$(output InstanceId)"
+          prefix="evidence/online-memory-lineage-reconciliation/$GITHUB_SHA/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          aws s3 cp "s3://$deploy_bucket/$deploy_key" /tmp/continuum-current.zip \
+            --region "$AWS_REGION" --only-show-errors
+          unzip -p /tmp/continuum-current.zip cockroach-ca.crt >/tmp/cockroach-ca.crt
+          chmod 0600 /tmp/cockroach-ca.crt
+          test -s /tmp/cockroach-ca.crt
+          echo "CONTINUUM_RUNTIME_SECRET_ARN=$runtime_secret_arn" >>"$GITHUB_ENV"
+          echo "CONTINUUM_DEPLOY_BUCKET=$deploy_bucket" >>"$GITHUB_ENV"
+          echo "CONTINUUM_INSTANCE_ROLE_NAME=${instance_role_arn##*/}" >>"$GITHUB_ENV"
+          echo "CONTINUUM_INSTANCE_ID=$instance_id" >>"$GITHUB_ENV"
+          echo "CONTINUUM_RECONCILIATION_PREFIX=$prefix" >>"$GITHUB_ENV"
+          echo "CONTINUUM_CA_CERT_PATH=/tmp/cockroach-ca.crt" >>"$GITHUB_ENV"
+          stack_status="$(aws cloudformation describe-stacks \
+            --region "$AWS_REGION" --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+            --query 'Stacks[0].StackStatus' --output text)"
+          if [[ "$stack_status" == "UPDATE_ROLLBACK_FAILED" || \
+                "$stack_status" == "UPDATE_ROLLBACK_COMPLETE" ]]; then
+            ./scripts/deploy_mcp_host_direct_recovery.sh
+          else
+            ./scripts/deploy_mcp_host.sh
+          fi
+          artifact_sha="$(output ArtifactSha256)"
+          test "${#artifact_sha}" = 64
+          echo "CONTINUUM_RECONCILER_ARTIFACT_SHA256=$artifact_sha" >>"$GITHUB_ENV"
+      - name: Stage immutable predecessor inputs for one reconciliation command
+        shell: bash
+        run: |
+          set -euo pipefail
+          work=build/evidence/online-memory-lineage-reconciliation
+          migrator_arn="$(aws secretsmanager describe-secret \
+            --region "$AWS_REGION" --secret-id continuum/cockroach/sql-migrator \
+            --query ARN --output text)"
+          prefix_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_RECONCILIATION_PREFIX/*"
+          policy="$(jq -cn --arg migrator "$migrator_arn" --arg prefix "$prefix_arn" \
+            '{Version:"2012-10-17",Statement:[{Effect:"Allow",Action:"secretsmanager:GetSecretValue",Resource:$migrator},{Effect:"Allow",Action:["s3:GetObject","s3:PutObject"],Resource:$prefix}]}')"
+          aws iam put-role-policy \
+            --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+            --policy-name ContinuumOnlineLineageReconcileOneCommand \
+            --policy-document "$policy"
+          for name in proposals-v1.json provider-outcomes-v1.json; do
+            aws s3 cp "$work/predecessor/$name" \
+              "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_RECONCILIATION_PREFIX/$name" \
+              --region "$AWS_REGION" --only-show-errors
+          done
+          aws s3 cp "$work/reconciliation-input-v1.json" \
+            "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_RECONCILIATION_PREFIX/reconciliation-input-v1.json" \
+            --region "$AWS_REGION" --only-show-errors
+          sleep 10
+      - name: Reconcile prior actions without provider redispatch
+        shell: bash
+        run: |
+          set -euo pipefail
+          command_text="set -eu
+          work=\$(mktemp -d /run/continuum-online-lineage-reconcile.XXXXXX)
+          trap 'rm -rf -- \"\$work\"' EXIT
+          for name in proposals-v1.json provider-outcomes-v1.json reconciliation-input-v1.json; do
+            aws s3 cp 's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_RECONCILIATION_PREFIX/'\"\$name\" \"\$work/\$name\" --region '$AWS_REGION' --only-show-errors
+          done
+          cd /opt/continuum
+          /opt/continuum/.venv/bin/python scripts/run_online_memory_lineage.py finalize \
+            --region '$AWS_REGION' \
+            --embedding-region '$CONTINUUM_EMBEDDING_REGION' \
+            --migrator-secret-id continuum/cockroach/sql-migrator \
+            --ca-cert /opt/continuum/cockroach-ca.crt \
+            --reconciler-source-head '$GITHUB_SHA' \
+            --reconciler-deployment-artifact-sha256 '$CONTINUUM_RECONCILER_ARTIFACT_SHA256' \
+            --predecessor-workflow-run-id '$PREDECESSOR_RUN_ID' \
+            --reconciliation-workflow-run-id '$GITHUB_RUN_ID' \
+            --reconciliation-workflow-run-attempt '$GITHUB_RUN_ATTEMPT' \
+            --reconciliation-input \"\$work/reconciliation-input-v1.json\" \
+            --proposals \"\$work/proposals-v1.json\" \
+            --provider-outcomes \"\$work/provider-outcomes-v1.json\" \
+            --output \"\$work/online-memory-lineage-v1.json\"
+          aws s3 cp \"\$work/online-memory-lineage-v1.json\" 's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_RECONCILIATION_PREFIX/online-memory-lineage-v1.json' --region '$AWS_REGION' --only-show-errors"
+          parameters="$(jq -cn --arg command "$command_text" '{commands:[$command]}')"
+          command_id="$(aws ssm send-command \
+            --region "$AWS_REGION" --instance-ids "$CONTINUUM_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment 'reconcile online lineage without provider redispatch' \
+            --parameters "$parameters" --query 'Command.CommandId' --output text)"
+          status=Pending
+          for _attempt in $(seq 1 240); do
+            status="$(aws ssm get-command-invocation \
+              --region "$AWS_REGION" --command-id "$command_id" \
+              --instance-id "$CONTINUUM_INSTANCE_ID" --query Status --output text)"
+            case "$status" in Success|Failed|Cancelled|TimedOut) break ;; esac
+            sleep 5
+          done
+          aws ssm get-command-invocation \
+            --region "$AWS_REGION" --command-id "$command_id" \
+            --instance-id "$CONTINUUM_INSTANCE_ID" \
+            --query '{Status:Status,ResponseCode:ResponseCode,Output:StandardOutputContent,Error:StandardErrorContent}' \
+            --output table
+          test "$status" = Success
+      - name: Validate closed-loop recovery and complete database lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          work=build/evidence/online-memory-lineage-reconciliation
+          report="$work/online-memory-lineage-v1.json"
+          aws s3 cp \
+            "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_RECONCILIATION_PREFIX/online-memory-lineage-v1.json" \
+            "$report" --region "$AWS_REGION" --only-show-errors
+          jq -e \
+            --arg candidate "$PREDECESSOR_HEAD" \
+            --arg reconciler "$GITHUB_SHA" \
+            --argjson predecessor "$PREDECESSOR_RUN_ID" \
+            --argjson recovery "$GITHUB_RUN_ID" '
+              .kind == "continuum.online-memory-lineage.report" and
+              .source_head == $candidate and
+              .reconciliation.mode == "cross-head-resume" and
+              .reconciliation.reconciler_source_head == $reconciler and
+              .reconciliation.predecessor_workflow_run_id == $predecessor and
+              .reconciliation.reconciliation_workflow_run_id == $recovery and
+              .reconciliation.provider_action_reexecutions == 0 and
+              .gate.provider_actions_follow_durable_proposals == true and
+              .gate.same_cause_memory_selected == true and
+              .gate.near_neighbor_memory_not_selected == true and
+              .gate.both_provider_outcomes_succeeded == true and
+              .gate.both_verified_outcomes_promoted == true and
+              .gate.database_episode_rows_joined == true and
+              .gate.cross_scope_rows_zero == true and
+              .gate.reconciliation_lineage_bound == true and
+              .gate.provider_action_reexecutions_zero == true and
+              .gate.status == "PASS"
+            ' "$report" >/dev/null
+          sha256sum "$work"/*.json "$work"/predecessor/*.json
+      - name: Revoke temporary reconciliation authority
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${CONTINUUM_INSTANCE_ROLE_NAME:-}" ]]; then
+            aws iam delete-role-policy \
+              --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+              --policy-name ContinuumOnlineLineageReconcileOneCommand || true
+            if aws iam get-role-policy \
+              --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+              --policy-name ContinuumOnlineLineageReconcileOneCommand >/dev/null 2>&1; then
+              echo "temporary reconciliation authority remains attached" >&2
+              exit 1
+            fi
+          fi
+          rm -f -- /tmp/continuum-current.zip /tmp/cockroach-ca.crt
+      - name: Upload reconciler and predecessor receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        with:
+          name: continuum-online-memory-lineage-reconciliation-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/evidence/online-memory-lineage-reconciliation
+          if-no-files-found: error
+          retention-days: 90

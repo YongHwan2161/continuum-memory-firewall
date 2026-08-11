@@ -276,6 +276,10 @@ jobs:
             --migrator-secret-id continuum/cockroach/sql-migrator \
             --runtime-secret-id '$CONTINUUM_RUNTIME_SECRET_ARN' \
             --ca-cert /opt/continuum/cockroach-ca.crt \
+            --reconciler-source-head '$GITHUB_SHA' \
+            --reconciler-deployment-artifact-sha256 '$CONTINUUM_LINEAGE_DEPLOYMENT_ARTIFACT_SHA256' \
+            --reconciliation-workflow-run-id '$GITHUB_RUN_ID' \
+            --reconciliation-workflow-run-attempt '$GITHUB_RUN_ATTEMPT' \
             --proposals \"\$work/proposals.json\" \
             --provider-outcomes \"\$work/outcomes.json\" \
             --output \"\$work/report.json\"
