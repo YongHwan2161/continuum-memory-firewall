@@ -16,7 +16,7 @@ from continuum.adaptive_diagnosis import (
 )
 from continuum.ci_recovery import CI_PATCH_POLICIES
 from continuum.episode import AgentArm
-from continuum.orchestrator import MemoryToolHit
+from continuum.orchestrator import MemoryToolHit, ScopedMemoryTools
 
 
 SYSTEM_PROMPT = """You are a bounded CI diagnosis agent. The initial red summary is
@@ -82,6 +82,24 @@ class AdaptiveDiagnosisAgentResult:
     episode_latency_ms: float
 
 
+class _StaticMemoryTools:
+    """Compatibility adapter for sealed fixtures that already contain hits."""
+
+    def __init__(self, hits: Sequence[MemoryToolHit]) -> None:
+        self._hits = tuple(hits)
+        self._by_id = {hit.memory_id: hit for hit in self._hits}
+
+    def search(self, *, query: str, limit: int) -> Sequence[MemoryToolHit]:
+        del query
+        return self._hits[:limit]
+
+    def fetch(self, *, memory_id: str) -> MemoryToolHit:
+        try:
+            return self._by_id[memory_id]
+        except KeyError as exc:
+            raise LookupError(memory_id) from exc
+
+
 class AdaptiveDiagnosisAgent:
     """Acquire bounded evidence, then return one non-executing patch proposal."""
 
@@ -109,12 +127,18 @@ class AdaptiveDiagnosisAgent:
         *,
         arm: AgentArm,
         incident: Mapping[str, Any],
-        memory_hits: Sequence[MemoryToolHit],
+        memory_hits: Sequence[MemoryToolHit] = (),
+        memory_tools: ScopedMemoryTools | None = None,
         run_probe: Callable[[str], Mapping[str, Any]],
         request_metadata: Mapping[str, str] | None = None,
     ) -> AdaptiveDiagnosisAgentResult:
-        if arm is AgentArm.STATELESS and memory_hits:
+        if memory_hits and memory_tools is not None:
+            raise ValueError("configure either memory hits or scoped tools, not both")
+        if arm is AgentArm.STATELESS and (memory_hits or memory_tools is not None):
             raise ValueError("stateless adaptive arm cannot receive memory")
+        active_memory_tools: ScopedMemoryTools | None = memory_tools
+        if arm is not AgentArm.STATELESS and active_memory_tools is None:
+            active_memory_tools = _StaticMemoryTools(memory_hits)
         allowed_probes = incident.get("allowed_probe_ids")
         if (
             not isinstance(allowed_probes, Sequence)
@@ -265,8 +289,23 @@ class AdaptiveDiagnosisAgent:
                         raise AdaptiveDiagnosisAgentError(
                             "adaptive memory search input is invalid"
                         )
+                    if active_memory_tools is None:
+                        raise AdaptiveDiagnosisAgentError(
+                            "adaptive scoped memory tools are unavailable"
+                        )
+                    try:
+                        scoped_hits = tuple(
+                            active_memory_tools.search(
+                                query=query.strip(),
+                                limit=limit,
+                            )
+                        )
+                    except Exception as exc:
+                        raise AdaptiveDiagnosisAgentError(
+                            "adaptive scoped memory search failed"
+                        ) from exc
                     public_hits = []
-                    for hit in tuple(memory_hits)[:limit]:
+                    for hit in scoped_hits:
                         handle = self._new_handle(handles)
                         handles[handle] = hit
                         public_hits.append(
@@ -297,8 +336,33 @@ class AdaptiveDiagnosisAgent:
                         raise AdaptiveDiagnosisAgentError(
                             "adaptive memory handle was fetched twice"
                         )
+                    if active_memory_tools is None:
+                        raise AdaptiveDiagnosisAgentError(
+                            "adaptive scoped memory tools are unavailable"
+                        )
+                    issued_hit = handles[str(handle)]
+                    try:
+                        hit = active_memory_tools.fetch(
+                            memory_id=issued_hit.memory_id
+                        )
+                    except Exception as exc:
+                        raise AdaptiveDiagnosisAgentError(
+                            "adaptive scoped memory fetch failed"
+                        ) from exc
+                    if hit.memory_id != issued_hit.memory_id:
+                        raise AdaptiveDiagnosisAgentError(
+                            "adaptive scoped memory fetch identity drifted"
+                        )
+                    if (
+                        issued_hit.retrieval_id is not None
+                        and hit.retrieval_id is not None
+                        and issued_hit.retrieval_id != hit.retrieval_id
+                    ):
+                        raise AdaptiveDiagnosisAgentError(
+                            "adaptive scoped memory retrieval lineage drifted"
+                        )
+                    handles[str(handle)] = hit
                     fetched_handles.append(str(handle))
-                    hit = handles[str(handle)]
                     messages.append(
                         self._tool_result(
                             tool_use_id,
