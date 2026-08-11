@@ -118,7 +118,7 @@ class OnlineMemoryLineageWorkflowTests(unittest.TestCase):
             "provider_action_dispatch_capability",
         ):
             self.assertIn(value, self.runner)
-        self.assertIn("_family_for_patch", self.runner)
+        self.assertIn("family_for_patch", self.runner)
 
 
 if __name__ == "__main__":

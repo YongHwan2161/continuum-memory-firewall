@@ -14,10 +14,7 @@ from uuid import uuid4
 
 import boto3
 
-from continuum.adaptive_diagnosis import (
-    ADAPTIVE_DIAGNOSIS_FAMILIES,
-    candidate_projection,
-)
+from continuum.adaptive_diagnosis import candidate_projection
 from continuum.adaptive_diagnosis_agent import AdaptiveDiagnosisAgent
 from continuum.aws_secrets import get_secret_string_with_backoff
 from continuum.ci_recovery import validate_ci_workflow_receipt
@@ -32,7 +29,7 @@ from continuum.episode import (
     canonical_json_bytes,
 )
 from continuum.migrate import Migrator
-from continuum.online_lineage import TransferAdmissionTools
+from continuum.online_lineage import TransferAdmissionTools, family_for_patch
 from continuum.orchestrator import BedrockConverseClient, RetrievalStoreTools
 from continuum.retrieval import BedrockTitanEmbedder, MemoryRetrievalStore
 from continuum.scope_roles import verify_scope_role
@@ -109,17 +106,6 @@ def _database_url(value: Any) -> str:
 
 def _parse_time(value: object) -> datetime:
     return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-
-
-def _family_for_patch(patch_id: str) -> str:
-    matches = [
-        family.family
-        for family in ADAPTIVE_DIAGNOSIS_FAMILIES
-        if family.expected_patch_id == patch_id
-    ]
-    if len(matches) != 1:
-        raise RuntimeError("online lineage patch has no unique fault family")
-    return matches[0]
 
 
 def _sha256_file(path: Path) -> str:
@@ -605,7 +591,7 @@ def finalize(args: argparse.Namespace) -> None:
         attestation_payload = proposal["target_attestation_receipt"][
             "provider_payload"
         ]
-        derived_family = _family_for_patch(str(proposal["expected_patch_id"]))
+        derived_family = family_for_patch(str(proposal["expected_patch_id"]))
         target_family = str(proposal.get("target_family", derived_family))
         if target_family != derived_family:
             raise RuntimeError("online lineage target family drifted")

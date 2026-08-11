@@ -12,6 +12,7 @@ import hashlib
 import re
 from typing import Any, Collection, Mapping, Sequence
 
+from continuum.adaptive_diagnosis import ADAPTIVE_DIAGNOSIS_FAMILIES
 from continuum.adaptive_diagnosis_agent import TRANSFER_CONTRACT
 from continuum.ci_recovery import CI_PATCH_POLICIES, validate_ci_workflow_receipt
 from continuum.episode import canonical_json_bytes
@@ -20,6 +21,19 @@ from continuum.orchestrator import MemoryToolHit, ScopedMemoryTools
 
 class TransferAdmissionError(RuntimeError):
     """Raised when provider or database lineage cannot be joined safely."""
+
+
+def family_for_patch(patch_id: str) -> str:
+    """Resolve one reviewed patch to exactly one registered fault family."""
+
+    matches = [
+        family.family
+        for family in ADAPTIVE_DIAGNOSIS_FAMILIES
+        if family.expected_patch_id == patch_id
+    ]
+    if len(matches) != 1:
+        raise RuntimeError("online lineage patch has no unique fault family")
+    return matches[0]
 
 
 @dataclass(frozen=True, slots=True)
