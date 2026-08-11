@@ -45,6 +45,14 @@ deploys the repaired reconciler, and resumes the existing database proposals.
 Its public receipt binds both the candidate head and reconciler head and must
 report provider action reexecution count zero.
 
+Recovery predecessor `31505581790` is retained as FAIL. It validated the exact
+candidate artifact under read-only Actions permission, then stopped before
+deployment because values written to `GITHUB_ENV` are not visible until the
+next workflow step. It never granted temporary instance authority or touched
+the database. The repair exports only the already resolved deployment contract
+inside that step while retaining the same values in `GITHUB_ENV` for later
+steps.
+
 ```mermaid
 flowchart LR
   A[Provider-success source receipt] --> B[CockroachDB outcome + canonical memory]

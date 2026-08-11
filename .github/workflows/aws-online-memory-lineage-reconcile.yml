@@ -157,6 +157,10 @@ jobs:
           echo "CONTINUUM_INSTANCE_ID=$instance_id" >>"$GITHUB_ENV"
           echo "CONTINUUM_RECONCILIATION_PREFIX=$prefix" >>"$GITHUB_ENV"
           echo "CONTINUUM_CA_CERT_PATH=/tmp/cockroach-ca.crt" >>"$GITHUB_ENV"
+          export CONTINUUM_RUNTIME_SECRET_ARN="$runtime_secret_arn"
+          export CONTINUUM_DEPLOY_BUCKET="$deploy_bucket"
+          export CONTINUUM_INSTANCE_ROLE_NAME="${instance_role_arn##*/}"
+          export CONTINUUM_CA_CERT_PATH=/tmp/cockroach-ca.crt
           stack_status="$(aws cloudformation describe-stacks \
             --region "$AWS_REGION" --stack-name "$CONTINUUM_MCP_STACK_NAME" \
             --query 'Stacks[0].StackStatus' --output text)"
