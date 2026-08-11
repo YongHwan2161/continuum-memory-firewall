@@ -43,6 +43,21 @@ class OnlineMemoryLineageWorkflowTests(unittest.TestCase):
         self.assertIn("retention-days: 90", self.workflow)
         self.assertNotIn("continue-on-error", self.workflow)
 
+    def test_deploy_preflight_binds_ca_and_always_has_an_artifact(self) -> None:
+        self.assertIn(
+            'echo "CONTINUUM_CA_CERT_PATH=/tmp/cockroach-ca.crt"',
+            self.workflow,
+        )
+        self.assertIn("continuum.online-memory-lineage.preflight", self.workflow)
+        self.assertLess(
+            self.workflow.index("preflight-v1.json"),
+            self.workflow.index("deploy_mcp_host.sh"),
+        )
+        self.assertLess(
+            self.workflow.index("test -s /tmp/cockroach-ca.crt"),
+            self.workflow.index("deploy_mcp_host.sh"),
+        )
+
     def test_gate_requires_actual_retrieval_isolation_and_both_promotions(self) -> None:
         for predicate in (
             ".gate.same_cause_memory_selected == true",

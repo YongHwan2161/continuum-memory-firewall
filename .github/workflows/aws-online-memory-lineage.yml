@@ -75,11 +75,21 @@ jobs:
           unzip -p /tmp/continuum-current.zip cockroach-ca.crt >/tmp/cockroach-ca.crt
           chmod 0600 /tmp/cockroach-ca.crt
           test -s /tmp/cockroach-ca.crt
+          work=build/evidence/online-memory-lineage
+          mkdir -p "$work"
+          jq -n \
+            --arg source_head "$GITHUB_SHA" \
+            --arg workflow_run_id "$GITHUB_RUN_ID" \
+            --arg workflow_run_attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg evidence_prefix "$prefix" \
+            '{schema_version:1,kind:"continuum.online-memory-lineage.preflight",source_head:$source_head,workflow_run_id:($workflow_run_id|tonumber),workflow_run_attempt:($workflow_run_attempt|tonumber),evidence_prefix:$evidence_prefix}' \
+            >"$work/preflight-v1.json"
           echo "CONTINUUM_RUNTIME_SECRET_ARN=$runtime_secret_arn" >>"$GITHUB_ENV"
           echo "CONTINUUM_DEPLOY_BUCKET=$deploy_bucket" >>"$GITHUB_ENV"
           echo "CONTINUUM_INSTANCE_ROLE_NAME=${instance_role_arn##*/}" >>"$GITHUB_ENV"
           echo "CONTINUUM_INSTANCE_ID=$instance_id" >>"$GITHUB_ENV"
           echo "CONTINUUM_LINEAGE_PREFIX=$prefix" >>"$GITHUB_ENV"
+          echo "CONTINUUM_CA_CERT_PATH=/tmp/cockroach-ca.crt" >>"$GITHUB_ENV"
       - name: Install exact-head provider controller
         shell: bash
         run: |
