@@ -16,6 +16,14 @@ The repository implementation and deterministic regression suite are PASS.
 Until the reviewed `main` workflow produces an exact-head report with every
 gate true, the live architectural claim remains HOLD.
 
+Live predecessor `31501325773` is intentionally retained as FAIL: exact-head
+deployment stopped before any provider, database, or model call because the
+workflow omitted the deployment script's CA-path environment contract. The
+always-run cleanup confirmed that no temporary EC2 IAM policy remained. The
+repair adds the missing contract and creates a non-secret preflight receipt
+before deployment so even an early failure has an artifact; it does not weaken
+any evaluation predicate.
+
 ```mermaid
 flowchart LR
   A[Provider-success source receipt] --> B[CockroachDB outcome + canonical memory]
