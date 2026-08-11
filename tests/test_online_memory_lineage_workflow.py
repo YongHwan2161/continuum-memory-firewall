@@ -109,6 +109,17 @@ class OnlineMemoryLineageWorkflowTests(unittest.TestCase):
         self.assertIn("if: always()", self.recovery)
         self.assertNotIn("continue-on-error", self.recovery)
 
+    def test_recovery_exports_same_step_deployment_contract(self) -> None:
+        deploy = self.recovery.index("./scripts/deploy_mcp_host.sh")
+        for value in (
+            'export CONTINUUM_RUNTIME_SECRET_ARN="$runtime_secret_arn"',
+            'export CONTINUUM_DEPLOY_BUCKET="$deploy_bucket"',
+            'export CONTINUUM_INSTANCE_ROLE_NAME="${instance_role_arn##*/}"',
+            "export CONTINUUM_CA_CERT_PATH=/tmp/cockroach-ca.crt",
+        ):
+            self.assertIn(value, self.recovery)
+            self.assertLess(self.recovery.index(value), deploy)
+
     def test_runner_binds_candidate_and_reconciler_heads(self) -> None:
         for value in (
             "cross-head-resume",
