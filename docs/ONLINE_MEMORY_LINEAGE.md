@@ -12,9 +12,11 @@ use a current read-only diagnostic. The proposed action is durably stored
 before the provider is called; only the later verified provider receipt may
 create the next canonical memory.
 
-The repository implementation and deterministic regression suite are PASS.
-Until the reviewed `main` workflow produces an exact-head report with every
-gate true, the live architectural claim remains HOLD.
+The repository implementation, deterministic regression suite, and live
+reconciliation are PASS. Recovery run `31506117708` on reconciler head
+`9bfb9017e03b33b56fa0af942ed111b4362336d9` consumed the exact failed-candidate
+artifact from run `31503686643` and completed the CockroachDB outcome and
+canonical-memory joins without dispatching another provider action.
 
 Live predecessor `31501325773` is intentionally retained as FAIL: exact-head
 deployment stopped before any provider, database, or model call because the
@@ -53,6 +55,16 @@ the database. The repair exports only the already resolved deployment contract
 inside that step while retaining the same values in `GITHUB_ENV` for later
 steps.
 
+Recovery run `31506117708` then passed every frozen predicate. The original
+candidate head `9fed05095f2283d919915387d02198bf4faa677f` remains the head of
+all six provider receipts, including action runs `31503922040` and
+`31503923725`; the repaired reconciler is separately identified. The report's
+self receipt is `dd249605d58884391cb5adca45f48f871593435381307624f73b5573b98e6929`,
+the Actions archive digest is
+`sha256:7d23ab01720c9fca14c1cfc4fabd9e3af16d6603ee7beafd63df316c5c158bf0`,
+and the reviewed RLS checksum is
+`69a168e1e55440bf563483947f5438855e93a715a56eb702f49a845d360b4e02`.
+
 ```mermaid
 flowchart LR
   A[Provider-success source receipt] --> B[CockroachDB outcome + canonical memory]
@@ -66,15 +78,15 @@ flowchart LR
 
 ## What the implementation now proves
 
-| Result | Required evidence | Status before the live run |
+| Result | Required evidence | Live status |
 | --- | --- | --- |
 | Provider payload cannot become arbitrary prompt authority | Canonical-memory projection accepts only bounded outcome facts and rejects unknown fields | Source/test PASS |
 | The model calls the deployed scoped store | `search_memory` and `fetch_memory` invoke server-owned tools, retaining retrieval IDs and detecting search/fetch drift | Source/test PASS |
 | Historical demo rows cannot satisfy the proof accidentally | Admission is pinned to the newly promoted source memory ID after actual vector retrieval | Source/test PASS |
 | Same-cause and near-neighbour decisions use separate target evidence | Read-only target attestation is joined server-side by causal signature; incompatible memory is visible but cannot authorize an action | Source/test PASS |
-| External effect follows durable intent | Two remediation workflows may be dispatched only after two CockroachDB proposal rows exist | Workflow contract PASS; live HOLD |
-| Successful effects teach the next episode | Finalization joins run, proposal, outcome, canonical memory, retrieval audit, citation, provider receipt, embedding model, and RLS checksum | Workflow contract PASS; live HOLD |
-| Cross-scope data remains inaccessible | A freshly embedded sentinel in another incident must be invisible to the resolved runtime role, including negative write checks | Workflow contract PASS; live HOLD |
+| External effect follows durable intent | Two remediation workflows may be dispatched only after two CockroachDB proposal rows exist | Live PASS; both action creation times follow the durable proposal receipt |
+| Successful effects teach the next episode | Finalization joins run, proposal, outcome, canonical memory, retrieval audit, citation, provider receipt, embedding model, and RLS checksum | Live PASS; both target outcomes were promoted |
+| Cross-scope data remains inaccessible | A freshly embedded sentinel in another incident must be invisible to the resolved runtime role, including negative write checks | Live PASS; foreign rows zero and all four negative capability checks denied |
 
 ## Scope and metric definitions
 
@@ -134,9 +146,10 @@ for comparative behavior.
 - GitHub Actions is a disposable real external provider, not a customer
   production remediation system. The claim is bounded to its registered
   capability and receipt contract.
-- A live failure must preserve the existing immutable v20 release. It must not
+- A live failure preserved the immutable v20 release. It was not
   be converted to PASS by weakening label, retrieval, isolation, timing, or
-  provider-success predicates.
+  provider-success predicates; only the later exact-receipt recovery became the
+  v21 candidate.
 
 ## Release gate
 
@@ -157,9 +170,18 @@ the following together:
 
 ## After closure
 
-The next decision should be based on what the live receipt reveals. If it
-passes, the highest-value follow-up is a judge-facing evidence compiler that
-turns the joined memory/retrieval/proposal/outcome IDs into a short interactive
-episode narrative. If it fails, repair the first broken real boundary with a
-small reviewed PR and rerun the unchanged gate; do not add features around an
-unclosed lineage.
+The judge-facing compiler now publishes the joined memory, retrieval, proposal,
+provider action, outcome, promotion, candidate, reconciler, and RLS receipts as
+a redacted deterministic projection. The full verifier independently reads the
+failed candidate, successful reconciler, both Actions artifacts, both action
+runs, public bytes, and immutable release asset.
+
+The next fundamental P0 is **outcome-receipt compare-and-set plus a
+database-native reconciliation journal**. The current SQL replay path returns a
+previous outcome for the proposal without first proving that the replayed
+provider, receipt ID, status, and receipt digest are identical. The workflow
+artifact made this recovery safe, but that invariant belongs at the durable
+database boundary. A retry with a different receipt must become a typed
+conflict, while an exact replay must return the same outcome and promotion.
+This removes the remaining cross-head trust gap instead of adding another
+benchmark or security feature around it.

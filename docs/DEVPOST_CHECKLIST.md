@@ -109,6 +109,13 @@ complete attestations and organizer agreements.
       and recovery lift gates each reached `p=0.03125`; the page preserves the
       shared-attestation and non-open-world boundary:
       <https://yonghwan2161.github.io/continuum-memory-firewall/transfer-firewall.html>.
+- [x] Online memory-lineage recovery closes one real provider → CockroachDB →
+      Titan/RLS → durable proposal → later provider action → verified outcome
+      chain. Failed candidate `31503686643` retained both action receipts;
+      read-only reconciler `31506117708` completed both promotions with zero
+      provider redispatch, zero cross-scope rows, and a public projection that
+      omits server-owned scope identifiers:
+      <https://yonghwan2161.github.io/continuum-memory-firewall/online-memory-lineage.html>.
 - [x] Network-visible sign-once release flow refuses a second author
       attestation, attaches the one verified Fulcio/Rekor author bundle before
       release immutability, serves identical bundle bytes through Pages, and

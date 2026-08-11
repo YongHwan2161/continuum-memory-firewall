@@ -1,11 +1,12 @@
 # Immutable competition release envelope
 
-`hackathon-v20` is the proof unit for the receipt-compiled competition story,
+`hackathon-v21` is the proof unit for the receipt-compiled competition story,
 closed-loop CI recovery, preregistered ambiguity-first diagnosis, and
-counterfactual cross-environment transfer evidence. It is published only by
+counterfactual cross-environment transfer plus online CockroachDB memory-lineage
+evidence. It is published only by
 `.github/workflows/release-envelope.yml` after every fail-closed gate passes.
 
-The published v20 receipt is exact and terminal: coordinator run `31441863985`
+The prior published v20 receipt remains exact and terminal: coordinator run `31441863985`
 targeted `16a84d10c6fce8af5e82a39b7c67b24c27603327`; immutable envelope SHA-256 is
 `4efed2befbb4ebf97a2e78a72f426c8afb1ed6871089b10a30be4f0bfcba4acf`;
 Pages run `31441902936` recorded `PAGES_MATERIALIZED`; and the public terminal
@@ -82,6 +83,10 @@ The envelope binds:
   seal digests, 84 unique calibration/attestation/diagnostic/remediation
   receipts, 6/6 same-cause transfer, 6/6 near-neighbour rejection, zero
   Continuum false transfer/promotion, and the bounded non-open-world claim; and
+- the failed online-lineage candidate, successful cross-head reconciler, both
+  exact Actions artifacts, two already-executed provider actions, raw report
+  self receipt, redacted public projection, CockroachDB/Titan/RLS joins, four
+  negative SQL capability checks, and provider reexecution count zero; and
 - the Devpost submission ID, updated project timestamp, public project URL,
   current video URL, duration, local-render SHA-256, and English subtitle
   SHA-256.
@@ -90,7 +95,8 @@ The immutable release carries the exact sandbox JSON, full ablation JSON,
 public-safe episode drill-down JSON, full real-provider guardian JSON, the
 time-distributed aggregate JSON, public blind-holdout JSON, public
 sequential-campaign JSON, public CI-recovery JSON, public adaptive-diagnosis
-JSON, and public transfer-firewall JSON as release assets in addition to the
+JSON, public transfer-firewall JSON, and public online-memory-lineage JSON as
+release assets in addition to the
 envelope. Each has a SHA-256 sidecar; the release also carries
 `evidence-story-v1.json`.
 This keeps judge evidence available
@@ -210,6 +216,17 @@ promotion both `0`, canonical precision `1.0`, paired probe reduction at
 target attestations and the typed benchmark memory boundary explicit; it does
 not infer open-world generalization or fewer total provider runs.
 
+Version 21 closes the sponsor-database lineage gap. Candidate run
+`31503686643` stored both CockroachDB proposals and completed provider actions
+`31503922040` and `31503923725` before its evaluator failed. Reconciler run
+`31506117708`, with read-only Actions permission and no provider-dispatch
+capability, consumes the exact candidate artifact and completes both verified
+outcomes and canonical promotions with provider reexecution count zero. The
+release binds candidate/reconciler heads, predecessor/recovery artifacts,
+proposal and outcome input digests, raw report self receipt, redacted public
+projection, RLS checksum, and one same-cause plus one near-neighbour result. The
+claim is architectural closure, not a population-level effect estimate.
+
 Version 19 closes the explicit-diagnostic information-value gap. Twelve opaque
 red summaries are generated as six novel/recurrence pairs. Challenge, evaluator
 labels, and their commitment are checksum-addressed and S3-sealed before the
@@ -258,7 +275,7 @@ asset state, and SHA-256 digest. A judge can independently download the envelope
 and validate its sidecar without trusting the public page:
 
 ```bash
-gh release download hackathon-v20 --pattern 'continuum-release-envelope-v2.json*'
+gh release download hackathon-v21 --pattern 'continuum-release-envelope-v2.json*'
 sha256sum -c continuum-release-envelope-v2.json.sha256
 ```
 
@@ -269,7 +286,7 @@ attestation API and the in-toto subject digest. Full cryptographic policy
 verification is one repository command:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v20
+python scripts/verify_network_sign_once.py --release-tag hackathon-v21
 ```
 
 That command downloads the immutable envelope, detached author bundle, and both

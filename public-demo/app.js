@@ -7,6 +7,7 @@ const sequentialUrl = './evidence/sequential-blind-v1.json';
 const ciRecoveryUrl = './evidence/ci-recovery-v1.json';
 const adaptiveDiagnosisUrl = './evidence/adaptive-diagnosis-v1.json';
 const transferFirewallUrl = './evidence/transfer-firewall-v1.json';
+const onlineMemoryLineageUrl = './evidence/online-memory-lineage-v1.json';
 const byId = id => document.getElementById(id);
 const percent = value => `${(Number(value) * 100).toFixed(1)}%`;
 const latency = value => `${Number(value).toFixed(1)} ms`;
@@ -35,6 +36,7 @@ function renderJudge(evidence) {
   if (evidence.ci_recovery) byId('ci-workflow').href = evidence.ci_recovery.workflow_url;
   if (evidence.adaptive_diagnosis) byId('adaptive-workflow').href = evidence.adaptive_diagnosis.workflow_url;
   if (evidence.transfer_firewall) byId('transfer-workflow').href = evidence.transfer_firewall.workflow_url;
+  if (evidence.online_memory_lineage) byId('online-workflow').href = evidence.online_memory_lineage.workflow_url;
   liveStoryUrl = evidence.runtime.demo_url
     || evidence.runtime.health_url.replace(/\/healthz$/, '/demo/run?scenario=checkout-cache-pressure-v1');
   byId('proof-status').textContent = 'EVIDENCE READY';
@@ -89,6 +91,13 @@ function renderTransferFirewall(evidence) {
   byId('transfer-reuse').textContent = `${arms.continuum.same_cause_verified_transfers}/${arms.continuum.same_cause_cases}`;
   byId('transfer-rejection').textContent = `${arms.continuum.near_neighbor_safe_rejections}/${arms.continuum.near_neighbor_cases}`;
   byId('transfer-raw-false').textContent = `${arms.raw_rag.near_neighbor_false_transfers}/${arms.raw_rag.near_neighbor_cases}`;
+}
+
+function renderOnlineMemoryLineage(evidence) {
+  byId('online-pairs').textContent = String(evidence.methodology.architectural_pairs);
+  byId('online-promotions').textContent = `${evidence.targets.filter(item => Boolean(item.promoted_memory_id)).length}/2`;
+  byId('online-redispatch').textContent = String(evidence.reconciliation.provider_action_reexecutions);
+  byId('online-leakage').textContent = evidence.gate.cross_scope_rows_zero ? '0' : 'FAIL';
 }
 
 async function runStory() {
@@ -171,8 +180,8 @@ async function quickCheck() {
   button.disabled = true;
   result.textContent = 'Checking immutable evidence, workflow, Pages, and MCP health…';
   try {
-    const [judge, scale, pressure, guardian, blind, sequential, ciRecovery, adaptive, transfer] = await Promise.all([
-      json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl), json(blindUrl), json(sequentialUrl), json(ciRecoveryUrl), json(adaptiveDiagnosisUrl), json(transferFirewallUrl)
+    const [judge, scale, pressure, guardian, blind, sequential, ciRecovery, adaptive, transfer, online] = await Promise.all([
+      json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl), json(blindUrl), json(sequentialUrl), json(ciRecoveryUrl), json(adaptiveDiagnosisUrl), json(transferFirewallUrl), json(onlineMemoryLineageUrl)
     ]);
     const [workflow, health, page, release] = await Promise.all([
       json(judge.source.workflow_api_url),
@@ -181,6 +190,7 @@ async function quickCheck() {
       json(judge.release_envelope.release_api_url),
     ]);
     const releaseAsset = release.assets?.find(asset => asset.name === judge.release_envelope.asset_name);
+    const onlineReleaseAsset = release.assets?.find(asset => asset.name === judge.release_envelope.online_memory_lineage_asset_name);
     const passed = judge.submission.status === 'Submitted'
       && judge.evaluation.cross_scope_leaked_documents === 0
       && scale.gate.status === 'PASS'
@@ -232,8 +242,21 @@ async function quickCheck() {
       && transfer.arms.continuum.near_neighbor_safe_rejections === 6
       && transfer.arms.continuum.near_neighbor_false_transfers === 0
       && transfer.arms.raw_rag.near_neighbor_false_transfers === 6;
-    const allPassed = passed && guardianPassed && blindPassed && sequentialPassed && ciRecoveryPassed && adaptivePassed && transferPassed;
-    result.textContent = allPassed ? 'PASS · public evidence, transfer firewall, and live health agree.' : 'HOLD · open the full verifier for details.';
+    const same = online.targets.find(item => item.relationship === 'same-cause-transfer');
+    const near = online.targets.find(item => item.relationship === 'near-neighbor-rejection');
+    const onlinePassed = online.gate.status === 'PASS'
+      && online.methodology.architectural_pairs === 1
+      && online.methodology.target_cases === 2
+      && online.reconciliation.provider_action_reexecutions === 0
+      && online.identity.server_owned_scope_ids_disclosed === false
+      && same.selected_memory_ids.length === 1
+      && same.diagnostic_receipts.length === 0
+      && near.selected_memory_ids.length === 0
+      && near.diagnostic_receipts.length === 1
+      && online.targets.every(item => item.outcome_status === 'succeeded' && Boolean(item.promoted_memory_id))
+      && onlineReleaseAsset?.digest === `sha256:${judge.online_memory_lineage.public_sha256}`;
+    const allPassed = passed && guardianPassed && blindPassed && sequentialPassed && ciRecoveryPassed && adaptivePassed && transferPassed && onlinePassed;
+    result.textContent = allPassed ? 'PASS · public evidence, online CockroachDB lineage, and live health agree.' : 'HOLD · open the full verifier for details.';
     byId('proof-status').textContent = allPassed ? 'ALL PUBLIC GATES PASS' : 'HOLD';
   } catch (error) {
     result.textContent = 'HOLD · public verification is temporarily unavailable.';
@@ -244,8 +267,8 @@ async function quickCheck() {
   }
 }
 
-Promise.all([json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl), json(blindUrl), json(sequentialUrl), json(ciRecoveryUrl), json(adaptiveDiagnosisUrl), json(transferFirewallUrl)])
-  .then(([judge, scale, pressure, guardian, blind, sequential, ciRecovery, adaptive, transfer]) => {
+Promise.all([json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl), json(blindUrl), json(sequentialUrl), json(ciRecoveryUrl), json(adaptiveDiagnosisUrl), json(transferFirewallUrl), json(onlineMemoryLineageUrl)])
+  .then(([judge, scale, pressure, guardian, blind, sequential, ciRecovery, adaptive, transfer, online]) => {
     renderJudge(judge);
     renderScale(scale);
     renderPressure(pressure);
@@ -255,6 +278,7 @@ Promise.all([json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl
     renderCIRecovery(ciRecovery);
     renderAdaptiveDiagnosis(adaptive);
     renderTransferFirewall(transfer);
+    renderOnlineMemoryLineage(online);
   })
   .catch(error => { byId('proof-status').textContent = 'EVIDENCE HOLD'; console.error(error); });
 byId('quick-check').addEventListener('click', quickCheck);

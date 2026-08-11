@@ -1,6 +1,6 @@
 # Project status
 
-**Status date:** 2026-08-11
+**Status date:** 2026-08-12
 **Current milestone:** P2C — authenticated managed-cloud slice submitted; iterative hardening open
 **Overall state:** the local promotion-to-retrieval vertical slice and repository
 MCP contract are implemented and tested. A private, cost-bounded AWS Lambda
@@ -60,6 +60,21 @@ all six near neighbours. The paired same-cause diagnostic reduction and
 Continuum recovery lift over raw-RAG each reached exact `p=0.03125`. See
 [TRANSFER_FIREWALL_BENCHMARK.md](TRANSFER_FIREWALL_BENCHMARK.md).
 
+The online CockroachDB memory-lineage seam is live-complete. Candidate run
+`31503686643` promoted and Titan-indexed a real provider-success source outcome,
+proved non-bypass RLS isolation, executed actual Bedrock scoped search/fetch,
+stored two proposals, and then executed provider action runs `31503922040` and
+`31503923725`. Its evaluator failed before target outcome promotion, so the
+candidate remains FAIL. Recovery run `31506117708` used the exact predecessor
+artifact under `actions: read`, dispatched zero additional provider actions,
+and completed both verified outcomes and canonical promotions. Same cause used
+the source memory with zero diagnostics; the near neighbour selected no memory
+and used one current diagnostic. Every gate passed, including database episode
+joins, retrieval audit IDs, exact patches, zero cross-scope rows, zero cleanup
+residuals, and RLS checksum `69a168e1…b4e02`. The result is one architectural
+pair/two targets, not a population-level superiority estimate. See
+[ONLINE_MEMORY_LINEAGE.md](ONLINE_MEMORY_LINEAGE.md).
+
 Publication is also complete. PR `#132` merged as `16a84d10`; release
 coordinator run `31441863985` published immutable `hackathon-v20` at that exact
 target, and Pages run `31441902936` materialized the terminal receipt. Its state
@@ -91,6 +106,7 @@ evidence, and explicit non-claims.
 | Closed-loop CI recovery | Live GitHub Actions benchmark complete; public projection and immutable release bound | Parent run `31389008324` produced 18 calibration plus 36 evaluation children: 54 unique workflow/artifact receipts, exact head `3a77fa7`, no repository mutation, and zero cleanup residual. Continuum 12/12, stateless 12/12, raw-RAG 11/12; raw-RAG admitted one false canonical promotion while Continuum admitted zero. Public SHA-256 `8d0f6ac8…9236`. The result proves failed-memory isolation, not superiority over stateless. See [CI_RECOVERY_BENCHMARK.md](CI_RECOVERY_BENCHMARK.md). |
 | Ambiguity-first adaptive diagnosis | Live S3-preregistered three-arm benchmark complete; v19 publication-gated | Exact-head run `31400622882` produced 18 calibration, 30 read-only diagnostic, and 36 remediation receipts: 84 unique run/artifact identities, no repository mutation, and zero cleanup residual. Every arm recovered 12/12. Continuum used 6 diagnostics versus 12 for stateless and skipped all 6 recurrence probes; paired exact `p=0.03125`, canonical precision 1.0, false promotion 0. Public SHA-256 `29014436…d635c7`; transfer and lower-token-cost claims remain excluded. See [ADAPTIVE_DIAGNOSIS_BENCHMARK.md](ADAPTIVE_DIAGNOSIS_BENCHMARK.md). |
 | Counterfactual cross-environment transfer firewall | Live S3-preregistered benchmark complete; immutable v20 and Pages bound | Exact-head run `31439117749` produced 18 source calibration, 12 target attestation, 18 diagnostic, and 36 remediation receipts: 84 unique run/artifact/digest identities, disjoint source/target fingerprints, no repository mutation, and zero cleanup residual. Continuum recovered 12/12, transferred 6/6 same-cause memories, rejected 6/6 near neighbours, and promoted zero failed outcomes. raw-RAG recovered 6/12 with six false transfers and six false promotions. Public SHA-256 `cf46c936…dbf25`; release `hackathon-v20`, coordinator `31441863985`, Pages `31441902936`, and monitor `31442028079` passed. Open-world and total-provider-call claims remain excluded. See [TRANSFER_FIREWALL_BENCHMARK.md](TRANSFER_FIREWALL_BENCHMARK.md). |
+| Online CockroachDB memory lineage | Live provider/Bedrock/CockroachDB recovery complete; v21 publication candidate | Candidate `31503686643` durably stored two proposals before two successful provider actions, then failed before DB finalization. Read-only recovery `31506117708` consumed its exact artifact, reexecuted zero provider actions, joined both outcomes and promotions, retained retrieval-audit IDs, passed RLS and four negative SQL checks, and produced report receipt `dd249605…e6929` plus artifact digest `7d23ab01…58bf0`. Same-cause selected one canonical memory with zero diagnostics; near-neighbour selected none with one diagnostic. This is a one-pair architectural closure, not a new comparative estimate. |
 | Pre-registered blind multi-provider holdout | Live label-denied GitHub/S3 benchmark complete and release-bound | Run `31300283080` scored 60 pairs/120 observations only after both arms finished. Candidate label fields were zero and the candidate process did not open labels. Continuum completed 45/60 versus raw-RAG 43/60, with zero Continuum false promotion, cross-scope leak, duplicate effect, or cleanup residual; raw-RAG recorded 16 false promotions. Public SHA-256 `0a0791b1…abba2e74`. |
 | Per-episode paired drill-down | Implemented, live-generated, and checksum-bound | The exact-head `2ef2247` rerun projects 540 observations into 180 three-arm incidents. Each arm exposes scoped search results, SHA-256 citation-handle fingerprints, typed proposal, provider outcome evidence, and promotion decision. Projection gates: exact pairing PASS, issued handles only PASS, Continuum unsafe proposals 0, cross-scope rows 0, private identifier keys 0 |
 | Network-visible sign-once | Implemented and publicly verifiable | `hackathon-v10` is durable-draft-first, author-signed, and published in one main-only workflow. It emits exactly one Fulcio/Rekor author bundle, verifies exact workflow/ref/source/runner policy, includes the bundle before immutability, and serves the two-authority network bundle through Pages. The gate separately requires GitHub's one immutable-release countersignature, so platform signing is not misreported as an author replay. |

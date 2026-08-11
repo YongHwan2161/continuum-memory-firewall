@@ -6,7 +6,7 @@ on:
       release_tag:
         description: New or resumable immutable GitHub Release tag
         required: true
-        default: hackathon-v20
+        default: hackathon-v21
       release_target:
         description: Exact existing release target to reconcile; blank uses the workflow SHA
         required: false
@@ -74,7 +74,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           judge=public-demo/evidence/judge-verification.json
-          for plane in source vector_scale agent_pressure managed_mcp sandbox_provider agent_ablation release_guardian time_distributed_replication blind_holdout sequential_blind_campaign ci_recovery adaptive_diagnosis transfer_firewall; do
+          for plane in source vector_scale agent_pressure managed_mcp sandbox_provider agent_ablation release_guardian time_distributed_replication blind_holdout sequential_blind_campaign ci_recovery adaptive_diagnosis transfer_firewall online_memory_lineage; do
             case "$plane" in
               source)
                 run_id="$(jq -r '.source.workflow_run_id' "$judge")"
@@ -128,6 +128,10 @@ jobs:
                 run_id="$(jq -r '.transfer_firewall.workflow_run_id' "$judge")"
                 expected_head="$(jq -r '.transfer_firewall.head_sha' "$judge")"
                 ;;
+              online_memory_lineage)
+                run_id="$(jq -r '.online_memory_lineage.workflow_run_id' "$judge")"
+                expected_head="$(jq -r '.online_memory_lineage.reconciler_head_sha' "$judge")"
+                ;;
             esac
             provider_receipt="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
             test "$(jq -r '.conclusion' <<<"$provider_receipt")" = success
@@ -144,6 +148,17 @@ jobs:
               "$(jq -r '.sequential_blind_campaign.head_sha' "$judge")"
             test "$(jq -r '.conclusion' <<<"$candidate_receipt")" = failure
           fi
+          lineage_candidate_run_id="$(jq -r '.online_memory_lineage.predecessor_workflow_run_id' "$judge")"
+          lineage_candidate="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$lineage_candidate_run_id")"
+          test "$(jq -r '.head_sha' <<<"$lineage_candidate")" = \
+            "$(jq -r '.online_memory_lineage.candidate_head_sha' "$judge")"
+          test "$(jq -r '.conclusion' <<<"$lineage_candidate")" = failure
+          for action_run_id in $(jq -r '.online_memory_lineage.provider_action_run_ids[]' "$judge"); do
+            action_receipt="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$action_run_id")"
+            test "$(jq -r '.head_sha' <<<"$action_receipt")" = \
+              "$(jq -r '.online_memory_lineage.candidate_head_sha' "$judge")"
+            test "$(jq -r '.conclusion' <<<"$action_receipt")" = success
+          done
 
       - name: Download and bind exact historical and CI-recovery artifacts
         if: steps.transaction.outputs.mode == 'new'
@@ -153,8 +168,8 @@ jobs:
         run: |
           set -euo pipefail
           judge=public-demo/evidence/judge-verification.json
-          mkdir -p build/evidence/sandbox build/evidence/ablation build/evidence/guardian build/evidence/replication build/evidence/blind build/evidence/sequential build/evidence/ci-recovery build/evidence/adaptive-diagnosis build/evidence/transfer-firewall
-          for plane in sandbox_provider agent_ablation release_guardian time_distributed_replication blind_holdout sequential_blind_campaign ci_recovery adaptive_diagnosis transfer_firewall; do
+          mkdir -p build/evidence/sandbox build/evidence/ablation build/evidence/guardian build/evidence/replication build/evidence/blind build/evidence/sequential build/evidence/ci-recovery build/evidence/adaptive-diagnosis build/evidence/transfer-firewall build/evidence/online-lineage
+          for plane in sandbox_provider agent_ablation release_guardian time_distributed_replication blind_holdout sequential_blind_campaign ci_recovery adaptive_diagnosis transfer_firewall online_memory_lineage; do
             artifact_id="$(jq -r ".$plane.artifact_id" "$judge")"
             artifact_name="$(jq -r ".$plane.artifact_name" "$judge")"
             expected_archive="sha256:$(jq -r ".$plane.artifact_archive_sha256" "$judge")"
@@ -171,6 +186,7 @@ jobs:
             if [ "$plane" = ci_recovery ]; then target=build/evidence/ci-recovery; fi
             if [ "$plane" = adaptive_diagnosis ]; then target=build/evidence/adaptive-diagnosis; fi
             if [ "$plane" = transfer_firewall ]; then target=build/evidence/transfer-firewall; fi
+            if [ "$plane" = online_memory_lineage ]; then target=build/evidence/online-lineage; fi
             gh run download \
               "$(jq -r ".$plane.workflow_run_id" "$judge")" \
               --name "$artifact_name" \
@@ -214,6 +230,8 @@ jobs:
             "$(jq -r '.transfer_firewall.public_sha256' "$judge")"
           cmp build/evidence/transfer-firewall/transfer-firewall-v1.json \
             public-demo/evidence/transfer-firewall-v1.json
+          test "$(sha256sum public-demo/evidence/online-memory-lineage-v1.json | cut -d' ' -f1)" = \
+            "$(jq -r '.online_memory_lineage.public_sha256' "$judge")"
           PYTHONPATH=src python - <<'PY'
           import json
           from pathlib import Path
@@ -223,7 +241,9 @@ jobs:
           from continuum.sequential_blind import build_public_sequential_blind
           from continuum.ci_recovery import build_public_ci_recovery
           from continuum.adaptive_diagnosis import build_public_adaptive_diagnosis
+          from continuum.online_memory_lineage import build_public_online_memory_lineage
           from continuum.transfer_firewall import build_public_transfer_firewall
+          from scripts.promote_online_memory_lineage_evidence import _validate_reconciliation_inputs
           raw = json.loads(Path("build/evidence/guardian/release-guardian-v1.json").read_text())
           public = json.loads(Path("public-demo/evidence/release-guardian-v1.json").read_text())
           if public != build_public_release_guardian(raw):
@@ -252,6 +272,22 @@ jobs:
           transfer_public = json.loads(Path("public-demo/evidence/transfer-firewall-v1.json").read_text())
           if transfer_public != build_public_transfer_firewall(transfer_raw):
               raise SystemExit("public transfer firewall projection does not match raw report")
+          online_raw = json.loads(Path("build/evidence/online-lineage/online-memory-lineage-v1.json").read_text())
+          online_public = json.loads(Path("public-demo/evidence/online-memory-lineage-v1.json").read_text())
+          if online_public != build_public_online_memory_lineage(online_raw):
+              raise SystemExit("public online memory lineage projection does not match raw report")
+          input_path = Path("build/evidence/online-lineage/reconciliation-input-v1.json")
+          proposals_path = Path("build/evidence/online-lineage/predecessor/proposals-v1.json")
+          outcomes_path = Path("build/evidence/online-lineage/predecessor/provider-outcomes-v1.json")
+          _validate_reconciliation_inputs(
+              online_raw,
+              reconciliation_input_bytes=input_path.read_bytes(),
+              reconciliation_input=json.loads(input_path.read_text()),
+              proposals_bytes=proposals_path.read_bytes(),
+              proposals=json.loads(proposals_path.read_text()),
+              provider_outcomes_bytes=outcomes_path.read_bytes(),
+              provider_outcomes=json.loads(outcomes_path.read_text()),
+          )
           PY
 
       - name: Build the exact release payload once
@@ -277,6 +313,7 @@ jobs:
             --ci-recovery-public public-demo/evidence/ci-recovery-v1.json \
             --adaptive-diagnosis-public public-demo/evidence/adaptive-diagnosis-v1.json \
             --transfer-firewall-public public-demo/evidence/transfer-firewall-v1.json \
+            --online-memory-lineage-public public-demo/evidence/online-memory-lineage-v1.json \
             --repo-root . \
             --repository "$GITHUB_REPOSITORY" \
             --commit-sha "$RELEASE_TARGET" \
@@ -306,6 +343,8 @@ jobs:
             build/release/adaptive-diagnosis-v1.json
           cp public-demo/evidence/transfer-firewall-v1.json \
             build/release/transfer-firewall-v1.json
+          cp public-demo/evidence/online-memory-lineage-v1.json \
+            build/release/online-memory-lineage-v1.json
           (
             cd build/release
             sha256sum sandbox-provider-proof.json >sandbox-provider-proof.json.sha256
@@ -319,6 +358,7 @@ jobs:
             sha256sum ci-recovery-v1.json >ci-recovery-v1.json.sha256
             sha256sum adaptive-diagnosis-v1.json >adaptive-diagnosis-v1.json.sha256
             sha256sum transfer-firewall-v1.json >transfer-firewall-v1.json.sha256
+            sha256sum online-memory-lineage-v1.json >online-memory-lineage-v1.json.sha256
           )
 
       - name: Create the durable draft before author signing
@@ -354,6 +394,8 @@ jobs:
             build/release/adaptive-diagnosis-v1.json.sha256 \
             build/release/transfer-firewall-v1.json \
             build/release/transfer-firewall-v1.json.sha256 \
+            build/release/online-memory-lineage-v1.json \
+            build/release/online-memory-lineage-v1.json.sha256 \
             --target "$RELEASE_TARGET" \
             --draft \
             --title "Continuum Memory Firewall evidence envelope" \
@@ -439,6 +481,8 @@ jobs:
               "adaptive-diagnosis-v1.json.sha256",
               "transfer-firewall-v1.json",
               "transfer-firewall-v1.json.sha256",
+              "online-memory-lineage-v1.json",
+              "online-memory-lineage-v1.json.sha256",
           )
           root = Path("build/release")
           print(json.dumps({name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}, sort_keys=True))
@@ -642,6 +686,8 @@ jobs:
               "adaptive-diagnosis-v1.json.sha256",
               "transfer-firewall-v1.json",
               "transfer-firewall-v1.json.sha256",
+              "online-memory-lineage-v1.json",
+              "online-memory-lineage-v1.json.sha256",
           )
           root = Path("build/release")
           print(json.dumps({name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}, sort_keys=True))
