@@ -1,15 +1,6 @@
 name: public-demo
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "public-demo/**"
-      - ".github/workflows/pages.yml"
-  release:
-    types:
-      - published
   workflow_dispatch:
     inputs:
       coordinator_workflow_run_id:

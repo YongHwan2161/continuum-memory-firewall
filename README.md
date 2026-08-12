@@ -23,11 +23,11 @@ The current milestone is **P2B: authenticated managed-cloud competition
 slice**. In addition to the transactional promotion and retrieval boundary, a
 private, cost-bounded AWS Lambda client for CockroachDB Cloud Managed MCP and a
 public TLS repository MCP service are deployed. Live smoke tests proved two
-Managed MCP read tools, a pre-secret write-tool denial, all fifteen
+Managed MCP read tools, a pre-secret write-tool denial, all thirty-five
 participant-cluster migrations, audited caller-to-scope bindings, matching
 RLS-confined SQL identities, bounded per-identity connection pools, fixed AWS
 SQL egress, five-minute Cognito caller tokens, Bedrock Titan embeddings, and an
-authenticated cross-scope vector flow across all seventeen migrations. The
+authenticated cross-scope vector flow on the current schema. The
 60-query adversarial live evaluation
 measured Recall@1 = 0.8667, Recall@3 = 0.9833, Recall@5 = 1.0, zero cross-scope
 leakage, p50 = 248.149 ms, and p95 = 279.012 ms. A separate 10k/50k synthetic
@@ -85,6 +85,7 @@ of truth for whether the promotion and action claim committed.
 - `src/continuum/migrate.py` — checksum, lease, retry, adoption, and validation runner
 - `src/continuum/db_smoke.py` — synthetic live-database promotion/retrieval smoke path
 - `src/continuum/ci_recovery.py` — real GitHub Actions red-to-green recovery contract and metrics
+- `src/continuum/outcome_attestation.py` — short-lived provider-origin promotion handle contract
 - `src/continuum/outcome_replay_proof.py` — public-safe outcome CAS and journal-chain verifier
 - `infra/aws/` — cost-bounded CloudFormation and Lambda dependency manifest
 - `scripts/` — dry-by-default CockroachDB/AWS preflight, packaging, and deployment
@@ -198,14 +199,18 @@ evaluator failed after both actions, so a separate `actions: read` reconciler
 completed only the database side with zero provider redispatch. This is a
 one-pair architectural closure, not a new comparative effect estimate.
 
-The [outcome replay CAS proof](https://yonghwan2161.github.io/continuum-memory-firewall/outcome-replay-cas.html)
-then closes the remaining replay split-brain seam on the participant cluster.
-One real disposable S3 receipt produced exactly one durable outcome and one
-canonical promotion; its exact replay returned the same identity; a second
-real S3 receipt for the same proposal committed `OUTCOME_REPLAY_CONFLICT` to a
-three-entry SHA-256 database journal before the typed error reached the caller.
-The scope SQL identity saw exactly those three rows under RLS. This is one
-retained-proposal architectural closure, not a population estimate.
+The [outcome promotion proof](https://yonghwan2161.github.io/continuum-memory-firewall/outcome-replay-cas.html)
+now closes both provider-origin admission and replay split-brain on the
+participant cluster. Seven fresh S3 `HeadObject`/`GetObject` lookups exercised
+one short-lived signed handle: CockroachDB consumed its digest and nonce in the
+same transaction as exactly one outcome and one canonical promotion. Missing,
+forged, expired, cross-proposal, cross-provider, and receipt-mismatched handles
+all failed with zero negative outcome rows. Exact replay returned the same
+identity; a second real S3 receipt committed `OUTCOME_REPLAY_CONFLICT` to a
+three-entry SHA-256 journal. The raw handle was never persisted, and the scope
+SQL identity could read its one attestation row but could not insert one
+(`SQLSTATE 42501`). This is one retained-proposal architectural closure, not a
+population estimate.
 
 The current receipt-compiled 97.02-second judge demo is public at
 <https://youtu.be/QQxfQaDVz9c>. Its nine scenes are generated from the immutable

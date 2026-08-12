@@ -36,6 +36,7 @@ RLS_MIGRATIONS = (
     "0009_enable_canonical_memory_rls.sql",
     "0010_enable_retrieval_audit_rls.sql",
     "0011_enable_incident_rls.sql",
+    "0035_enable_provider_outcome_attestation_rls.sql",
 )
 CONTROL_PLANE_MIGRATIONS = (
     "0012_create_tenant_control_plane.sql",

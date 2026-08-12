@@ -1,7 +1,30 @@
 {
+  "attestation": {
+    "algorithm": "HMAC-SHA256",
+    "atomic_join_rows": 1,
+    "consumed_outcome_id": "e9293994-8808-41c0-a5c2-d3dd9cbbf431",
+    "consumed_rows": 1,
+    "handle_digest": "ad1d2c66233650da3b2afa691e5a2fc81215b4ae29c5e76f784b53998e0356df",
+    "issuer": "s3-provider-origin-verifier-v1",
+    "key_id": "126997c9c34efa07",
+    "negative_codes": {
+      "cross_proposal": "OUTCOME_ATTESTATION_BINDING_MISMATCH",
+      "cross_provider": "OUTCOME_ATTESTATION_BINDING_MISMATCH",
+      "expired_handle": "OUTCOME_ATTESTATION_EXPIRED",
+      "forged_handle": "OUTCOME_ATTESTATION_INVALID",
+      "missing_handle": "OUTCOME_ATTESTATION_REQUIRED",
+      "receipt_mismatch": "OUTCOME_ATTESTATION_BINDING_MISMATCH"
+    },
+    "negative_outcome_rows": 0,
+    "policy_version": "s3-receipt-lookup-v1",
+    "raw_handle_persisted": false,
+    "stored_handle_digest": "ad1d2c66233650da3b2afa691e5a2fc81215b4ae29c5e76f784b53998e0356df",
+    "stored_nonce_digest": "b24444a244460d3fd207003f034dc81f8ec5d194227e131a3032af5d2a1bcebc",
+    "ttl_seconds": 300
+  },
   "cas": {
     "canonical_promotions": 1,
-    "chain_tip": "1f254c59ee71e0e98d9d35489d5f27027389311c6b8edc9d3ea7a1ec8a1fe1fe",
+    "chain_tip": "630999002aada8d5d53b63570b6d0ec3091069f031943935ce75186609f7cf14",
     "conflict_error_code": "OUTCOME_REPLAY_CONFLICT",
     "exact_replayed": true,
     "first_replayed": false,
@@ -10,25 +33,25 @@
         "decision": "accepted",
         "durable": {
           "provider": "aws-s3",
-          "provider_receipt_id": "aws-s3:4db1ae8aa709799a7c3dfe052dd7dd8a92083de93f63ccff07431b84d5805280",
-          "receipt_digest": "51d433c817e32c10c1d0897da6c18b177aae1568f519569878b72276cf6bcc79",
+          "provider_receipt_id": "aws-s3:94269e5a466c5b6c3efe99e88d33c41d3b717aeb3ad55b755eb04be6320fcaf0",
+          "receipt_digest": "5b3730dc90f8c39dac3cbce212d03dd46b78a7698bf0ca96a5e26fbff914aeba",
           "status": "succeeded"
         },
-        "entry_hash": "e3306f8992e5aa75461656d92e86b901bc4ddeaef90b27fa3178f998fd1ae78e",
+        "entry_hash": "32c10a2737eeacd5f71715389d2e9bb1ad2b126be5e834dbe21d85d0e622d438",
         "error_code": null,
         "incident_id": "0aab2b52-a2ba-4959-ae6f-1893fff0868f",
         "incoming": {
           "provider": "aws-s3",
-          "provider_receipt_id": "aws-s3:4db1ae8aa709799a7c3dfe052dd7dd8a92083de93f63ccff07431b84d5805280",
-          "receipt_digest": "51d433c817e32c10c1d0897da6c18b177aae1568f519569878b72276cf6bcc79",
+          "provider_receipt_id": "aws-s3:94269e5a466c5b6c3efe99e88d33c41d3b717aeb3ad55b755eb04be6320fcaf0",
+          "receipt_digest": "5b3730dc90f8c39dac3cbce212d03dd46b78a7698bf0ca96a5e26fbff914aeba",
           "status": "succeeded"
         },
-        "outcome_id": "07f21389-6ef4-4b5d-8a00-470fcd089346",
+        "outcome_id": "e9293994-8808-41c0-a5c2-d3dd9cbbf431",
         "previous_entry_hash": "0000000000000000000000000000000000000000000000000000000000000000",
-        "proposal_id": "54081cd4-d174-46b6-8a2c-b67c584ee25c",
-        "reconciliation_id": "637f3a9f-f9c0-4839-b42c-99cf7a20790c",
-        "recorded_at": "2026-08-11T23:34:50.454991+00:00",
-        "run_id": "70bfb287-b9fe-456f-a474-f122a9666aa9",
+        "proposal_id": "eb2f07fa-d169-4821-a765-8b7fb2599be1",
+        "reconciliation_id": "bca2b8fb-f38e-42f2-ae3c-901aa591e911",
+        "recorded_at": "2026-08-12T23:29:34.082398+00:00",
+        "run_id": "1226ea42-3df9-4f2d-b7b1-aa486ff6c75e",
         "sequence_no": 1,
         "tenant_id": "0334b58d-5141-44ac-a2ba-9ffa4f316de5"
       },
@@ -36,25 +59,25 @@
         "decision": "exact_replay",
         "durable": {
           "provider": "aws-s3",
-          "provider_receipt_id": "aws-s3:4db1ae8aa709799a7c3dfe052dd7dd8a92083de93f63ccff07431b84d5805280",
-          "receipt_digest": "51d433c817e32c10c1d0897da6c18b177aae1568f519569878b72276cf6bcc79",
+          "provider_receipt_id": "aws-s3:94269e5a466c5b6c3efe99e88d33c41d3b717aeb3ad55b755eb04be6320fcaf0",
+          "receipt_digest": "5b3730dc90f8c39dac3cbce212d03dd46b78a7698bf0ca96a5e26fbff914aeba",
           "status": "succeeded"
         },
-        "entry_hash": "50751165022093187b76efebe8fe825cbe27367782ab1a77ef85cc4e78449421",
+        "entry_hash": "2aa5ca06ed3291366b8c4136c906339dd687d9178c5c378f5939174ca2d53dfa",
         "error_code": null,
         "incident_id": "0aab2b52-a2ba-4959-ae6f-1893fff0868f",
         "incoming": {
           "provider": "aws-s3",
-          "provider_receipt_id": "aws-s3:4db1ae8aa709799a7c3dfe052dd7dd8a92083de93f63ccff07431b84d5805280",
-          "receipt_digest": "51d433c817e32c10c1d0897da6c18b177aae1568f519569878b72276cf6bcc79",
+          "provider_receipt_id": "aws-s3:94269e5a466c5b6c3efe99e88d33c41d3b717aeb3ad55b755eb04be6320fcaf0",
+          "receipt_digest": "5b3730dc90f8c39dac3cbce212d03dd46b78a7698bf0ca96a5e26fbff914aeba",
           "status": "succeeded"
         },
-        "outcome_id": "07f21389-6ef4-4b5d-8a00-470fcd089346",
-        "previous_entry_hash": "e3306f8992e5aa75461656d92e86b901bc4ddeaef90b27fa3178f998fd1ae78e",
-        "proposal_id": "54081cd4-d174-46b6-8a2c-b67c584ee25c",
-        "reconciliation_id": "a43a33f2-507d-4d7d-aaff-3c33b16cfe41",
-        "recorded_at": "2026-08-11T23:34:50.642051+00:00",
-        "run_id": "70bfb287-b9fe-456f-a474-f122a9666aa9",
+        "outcome_id": "e9293994-8808-41c0-a5c2-d3dd9cbbf431",
+        "previous_entry_hash": "32c10a2737eeacd5f71715389d2e9bb1ad2b126be5e834dbe21d85d0e622d438",
+        "proposal_id": "eb2f07fa-d169-4821-a765-8b7fb2599be1",
+        "reconciliation_id": "562a3985-7ab9-4e74-a920-8c7b06e60278",
+        "recorded_at": "2026-08-12T23:29:34.344578+00:00",
+        "run_id": "1226ea42-3df9-4f2d-b7b1-aa486ff6c75e",
         "sequence_no": 2,
         "tenant_id": "0334b58d-5141-44ac-a2ba-9ffa4f316de5"
       },
@@ -62,25 +85,25 @@
         "decision": "conflict",
         "durable": {
           "provider": "aws-s3",
-          "provider_receipt_id": "aws-s3:4db1ae8aa709799a7c3dfe052dd7dd8a92083de93f63ccff07431b84d5805280",
-          "receipt_digest": "51d433c817e32c10c1d0897da6c18b177aae1568f519569878b72276cf6bcc79",
+          "provider_receipt_id": "aws-s3:94269e5a466c5b6c3efe99e88d33c41d3b717aeb3ad55b755eb04be6320fcaf0",
+          "receipt_digest": "5b3730dc90f8c39dac3cbce212d03dd46b78a7698bf0ca96a5e26fbff914aeba",
           "status": "succeeded"
         },
-        "entry_hash": "1f254c59ee71e0e98d9d35489d5f27027389311c6b8edc9d3ea7a1ec8a1fe1fe",
+        "entry_hash": "630999002aada8d5d53b63570b6d0ec3091069f031943935ce75186609f7cf14",
         "error_code": "OUTCOME_REPLAY_CONFLICT",
         "incident_id": "0aab2b52-a2ba-4959-ae6f-1893fff0868f",
         "incoming": {
           "provider": "aws-s3",
-          "provider_receipt_id": "aws-s3:3e46b56d1fa98d7a0c3f8a74908593d5a2ab1f06b1a2b0ec75d635e80162915c",
-          "receipt_digest": "0b257f5b756932d42f894d8a37623cb04c97036957a9ac262ba0c5389048ded9",
+          "provider_receipt_id": "aws-s3:f169822d928cc91076dc346ffe5ee8af62f7053ed9dd4c2742e81668f8eb228b",
+          "receipt_digest": "3b5c7b565a8d2992165222aadedcba6a565f5255cf5ff205720b1ece978377f2",
           "status": "succeeded"
         },
-        "outcome_id": "07f21389-6ef4-4b5d-8a00-470fcd089346",
-        "previous_entry_hash": "50751165022093187b76efebe8fe825cbe27367782ab1a77ef85cc4e78449421",
-        "proposal_id": "54081cd4-d174-46b6-8a2c-b67c584ee25c",
-        "reconciliation_id": "6cb32414-8c7c-4da3-bc1d-a0435335dabc",
-        "recorded_at": "2026-08-11T23:34:50.752902+00:00",
-        "run_id": "70bfb287-b9fe-456f-a474-f122a9666aa9",
+        "outcome_id": "e9293994-8808-41c0-a5c2-d3dd9cbbf431",
+        "previous_entry_hash": "2aa5ca06ed3291366b8c4136c906339dd687d9178c5c378f5939174ca2d53dfa",
+        "proposal_id": "eb2f07fa-d169-4821-a765-8b7fb2599be1",
+        "reconciliation_id": "761c6491-15de-4711-95e6-a41bf9640121",
+        "recorded_at": "2026-08-12T23:29:34.508447+00:00",
+        "run_id": "1226ea42-3df9-4f2d-b7b1-aa486ff6c75e",
         "sequence_no": 3,
         "tenant_id": "0334b58d-5141-44ac-a2ba-9ffa4f316de5"
       }
@@ -88,51 +111,60 @@
     "journal_rows": 3,
     "outcome_rows": 1
   },
-  "claim_boundary": "One retained participant-cluster proposal with two real disposable S3 receipts; this is an architectural closure, not a population estimate.",
+  "claim_boundary": "One retained participant-cluster proposal with two real disposable S3 receipts. Schema v2 additionally proves provider-origin lookup, short-lived signed admission, and atomic handle consumption; this is an architectural closure, not a population estimate.",
   "database": {
     "engine": "CockroachDB",
     "rls": {
       "all_visible_reconciliations_in_scope": true,
-      "proposal_visible_rows": 3
+      "attestation_visible_rows": 1,
+      "proposal_visible_rows": 3,
+      "runtime_attestation_insert_sqlstate": "42501"
     },
     "scope_sql_role": "continuum_scope_75c9873c721b5a2f"
   },
   "deployment_artifact_sha256": "3ece49e3652a48e902577106e58acacea9cfcedccc32f1d4282c31603648ace8",
   "gate": {
+    "atomic_attestation_outcome_promotion": true,
     "conflict_committed_before_error": true,
     "conflicting_replay_rejected": true,
     "exact_replay_idempotent": true,
     "journal_hash_chain_valid": true,
     "one_canonical_promotion": true,
     "one_durable_outcome": true,
+    "provider_lookup_before_issue": true,
+    "raw_handle_absent": true,
     "scope_rls_valid": true,
-    "status": "PASS"
+    "signed_handle_consumed_once": true,
+    "status": "PASS",
+    "unauthorized_promotions_blocked": true
   },
   "kind": "continuum.outcome-replay-cas.public",
   "migration": {
     "adopted": [],
     "applied": [
-      32,
-      33
+      34,
+      35
     ],
-    "current_version": 33
+    "current_version": 35
   },
   "provider": {
-    "accepted_object_sha256": "dda86c5212a5a152f6e3fac5900630781cc2939621d8fff4fd8fb04b275f6e07",
-    "accepted_receipt_sha256": "e54508062d7b01597f30276cd9e6efbd5e98e50ab5b6aaaf6c89b6e2068fcdc4",
+    "accepted_object_sha256": "500f4e6fbb4b225386f60c353ae9a8693652c7eb5d40bce122e07d6ffde562e2",
+    "accepted_receipt_sha256": "d2cf982bb36442e92270e90d6f6ac8094c3abbe5af77eabc76260f2d57bd51e3",
     "adapter": "aws-s3",
     "capability_manifest": {
       "receipt_lookup": true,
       "reconciliation_timeout_seconds": 0,
       "supports_idempotency": true
     },
-    "conflicting_object_sha256": "674f9fc310f11a852e5d25311de57e6e96e73c9028c512efa11d7431db2d77b8",
-    "conflicting_receipt_sha256": "2baf4fec3cdd0025375259dea240f1882e3379d1ff5e8fa478fd7e8a84701a9b"
+    "conflicting_object_sha256": "4fd9b5d2743eba1052c64bff4696ddf5d90c37344ae2dd3291c93b4053fb6def",
+    "conflicting_receipt_sha256": "990fe696b3c113b691ab47eb70f855077d5113658d363a42a619c8120e792acc",
+    "lookup_count": 7,
+    "lookup_method": "s3:HeadObject+GetObject"
   },
-  "schema_version": 1,
-  "source_head": "1bda2522e150bf02b670e1751bcfa721af8faced",
+  "schema_version": 2,
+  "source_head": "43d63f0ab3af16f83733e2950cffb2954c532582",
   "workflow": {
     "run_attempt": 1,
-    "run_id": 31546885169
+    "run_id": 31650943912
   }
 }
