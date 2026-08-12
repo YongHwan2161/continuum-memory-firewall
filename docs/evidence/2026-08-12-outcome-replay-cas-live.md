@@ -54,3 +54,19 @@ EC2 host, Elastic IP, database cluster, or standing AWS role was created, so no
 AWS Budget increase was required. This proves architectural closure for one
 retained participant-cluster proposal; it is not a population estimate of
 conflict frequency or provider reliability.
+
+## Immutable publication
+
+PR [#143](https://github.com/YongHwan2161/continuum-memory-firewall/pull/143)
+merged to exact target `8481ac3804bf38b69e87086a9257a895d8f3b124` after both CI
+executions passed. Coordinator run
+[31548463634](https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31548463634)
+published immutable release
+[`hackathon-v22`](https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v22).
+The immutable envelope is
+`0b6cd0ee76bf596bf81ebdd3d98055cc65f4504aa4e2fb03a6a404d8fa539f71`;
+Pages run `31548509773` produced terminal receipt
+`3f386203e0c2ef825b418993a06b273bf85fd0e0ef3faac6df40933779ea1d19`.
+Credential-free monitor run `31548582748` passed every read-only gate and
+retained artifact `9123384105` with digest
+`sha256:2c9f02ca3fd53dae0e5b6c07bf3450bfd36324eca9e94a956cdde279aec18d8e`.

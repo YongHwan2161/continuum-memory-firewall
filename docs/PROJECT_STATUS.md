@@ -88,7 +88,19 @@ rows. Artifact `9122846707` is bound by archive digest
 retained-proposal architectural closure, not a population estimate. See
 [2026-08-12-outcome-replay-cas-live.md](evidence/2026-08-12-outcome-replay-cas-live.md).
 
-Publication is also complete. PR `#139` merged as `0ac85de1`; release
+Outcome-CAS publication is complete. PR `#143` merged as exact release target
+`8481ac3804bf38b69e87086a9257a895d8f3b124`; coordinator run `31548463634`
+published immutable `hackathon-v22`, and Pages run `31548509773` materialized
+the terminal receipt. Its state is `PAGES_MATERIALIZED`, receipt SHA-256 is
+`3f386203…a1d19`, immutable envelope SHA-256 is `0b6cd0ee…39f71`, and
+coordinator artifact `9123349934` has digest `sha256:adec921a…a1c8`.
+Network-visible sign-once verification found exactly one author SLSA
+attestation and one GitHub release countersignature. Credential-free monitor
+run `31548582748` passed every gate, including `outcome_replay_cas_closure`,
+and retained artifact `9123384105` (`sha256:2c9f02ca…8d8e`). The live
+outcome page independently rendered `PASS · NETWORK + DB CHAIN BOUND`.
+
+The prior online-lineage publication is also complete. PR `#139` merged as `0ac85de1`; release
 coordinator run `31510629746` published immutable `hackathon-v21` at exact
 target `0ac85de1835c3235634e963d313e62fa82ed63da`, and Pages run `31510716374`
 materialized the terminal receipt. Its state is `PAGES_MATERIALIZED`, receipt
