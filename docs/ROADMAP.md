@@ -182,7 +182,7 @@ reconciler SHAs, Actions artifact digests, memory/retrieval/proposal/outcome
 IDs, the RLS checksum, and the bounded one-pair/two-case claim. See
 [ONLINE_MEMORY_LINEAGE.md](ONLINE_MEMORY_LINEAGE.md).
 
-### Next fundamental P0 — outcome-receipt CAS and durable reconciliation journal
+### Completed fundamental P0 — outcome-receipt CAS and durable reconciliation journal
 
 The live crash exposed the next narrow architectural seam. The CockroachDB
 `record_outcome_and_promote` replay path returns an existing proposal outcome,
@@ -201,10 +201,33 @@ Implement one database transaction that:
 - proves exact replay, conflicting replay, crash-before-commit, and
   crash-after-commit behavior with CockroachDB integration/property tests.
 
-This is now the highest-value P0 because it converts the successful workflow-
-level recovery contract into a storage-enforced invariant. Another benchmark
-would repeat evidence; this change removes the remaining way a cross-head
-reconciler could disagree with the canonical provider outcome.
+Migrations 32 and 33, proposal-scoped compare-and-set, typed
+`OUTCOME_REPLAY_CONFLICT`, and the append-only reconciliation hash chain are
+implemented and live-verified on the participant cluster. Exact replay returns
+the one durable outcome; a different real S3 receipt commits a conflict journal
+entry before the typed error reaches the caller. See
+[the live proof](evidence/2026-08-12-outcome-replay-cas-live.md).
+
+### Next fundamental P0 — provider-origin outcome attestation admission
+
+Replay identity is now storage-enforced, but `record_outcome_and_promote` can
+still receive a caller-constructed successful `ProviderOutcome`. Move provider
+verification authority into a server-issued, single-use attestation handle:
+
+- bind proposal ID, provider, action/idempotency identity, provider lookup
+  result, receipt ID/digest, status, verifier policy/version, nonce, and expiry;
+- let only the adapter verifier mint a handle after an actual provider lookup;
+- consume the handle in the same CockroachDB transaction as first outcome
+  acceptance and canonical promotion;
+- reject fake, expired, cross-proposal, cross-provider, and replayed handles;
+- prove the identical contract against disposable GitHub and S3 adapters; and
+- expose only redacted attestation digests in the release envelope and judge
+  page.
+
+This is the highest-value remaining P0 because it closes who is authorized to
+assert provider success. More evaluation would repeat current evidence; this
+change prevents a compromised worker or buggy caller from manufacturing the
+one fact that makes an episode canonical.
 
 The following items should be pulled into the milestone they block:
 
