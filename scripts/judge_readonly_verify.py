@@ -649,7 +649,7 @@ def verify_outcome_replay_cas(
     ):
         return False
     return (
-        reference.get("schema_version") == 1
+        reference.get("schema_version") == report.get("schema_version")
         and public_sha == reference.get("public_sha256")
         and report.get("source_head") == reference.get("head_sha")
         and report.get("deployment_artifact_sha256")
@@ -672,6 +672,17 @@ def verify_outcome_replay_cas(
         == reference.get("chain_tip")
         and report.get("cas", {}).get("conflict_error_code")
         == reference.get("conflict_error_code")
+        and (
+            report.get("schema_version") == 1
+            or (
+                report.get("provider", {}).get("lookup_count")
+                == reference.get("provider_lookup_count")
+                and report.get("attestation", {}).get("handle_digest")
+                == reference.get("attestation_handle_digest")
+                and report.get("attestation", {}).get("policy_version")
+                == reference.get("attestation_policy_version")
+            )
+        )
         and workflow.get("id") == reference.get("workflow_run_id")
         and workflow.get("run_attempt") == reference.get("workflow_attempt")
         and workflow.get("head_sha") == reference.get("head_sha")

@@ -1396,6 +1396,29 @@ def build_envelope(
                     "conflict_error_code"
                 )
                 == outcome_replay_cas_reference.get("conflict_error_code")
+                and (
+                    outcome_replay_cas_public.get("schema_version") == 1
+                    or (
+                        outcome_replay_cas_public.get("provider", {}).get(
+                            "lookup_count"
+                        )
+                        == outcome_replay_cas_reference.get(
+                            "provider_lookup_count"
+                        )
+                        and outcome_replay_cas_public.get("attestation", {}).get(
+                            "handle_digest"
+                        )
+                        == outcome_replay_cas_reference.get(
+                            "attestation_handle_digest"
+                        )
+                        and outcome_replay_cas_public.get("attestation", {}).get(
+                            "policy_version"
+                        )
+                        == outcome_replay_cas_reference.get(
+                            "attestation_policy_version"
+                        )
+                    )
+                )
                 and outcome_replay_cas_reference.get("artifact_name")
                 == (
                     "continuum-outcome-replay-cas-"
@@ -2451,6 +2474,15 @@ def build_envelope(
                     "provider": outcome_replay_cas_public["provider"],
                     "database": outcome_replay_cas_public["database"],
                     "cas": outcome_replay_cas_public["cas"],
+                    **(
+                        {
+                            "attestation": outcome_replay_cas_public[
+                                "attestation"
+                            ]
+                        }
+                        if outcome_replay_cas_public["schema_version"] >= 2
+                        else {}
+                    ),
                     "gate": outcome_replay_cas_public["gate"],
                     "claim_boundary": outcome_replay_cas_public[
                         "claim_boundary"

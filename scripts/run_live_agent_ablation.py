@@ -35,6 +35,7 @@ from continuum.orchestrator import (
     OrchestrationError,
     RetrievalStoreTools,
 )
+from continuum.outcome_attestation import ProviderOutcomeAttestationAuthority
 from continuum.retrieval import BedrockTitanEmbedder, MemoryRetrievalStore
 from continuum.store import (
     CockroachMemoryStore,
@@ -197,7 +198,12 @@ def main() -> None:
     )
     connect = psycopg_connection_factory(database_url)
     migration = Migrator(connect).migrate()
-    episode_store = CockroachEpisodeStore(connect)
+    outcome_authority = ProviderOutcomeAttestationAuthority.ephemeral(
+        issuer="live-ablation-provider-verifier-v1"
+    )
+    episode_store = CockroachEpisodeStore(
+        connect, attestation_verifier=outcome_authority
+    )
     retrieval_store = MemoryRetrievalStore(connect)
     embedder = BedrockTitanEmbedder(region=args.embedding_region)
     model = BedrockConverseClient(region=args.agent_region)
@@ -311,12 +317,13 @@ def main() -> None:
                             reason="allowlisted non-production synthetic action",
                         )
                         observed_at = datetime.now(timezone.utc)
+                        idempotency_key = (
+                            f"{evaluation_id}:{seed}:{arm.value}:{case.case_id}"
+                        )
                         provider_outcome = provider.execute(
                             case=case,
                             proposal=result.proposal,
-                            idempotency_key=(
-                                f"{evaluation_id}:{seed}:{arm.value}:{case.case_id}"
-                            ),
+                            idempotency_key=idempotency_key,
                             observed_at=observed_at,
                         )
                         outcome_status = provider_outcome.status
@@ -339,6 +346,16 @@ def main() -> None:
                         outcome_result = episode_store.record_outcome_and_promote(
                             proposal_id=result.proposal_id,
                             outcome=provider_outcome,
+                            outcome_attestation=(
+                                outcome_authority.issue(
+                                    proposal_id=result.proposal_id,
+                                    idempotency_key=idempotency_key,
+                                    outcome=provider_outcome,
+                                    policy_version="synthetic-ablation-v2",
+                                )
+                                if provider_outcome.status is OutcomeStatus.SUCCEEDED
+                                else None
+                            ),
                         )
                         promoted_memory_id = outcome_result.memory_id
                         if outcome_result.memory_id is not None:

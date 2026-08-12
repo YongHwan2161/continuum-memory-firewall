@@ -36,6 +36,7 @@ from continuum.outbox import (
     OutboxStatus,
     TransactionalOutboxWorker,
 )
+from continuum.outcome_attestation import ProviderOutcomeAttestationAuthority
 from continuum.retrieval import (
     HASH_EMBEDDING_MODEL,
     HashingEmbedder,
@@ -114,7 +115,13 @@ class CockroachIntegrationTests(unittest.TestCase):
             sleep=lambda _: None,
         )
         self.embedder = HashingEmbedder()
-        self.episodes = CockroachEpisodeStore(self.connect)
+        self.attestation_authority = ProviderOutcomeAttestationAuthority.ephemeral(
+            issuer="continuum-integration-verifier-v1"
+        )
+        self.episodes = CockroachEpisodeStore(
+            self.connect,
+            attestation_verifier=self.attestation_authority,
+        )
         self.outbox = CockroachOutboxStore(self.connect, sleep=lambda _: None)
 
     def test_migrations_are_complete_and_idempotent(self):
@@ -205,24 +212,39 @@ class CockroachIntegrationTests(unittest.TestCase):
             observed_at=NOW,
             verified_at=NOW,
         )
+        outcome_handle = self.attestation_authority.issue(
+            proposal_id=proposal_id,
+            idempotency_key=f"integration:{proposal_id}",
+            outcome=outcome,
+            policy_version="integration-v1",
+        )
         promoted_outcome = self.episodes.record_outcome_and_promote(
             proposal_id=proposal_id,
             outcome=outcome,
+            outcome_attestation=outcome_handle,
         )
         replayed_outcome = self.episodes.record_outcome_and_promote(
             proposal_id=proposal_id,
             outcome=outcome,
+            outcome_attestation=outcome_handle,
+        )
+        conflicting_outcome = ProviderOutcome(
+            provider="integration-provider",
+            status=OutcomeStatus.SUCCEEDED,
+            provider_receipt_id="integration-receipt-2",
+            evidence={"expected_action_matched": True},
+            observed_at=NOW,
+            verified_at=NOW,
         )
         with self.assertRaises(OutcomeReplayConflictError) as conflict:
             self.episodes.record_outcome_and_promote(
                 proposal_id=proposal_id,
-                outcome=ProviderOutcome(
-                    provider="integration-provider",
-                    status=OutcomeStatus.SUCCEEDED,
-                    provider_receipt_id="integration-receipt-2",
-                    evidence={"expected_action_matched": True},
-                    observed_at=NOW,
-                    verified_at=NOW,
+                outcome=conflicting_outcome,
+                outcome_attestation=self.attestation_authority.issue(
+                    proposal_id=proposal_id,
+                    idempotency_key=f"integration:{proposal_id}",
+                    outcome=conflicting_outcome,
+                    policy_version="integration-v1",
                 ),
             )
 
@@ -376,6 +398,7 @@ class CockroachIntegrationTests(unittest.TestCase):
             outbox=self.outbox,
             episodes=self.episodes,
             provider=idempotent,
+            attestation_authority=self.attestation_authority,
             worker_id="integration-safe-worker",
         )
         crash_after_send(safe_worker, NOW)
@@ -399,6 +422,7 @@ class CockroachIntegrationTests(unittest.TestCase):
             outbox=self.outbox,
             episodes=self.episodes,
             provider=non_idempotent,
+            attestation_authority=self.attestation_authority,
             worker_id="integration-ambiguous-worker",
         )
         crash_after_send(ambiguous_worker, NOW + timedelta(seconds=2))

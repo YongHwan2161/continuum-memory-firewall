@@ -44,6 +44,7 @@ from continuum.orchestrator import (
     MemoryToolHit,
     OrchestrationError,
 )
+from continuum.outcome_attestation import ProviderOutcomeAttestationAuthority
 
 
 CHILD_WORKFLOW = "ci-recovery-child.yml"
@@ -64,6 +65,7 @@ class ProposalContext:
     arm: AgentArm
     case_id: str
     store: InMemoryEpisodeStore
+    outcome_authority: ProviderOutcomeAttestationAuthority
     result: Any | None
     proposed_patch_id: str | None
     model_latency_ms: float
@@ -513,12 +515,16 @@ def _propose(
     case: Any,
     calibration: Mapping[str, Any],
 ) -> ProposalContext:
-    store = InMemoryEpisodeStore()
+    outcome_authority = ProviderOutcomeAttestationAuthority.ephemeral(
+        issuer="ci-recovery-provider-verifier-v1"
+    )
+    store = InMemoryEpisodeStore(attestation_verifier=outcome_authority)
     memory_tools, wrong_memory_id = _memory_tools(
         arm=arm, family=case.family, calibration=calibration
     )
     orchestrator = AgentOrchestrator(
         store=store,
+        outcome_authority=outcome_authority,
         model=model,
         model_id=model_id,
         action_policies=CI_PATCH_POLICIES,
@@ -698,7 +704,20 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
                     ),
                 )
                 context.store.record_outcome_and_promote(
-                    proposal_id=result.proposal_id, outcome=outcome
+                    proposal_id=result.proposal_id,
+                    outcome=outcome,
+                    outcome_attestation=(
+                        context.outcome_authority.issue(
+                            proposal_id=result.proposal_id,
+                            idempotency_key=evaluation_keys[
+                                (arm.value, case.case_id)
+                            ],
+                            outcome=outcome,
+                            policy_version="ci-recovery-v1",
+                        )
+                        if outcome.status is OutcomeStatus.SUCCEEDED
+                        else None
+                    ),
                 )
             proposed = context.proposed_patch_id
             promoted = (

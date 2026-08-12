@@ -15,10 +15,23 @@ from continuum.episode import (
     ProviderOutcome,
     RiskClass,
 )
+from continuum.outcome_attestation import ProviderOutcomeAttestationAuthority
 
 
-def approved_proposal() -> tuple[InMemoryEpisodeStore, str, ProviderOutcome]:
-    store = InMemoryEpisodeStore()
+NOW = datetime(2026, 8, 12, tzinfo=timezone.utc)
+
+
+def approved_proposal() -> tuple[
+    InMemoryEpisodeStore,
+    ProviderOutcomeAttestationAuthority,
+    str,
+    ProviderOutcome,
+]:
+    authority = ProviderOutcomeAttestationAuthority.ephemeral(clock=lambda: NOW)
+    store = InMemoryEpisodeStore(
+        attestation_verifier=authority,
+        clock=lambda: NOW,
+    )
     run = store.start_run(
         tenant_id="11111111-1111-4111-8111-111111111111",
         incident_id="22222222-2222-4222-8222-222222222222",
@@ -42,7 +55,7 @@ def approved_proposal() -> tuple[InMemoryEpisodeStore, str, ProviderOutcome]:
         actor="policy:property-v1",
         reason="read-only",
     )
-    observed = datetime(2026, 8, 12, tzinfo=timezone.utc)
+    observed = NOW
     outcome = ProviderOutcome(
         provider="property-provider",
         status=OutcomeStatus.SUCCEEDED,
@@ -51,7 +64,7 @@ def approved_proposal() -> tuple[InMemoryEpisodeStore, str, ProviderOutcome]:
         observed_at=observed,
         verified_at=observed,
     )
-    return store, proposal_id, outcome
+    return store, authority, proposal_id, outcome
 
 
 def variant(kind: str, base: ProviderOutcome) -> ProviderOutcome:
@@ -111,10 +124,18 @@ class OutcomeReplayCasProperties(unittest.TestCase):
         self,
         attempts: list[str],
     ) -> None:
-        store, proposal_id, base = approved_proposal()
+        store, authority, proposal_id, base = approved_proposal()
+        durable_handle = authority.issue(
+            proposal_id=proposal_id,
+            idempotency_key=f"property:{proposal_id}",
+            outcome=base,
+            policy_version="property-v1",
+            issued_at=NOW,
+        )
         durable = store.record_outcome_and_promote(
             proposal_id=proposal_id,
             outcome=base,
+            outcome_attestation=durable_handle,
         )
 
         for kind in attempts:
@@ -123,14 +144,27 @@ class OutcomeReplayCasProperties(unittest.TestCase):
                 replay = store.record_outcome_and_promote(
                     proposal_id=proposal_id,
                     outcome=incoming,
+                    outcome_attestation=durable_handle,
                 )
                 self.assertTrue(replay.replayed)
                 self.assertEqual(replay.outcome_id, durable.outcome_id)
             else:
                 with self.assertRaises(OutcomeReplayConflictError):
+                    handle = (
+                        authority.issue(
+                            proposal_id=proposal_id,
+                            idempotency_key=f"property:{proposal_id}",
+                            outcome=incoming,
+                            policy_version="property-v1",
+                            issued_at=NOW,
+                        )
+                        if incoming.status is OutcomeStatus.SUCCEEDED
+                        else None
+                    )
                     store.record_outcome_and_promote(
                         proposal_id=proposal_id,
                         outcome=incoming,
+                        outcome_attestation=handle,
                     )
 
         self.assertEqual(store.outcomes[proposal_id], durable)

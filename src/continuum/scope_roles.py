@@ -60,6 +60,9 @@ def configure_scope_read_policies(
     episode_policy_names["outcome_reconciliation_journal"] = (
         f"continuum_reconcile_select_{suffix}"
     )
+    episode_policy_names["provider_outcome_attestations"] = (
+        f"continuum_attestation_select_{suffix}"
+    )
     connect = psycopg_connection_factory(migrator_database_url)
     from psycopg import sql
 

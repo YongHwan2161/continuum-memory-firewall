@@ -31,6 +31,7 @@ from continuum.episode import (
 from continuum.migrate import Migrator
 from continuum.online_lineage import TransferAdmissionTools, family_for_patch
 from continuum.orchestrator import BedrockConverseClient, RetrievalStoreTools
+from continuum.outcome_attestation import ProviderOutcomeAttestationAuthority
 from continuum.retrieval import BedrockTitanEmbedder, MemoryRetrievalStore
 from continuum.scope_roles import verify_scope_role
 from continuum.store import (
@@ -46,6 +47,7 @@ RLS_MIGRATIONS = (
     "0009_enable_canonical_memory_rls.sql",
     "0010_enable_retrieval_audit_rls.sql",
     "0011_enable_incident_rls.sql",
+    "0035_enable_provider_outcome_attestation_rls.sql",
 )
 
 
@@ -274,7 +276,12 @@ def prepare(args: argparse.Namespace) -> None:
     connect = psycopg_connection_factory(migrator_url)
     runtime_connect = psycopg_connection_factory(runtime_url)
     migration = Migrator(connect).migrate()
-    episodes = CockroachEpisodeStore(connect)
+    outcome_authority = ProviderOutcomeAttestationAuthority.ephemeral(
+        issuer="online-lineage-source-verifier-v1"
+    )
+    episodes = CockroachEpisodeStore(
+        connect, attestation_verifier=outcome_authority
+    )
     retrieval = MemoryRetrievalStore(connect)
     scoped_retrieval = MemoryRetrievalStore(runtime_connect)
     embedder = BedrockTitanEmbedder(region=args.embedding_region)
@@ -311,11 +318,18 @@ def prepare(args: argparse.Namespace) -> None:
         actor="policy:online-lineage-source-import-v1",
         reason="exact provider-success receipt passed the registered CI contract",
     )
+    source_outcome = _provider_outcome(
+        source_receipt,
+        canonical_memory=_canonical_source_facts(prepared),
+    )
     source_promotion = episodes.record_outcome_and_promote(
         proposal_id=source_proposal_id,
-        outcome=_provider_outcome(
-            source_receipt,
-            canonical_memory=_canonical_source_facts(prepared),
+        outcome=source_outcome,
+        outcome_attestation=outcome_authority.issue(
+            proposal_id=source_proposal_id,
+            idempotency_key=f"online-lineage:source:{prepared['campaign_id']}",
+            outcome=source_outcome,
+            policy_version="online-lineage-source-v1",
         ),
     )
     if source_promotion.memory_id is None:
@@ -572,7 +586,12 @@ def finalize(args: argparse.Namespace) -> None:
         args.ca_cert,
     )
     connect = psycopg_connection_factory(migrator_url)
-    episodes = CockroachEpisodeStore(connect)
+    outcome_authority = ProviderOutcomeAttestationAuthority.ephemeral(
+        issuer="online-lineage-target-verifier-v1"
+    )
+    episodes = CockroachEpisodeStore(
+        connect, attestation_verifier=outcome_authority
+    )
     retrieval = MemoryRetrievalStore(connect)
     embedder = BedrockTitanEmbedder(region=args.embedding_region)
     outcomes_by_case = {
@@ -617,9 +636,17 @@ def finalize(args: argparse.Namespace) -> None:
             actor="policy:online-lineage-target-v1",
             reason="bounded disposable provider action after durable proposal",
         )
+        proposal_id = str(proposal["proposal_id"])
+        target_outcome = _provider_outcome(receipt, canonical_memory=canonical)
         promotion = episodes.record_outcome_and_promote(
-            proposal_id=str(proposal["proposal_id"]),
-            outcome=_provider_outcome(receipt, canonical_memory=canonical),
+            proposal_id=proposal_id,
+            outcome=target_outcome,
+            outcome_attestation=outcome_authority.issue(
+                proposal_id=proposal_id,
+                idempotency_key=f"online-lineage:target:{proposal_id}",
+                outcome=target_outcome,
+                policy_version="online-lineage-target-v1",
+            ),
         )
         if promotion.memory_id is not None:
             retrieval.index_memory(

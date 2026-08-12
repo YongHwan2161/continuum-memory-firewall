@@ -28,6 +28,7 @@ from continuum.outbox import (
     OutboxStatus,
     TransactionalOutboxWorker,
 )
+from continuum.outcome_attestation import ProviderOutcomeAttestationAuthority
 from continuum.store import pin_database_tls_root, psycopg_connection_factory
 
 
@@ -121,7 +122,12 @@ def main() -> None:
     )
     connect = psycopg_connection_factory(database_url)
     migration = Migrator(connect).migrate()
-    episodes = CockroachEpisodeStore(connect)
+    outcome_authority = ProviderOutcomeAttestationAuthority.ephemeral(
+        issuer="outbox-live-provider-verifier-v1"
+    )
+    episodes = CockroachEpisodeStore(
+        connect, attestation_verifier=outcome_authority
+    )
     outbox = CockroachOutboxStore(connect)
     tenant_id = str(uuid4())
     scenarios: list[Mapping[str, Any]] = []
@@ -168,6 +174,7 @@ def main() -> None:
             episodes=episodes,
             provider=provider,
             worker_id=f"outbox-live-{offset}",
+            attestation_authority=outcome_authority,
         )
         try:
             worker.process_one(
