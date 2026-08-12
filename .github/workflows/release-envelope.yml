@@ -6,7 +6,7 @@ on:
       release_tag:
         description: New or resumable immutable GitHub Release tag
         required: true
-        default: hackathon-v22
+        default: hackathon-v23
       release_target:
         description: Exact existing release target to reconcile; blank uses the workflow SHA
         required: false
@@ -306,10 +306,30 @@ jobs:
           )
           PY
 
+      - name: Compile the zero-API judge capsule from the prior immutable proof
+        if: steps.transaction.outputs.mode == 'new'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PYTHONPATH: src:.
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m scripts.offline_judge_capsule build \
+            --evidence-url https://yonghwan2161.github.io/continuum-memory-firewall/evidence/judge-verification.json \
+            --repository "$GITHUB_REPOSITORY" \
+            --source-head "$RELEASE_TARGET" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-attempt "$GITHUB_RUN_ATTEMPT" \
+            --release-tag "$RELEASE_TAG" \
+            --observed-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --output build/release/judge-offline-capsule-v1.json
+
       - name: Build the exact release payload once
         if: steps.transaction.outputs.mode == 'new'
         env:
-          PYTHONPATH: src
+          PYTHONPATH: src:.
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           python scripts/build_release_envelope.py \
@@ -331,6 +351,7 @@ jobs:
             --transfer-firewall-public public-demo/evidence/transfer-firewall-v1.json \
             --online-memory-lineage-public public-demo/evidence/online-memory-lineage-v1.json \
             --outcome-replay-cas-public public-demo/evidence/outcome-replay-cas-v1.json \
+            --offline-judge-capsule build/release/judge-offline-capsule-v1.json \
             --repo-root . \
             --repository "$GITHUB_REPOSITORY" \
             --commit-sha "$RELEASE_TARGET" \
@@ -418,6 +439,8 @@ jobs:
             build/release/online-memory-lineage-v1.json.sha256 \
             build/release/outcome-replay-cas-v1.json \
             build/release/outcome-replay-cas-v1.json.sha256 \
+            build/release/judge-offline-capsule-v1.json \
+            build/release/judge-offline-capsule-v1.json.sha256 \
             --target "$RELEASE_TARGET" \
             --draft \
             --title "Continuum Memory Firewall evidence envelope" \
@@ -507,6 +530,8 @@ jobs:
               "online-memory-lineage-v1.json.sha256",
               "outcome-replay-cas-v1.json",
               "outcome-replay-cas-v1.json.sha256",
+              "judge-offline-capsule-v1.json",
+              "judge-offline-capsule-v1.json.sha256",
           )
           root = Path("build/release")
           print(json.dumps({name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}, sort_keys=True))
@@ -714,6 +739,8 @@ jobs:
               "online-memory-lineage-v1.json.sha256",
               "outcome-replay-cas-v1.json",
               "outcome-replay-cas-v1.json.sha256",
+              "judge-offline-capsule-v1.json",
+              "judge-offline-capsule-v1.json.sha256",
           )
           root = Path("build/release")
           print(json.dumps({name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}, sort_keys=True))

@@ -24,6 +24,10 @@ from continuum.online_memory_lineage import validate_public_online_memory_lineag
 from continuum.outcome_replay_proof import validate_outcome_replay_proof
 from continuum.sequential_blind import build_public_sequential_blind
 from continuum.transfer_firewall import build_public_transfer_firewall
+from scripts.offline_judge_capsule import (
+    CAPSULE_ASSET_NAME,
+    verify_capsule,
+)
 
 
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
@@ -154,6 +158,7 @@ def build_envelope(
     transfer_firewall_public: dict[str, Any] | None = None,
     online_memory_lineage_public: dict[str, Any] | None = None,
     outcome_replay_cas_public: dict[str, Any] | None = None,
+    offline_judge_capsule: dict[str, Any] | None = None,
     *,
     judge_bytes: bytes,
     scale_bytes: bytes,
@@ -173,6 +178,7 @@ def build_envelope(
     transfer_firewall_public_bytes: bytes = b"",
     online_memory_lineage_public_bytes: bytes = b"",
     outcome_replay_cas_public_bytes: bytes = b"",
+    offline_judge_capsule_bytes: bytes = b"",
     repo_root: Path,
     repository: str,
     commit_sha: str,
@@ -181,8 +187,8 @@ def build_envelope(
     release_tag: str,
     generated_at: str | None = None,
 ) -> dict[str, Any]:
-    if judge.get("schema_version") not in {8, 9, 10, 11, 12, 13, 14, 15}:
-        raise RuntimeError("judge evidence schema 8 through 15 is required")
+    if judge.get("schema_version") not in {8, 9, 10, 11, 12, 13, 14, 15, 16}:
+        raise RuntimeError("judge evidence schema 8 through 16 is required")
     if not SHA_PATTERN.fullmatch(commit_sha):
         raise RuntimeError("release commit must be a full lowercase SHA")
     if workflow_run_id < 1 or not workflow_url.startswith("https://github.com/"):
@@ -210,6 +216,7 @@ def build_envelope(
     transfer_firewall_reference = judge.get("transfer_firewall")
     online_memory_lineage_reference = judge.get("online_memory_lineage")
     outcome_replay_cas_reference = judge.get("outcome_replay_cas")
+    offline_judge_reference = judge.get("offline_judge_capsule")
     database_policy_reference = judge["database_policy"]
     release_reference = judge["release_envelope"]
     network_sign_once = judge["network_sign_once"]
@@ -281,6 +288,16 @@ def build_envelope(
         sha256_bytes(repository_text_bytes(outcome_replay_cas_public_bytes))
         if outcome_replay_cas_public is not None
         else ""
+    )
+    offline_judge_capsule_sha = (
+        sha256_bytes(offline_judge_capsule_bytes)
+        if offline_judge_capsule is not None
+        else ""
+    )
+    offline_judge_result = (
+        verify_capsule(offline_judge_capsule)
+        if offline_judge_capsule is not None
+        else None
     )
     public_ablation = build_public_ablation_aggregate(ablation)
     public_drilldown = build_public_episode_drilldown(ablation)
@@ -1635,6 +1652,49 @@ def build_envelope(
                     )
                 )
             )
+            and (
+                offline_judge_reference is None
+                or (
+                    release_reference.get("offline_judge_capsule_asset_name")
+                    == CAPSULE_ASSET_NAME
+                    and release_reference.get("offline_judge_capsule_asset_url")
+                    == (
+                        f"https://github.com/{repository}/releases/download/"
+                        f"{release_tag}/{CAPSULE_ASSET_NAME}"
+                    )
+                )
+            )
+        ),
+        "offline_judge_capsule_bound": (
+            judge.get("schema_version", 0) < 16
+            or (
+                offline_judge_reference is not None
+                and offline_judge_capsule is not None
+                and offline_judge_result is not None
+                and offline_judge_result.get("ok") is True
+                and offline_judge_reference.get("schema_version") == 1
+                and offline_judge_reference.get("asset_name")
+                == CAPSULE_ASSET_NAME
+                and offline_judge_reference.get("public_url")
+                == (
+                    judge["public_demo"]["url"].rstrip("/")
+                    + f"/evidence/{CAPSULE_ASSET_NAME}"
+                )
+                and offline_judge_capsule.get("compiler", {}).get("repository")
+                == repository
+                and offline_judge_capsule.get("compiler", {}).get("source_head")
+                == commit_sha
+                and offline_judge_capsule.get("compiler", {}).get(
+                    "successor_release_tag"
+                )
+                == release_tag
+                and offline_judge_capsule.get("predecessor", {}).get(
+                    "release_tag"
+                )
+                != release_tag
+                and SHA256_PATTERN.fullmatch(offline_judge_capsule_sha)
+                is not None
+            )
         ),
         "network_sign_once_contract_bound": (
             network_sign_once.get("schema_version") == 2
@@ -1818,6 +1878,15 @@ def build_envelope(
                         ]
                     }
                     if outcome_replay_cas_reference is not None
+                    else {}
+                ),
+                **(
+                    {
+                        "offline_judge_capsule": release_reference[
+                            "offline_judge_capsule_asset_url"
+                        ]
+                    }
+                    if offline_judge_reference is not None
                     else {}
                 ),
             },
@@ -2399,6 +2468,33 @@ def build_envelope(
         },
         "public_release_reference": release_reference,
         "network_sign_once": network_sign_once,
+        **(
+            {
+                "offline_judge_capsule": {
+                    "schema_version": 1,
+                    "asset_name": CAPSULE_ASSET_NAME,
+                    "asset_url": release_reference[
+                        "offline_judge_capsule_asset_url"
+                    ],
+                    "public_url": offline_judge_reference["public_url"],
+                    "asset_sha256": offline_judge_capsule_sha,
+                    "receipt_sha256": offline_judge_capsule["receipt_sha256"],
+                    "predecessor_release_tag": offline_judge_capsule[
+                        "predecessor"
+                    ]["release_tag"],
+                    "predecessor_release_target": offline_judge_capsule[
+                        "predecessor"
+                    ]["release_target"],
+                    "online_check_count": offline_judge_capsule[
+                        "online_verification"
+                    ]["check_count"],
+                    "ui_check_count": len(offline_judge_capsule["ui_checks"]),
+                    "github_api_requests_per_judge_click": 0,
+                }
+            }
+            if offline_judge_capsule is not None
+            else {}
+        ),
         "release_transaction": release_transaction,
         "database_policy": {
             "rls": rls_receipt,
@@ -2437,6 +2533,7 @@ def main() -> None:
     parser.add_argument("--transfer-firewall-public", type=Path)
     parser.add_argument("--online-memory-lineage-public", type=Path)
     parser.add_argument("--outcome-replay-cas-public", type=Path)
+    parser.add_argument("--offline-judge-capsule", type=Path)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--repository", required=True)
     parser.add_argument("--commit-sha", required=True)
@@ -2499,6 +2596,11 @@ def main() -> None:
         if args.outcome_replay_cas_public is not None
         else b""
     )
+    offline_judge_capsule_bytes = (
+        args.offline_judge_capsule.read_bytes()
+        if args.offline_judge_capsule is not None
+        else b""
+    )
     envelope = build_envelope(
         json.loads(judge_bytes),
         json.loads(scale_bytes),
@@ -2554,6 +2656,11 @@ def main() -> None:
             if outcome_replay_cas_public_bytes
             else None
         ),
+        (
+            json.loads(offline_judge_capsule_bytes)
+            if offline_judge_capsule_bytes
+            else None
+        ),
         judge_bytes=judge_bytes,
         scale_bytes=scale_bytes,
         pressure_bytes=pressure_bytes,
@@ -2572,6 +2679,7 @@ def main() -> None:
         transfer_firewall_public_bytes=transfer_firewall_public_bytes,
         online_memory_lineage_public_bytes=online_memory_lineage_public_bytes,
         outcome_replay_cas_public_bytes=outcome_replay_cas_public_bytes,
+        offline_judge_capsule_bytes=offline_judge_capsule_bytes,
         repo_root=args.repo_root.resolve(),
         repository=args.repository,
         commit_sha=args.commit_sha,
