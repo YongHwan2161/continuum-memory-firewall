@@ -219,6 +219,27 @@ EXPECTED_COLUMNS = {
         "entry_hash",
         "recorded_at",
     },
+    "provider_outcome_attestations": {
+        "attestation_id",
+        "handle_digest",
+        "nonce_digest",
+        "proposal_id",
+        "run_id",
+        "tenant_id",
+        "incident_id",
+        "provider",
+        "idempotency_key",
+        "status",
+        "provider_receipt_id",
+        "receipt_digest",
+        "policy_version",
+        "issuer",
+        "key_id",
+        "issued_at",
+        "expires_at",
+        "consumed_at",
+        "consumed_outcome_id",
+    },
 }
 EXPECTED_INDEXES = {
     "memory_candidates_incident_created_idx",
@@ -235,6 +256,7 @@ EXPECTED_INDEXES = {
     "action_outbox_ready_idx",
     "action_outbox_scope_run_idx",
     "outcome_reconciliation_scope_proposal_idx",
+    "provider_outcome_attestations_scope_proposal_idx",
 }
 EXPECTED_SCOPE_FOREIGN_KEYS = {
     "memory_candidates",
@@ -248,6 +270,7 @@ EXPECTED_SCOPE_FOREIGN_KEYS = {
     "outcome_evidence",
     "action_outbox",
     "outcome_reconciliation_journal",
+    "provider_outcome_attestations",
 }
 SAFE_UPDATES_OFF_MIGRATIONS = {"create_model_scoped_vector_index"}
 

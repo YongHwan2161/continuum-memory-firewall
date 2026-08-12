@@ -17,6 +17,7 @@ from continuum.outbox import (
     ProviderCapabilityManifest,
     TransactionalOutboxWorker,
 )
+from continuum.outcome_attestation import ProviderOutcomeAttestationAuthority
 
 
 NOW = datetime(2026, 8, 2, 12, 0, tzinfo=timezone.utc)
@@ -24,7 +25,13 @@ NOW = datetime(2026, 8, 2, 12, 0, tzinfo=timezone.utc)
 
 class TransactionalOutboxTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.episodes = InMemoryEpisodeStore()
+        self.attestation_authority = ProviderOutcomeAttestationAuthority.ephemeral(
+            clock=lambda: NOW
+        )
+        self.episodes = InMemoryEpisodeStore(
+            attestation_verifier=self.attestation_authority,
+            clock=lambda: NOW,
+        )
         self.outbox = InMemoryOutboxStore(self.episodes)
 
     def proposal(self, *, suffix: str = "one") -> str:
@@ -79,6 +86,7 @@ class TransactionalOutboxTests(unittest.TestCase):
                 outbox=self.outbox,
                 episodes=self.episodes,
                 provider=provider,
+                attestation_authority=self.attestation_authority,
                 worker_id="worker-test-v1",
             ),
             provider,
@@ -145,6 +153,7 @@ class TransactionalOutboxTests(unittest.TestCase):
             outbox=self.outbox,
             episodes=self.episodes,
             provider=provider,
+            attestation_authority=self.attestation_authority,
             worker_id="lookup-timeout-worker-v1",
         )
         with self.assertRaises(InjectedCrash):
@@ -184,6 +193,7 @@ class TransactionalOutboxTests(unittest.TestCase):
             outbox=self.outbox,
             episodes=self.episodes,
             provider=drifted,
+            attestation_authority=self.attestation_authority,
             worker_id="manifest-drift-worker-v1",
         )
 

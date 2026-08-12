@@ -104,9 +104,10 @@ function renderOnlineMemoryLineage(evidence) {
 
 function renderOutcomeReplayCas(evidence) {
   byId('cas-outcomes').textContent = String(evidence.cas.outcome_rows);
-  byId('cas-promotions').textContent = String(evidence.cas.canonical_promotions);
-  byId('cas-journal').textContent = evidence.cas.journal.map(item => item.decision).join(' → ');
-  byId('cas-rls').textContent = String(evidence.database.rls.proposal_visible_rows);
+  byId('cas-promotions').textContent = evidence.schema_version >= 2 ? String(evidence.attestation.atomic_join_rows) : String(evidence.cas.canonical_promotions);
+  byId('cas-journal').textContent = evidence.schema_version >= 2 ? `${Object.keys(evidence.attestation.negative_codes).length}/6 blocked` : evidence.cas.journal.map(item => item.decision).join(' → ');
+  byId('cas-rls').textContent = evidence.schema_version >= 2 ? evidence.database.rls.runtime_attestation_insert_sqlstate : String(evidence.database.rls.proposal_visible_rows);
+  byId('cas-lookups').textContent = evidence.schema_version >= 2 ? String(evidence.provider.lookup_count) : 'legacy';
 }
 
 async function runStory() {
@@ -272,6 +273,19 @@ async function quickCheck() {
       && outcomeCas.cas.journal_rows === 3
       && outcomeCas.cas.journal.map(item => item.decision).join('|') === 'accepted|exact_replay|conflict'
       && outcomeCas.database.rls.proposal_visible_rows === 3
+      && (outcomeCas.schema_version === 1 || (
+        outcomeCas.schema_version === 2
+        && outcomeCas.migration.current_version >= 35
+        && outcomeCas.provider.lookup_method === 's3:HeadObject+GetObject'
+        && outcomeCas.provider.lookup_count === 7
+        && outcomeCas.attestation.consumed_rows === 1
+        && outcomeCas.attestation.atomic_join_rows === 1
+        && outcomeCas.attestation.raw_handle_persisted === false
+        && outcomeCas.attestation.negative_outcome_rows === 0
+        && Object.keys(outcomeCas.attestation.negative_codes).length === 6
+        && outcomeCas.database.rls.attestation_visible_rows === 1
+        && outcomeCas.database.rls.runtime_attestation_insert_sqlstate === '42501'
+      ))
       && outcomeCasReleaseAsset?.digest === `sha256:${judge.outcome_replay_cas.public_sha256}`;
     const allPassed = passed && guardianPassed && blindPassed && sequentialPassed && ciRecoveryPassed && adaptivePassed && transferPassed && onlinePassed && outcomeCasPassed;
     result.textContent = allPassed ? 'PASS · public evidence, online CockroachDB lineage, and live health agree.' : 'HOLD · open the full verifier for details.';

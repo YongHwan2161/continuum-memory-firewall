@@ -90,18 +90,24 @@ def valid_report():
         entries.append(_entry_dict(entry))
         previous = entry.entry_hash
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "kind": "continuum.outcome-replay-cas.report",
         "source_head": "1" * 40,
         "deployment_artifact_sha256": "2" * 64,
         "workflow": {"run_id": 123, "run_attempt": 1},
-        "migration": {"applied": [32, 33], "adopted": [], "current_version": 33},
+        "migration": {
+            "applied": [32, 33, 34, 35],
+            "adopted": [],
+            "current_version": 35,
+        },
         "database": {
             "engine": "CockroachDB",
             "scope_sql_role": "continuum_scope_1234567890abcdef",
             "rls": {
                 "all_visible_reconciliations_in_scope": True,
                 "proposal_visible_rows": 3,
+                "attestation_visible_rows": 1,
+                "runtime_attestation_insert_sqlstate": "42501",
             },
         },
         "provider": {
@@ -111,6 +117,8 @@ def valid_report():
                 "receipt_lookup": True,
                 "reconciliation_timeout_seconds": 0,
             },
+            "lookup_method": "s3:HeadObject+GetObject",
+            "lookup_count": 7,
             "accepted_object_sha256": "3" * 64,
             "conflicting_object_sha256": "4" * 64,
             "accepted_receipt_sha256": hashlib.sha256(
@@ -119,6 +127,29 @@ def valid_report():
             "conflicting_receipt_sha256": hashlib.sha256(
                 ("aws-s3:" + "c" * 64).encode()
             ).hexdigest(),
+        },
+        "attestation": {
+            "algorithm": "HMAC-SHA256",
+            "issuer": "s3-provider-origin-verifier-v1",
+            "key_id": "1" * 16,
+            "policy_version": "s3-receipt-lookup-v1",
+            "ttl_seconds": 300,
+            "handle_digest": "5" * 64,
+            "stored_handle_digest": "5" * 64,
+            "stored_nonce_digest": "6" * 64,
+            "consumed_outcome_id": identifiers["outcome_id"],
+            "consumed_rows": 1,
+            "atomic_join_rows": 1,
+            "raw_handle_persisted": False,
+            "negative_outcome_rows": 0,
+            "negative_codes": {
+                "cross_proposal": "OUTCOME_ATTESTATION_BINDING_MISMATCH",
+                "cross_provider": "OUTCOME_ATTESTATION_BINDING_MISMATCH",
+                "expired_handle": "OUTCOME_ATTESTATION_EXPIRED",
+                "forged_handle": "OUTCOME_ATTESTATION_INVALID",
+                "missing_handle": "OUTCOME_ATTESTATION_REQUIRED",
+                "receipt_mismatch": "OUTCOME_ATTESTATION_BINDING_MISMATCH",
+            },
         },
         "cas": {
             "outcome_rows": 1,
@@ -138,6 +169,11 @@ def valid_report():
             "conflict_committed_before_error": True,
             "journal_hash_chain_valid": True,
             "scope_rls_valid": True,
+            "provider_lookup_before_issue": True,
+            "signed_handle_consumed_once": True,
+            "atomic_attestation_outcome_promotion": True,
+            "unauthorized_promotions_blocked": True,
+            "raw_handle_absent": True,
             "status": "PASS",
         },
     }

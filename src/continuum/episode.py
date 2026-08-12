@@ -23,6 +23,18 @@ from continuum.memory import (
     SourceKind,
     evaluate_candidate,
 )
+from continuum.outcome_attestation import (
+    OUTCOME_ATTESTATION_BINDING_MISMATCH,
+    OUTCOME_ATTESTATION_EXPIRED,
+    OUTCOME_ATTESTATION_INVALID,
+    OUTCOME_ATTESTATION_REQUIRED,
+    OUTCOME_ATTESTATION_REPLAY_CONFLICT,
+    OutcomeAttestationClaims,
+    OutcomeAttestationError,
+    OutcomeAttestationVerifier,
+    handle_digest as outcome_attestation_digest,
+    nonce_digest as outcome_attestation_nonce_digest,
+)
 from continuum.store import CockroachMemoryStore, ConnectionFactory
 
 
@@ -127,6 +139,7 @@ class OutcomePromotionResult:
     memory_id: str | None = None
     event_hash: str | None = None
     replayed: bool = False
+    attestation_digest: str | None = None
 
 
 OUTCOME_REPLAY_CONFLICT = "OUTCOME_REPLAY_CONFLICT"
@@ -225,6 +238,7 @@ class EpisodeStore(Protocol):
         *,
         proposal_id: str,
         outcome: ProviderOutcome,
+        outcome_attestation: str | None = None,
     ) -> OutcomePromotionResult: ...
 
 
@@ -335,6 +349,38 @@ def outcome_replay_identity(
         provider_receipt_id=outcome.provider_receipt_id,
         receipt_digest=receipt_digest,
     )
+
+
+def validate_outcome_attestation_binding(
+    claims: OutcomeAttestationClaims,
+    *,
+    proposal_id: str,
+    outcome: ProviderOutcome,
+    receipt_digest: str,
+    expected_idempotency_key: str | None = None,
+) -> None:
+    expected = {
+        "proposal_id": proposal_id,
+        "provider": outcome.provider,
+        "provider_receipt_id": str(outcome.provider_receipt_id),
+        "receipt_digest": receipt_digest,
+        "status": outcome.status.value,
+    }
+    observed = {
+        "proposal_id": claims.proposal_id,
+        "provider": claims.provider,
+        "provider_receipt_id": claims.provider_receipt_id,
+        "receipt_digest": claims.receipt_digest,
+        "status": claims.status,
+    }
+    if expected != observed or (
+        expected_idempotency_key is not None
+        and claims.idempotency_key != expected_idempotency_key
+    ):
+        raise OutcomeAttestationError(
+            OUTCOME_ATTESTATION_BINDING_MISMATCH,
+            "handle does not match proposal, provider, idempotency, or receipt",
+        )
 
 
 def build_outcome_reconciliation_entry(
@@ -475,8 +521,10 @@ class CockroachEpisodeStore:
         self,
         connect: ConnectionFactory,
         *,
+        attestation_verifier: OutcomeAttestationVerifier | None = None,
         max_attempts: int = 4,
     ) -> None:
+        self._attestation_verifier = attestation_verifier
         self._transactions = CockroachMemoryStore(
             connect,
             max_attempts=max_attempts,
@@ -793,8 +841,30 @@ class CockroachEpisodeStore:
         *,
         proposal_id: str,
         outcome: ProviderOutcome,
+        outcome_attestation: str | None = None,
     ) -> OutcomePromotionResult:
         receipt_digest = validate_outcome(outcome)
+        attestation_claims = None
+        attestation_digest = None
+        attestation_nonce_digest = None
+        if outcome.status is OutcomeStatus.SUCCEEDED:
+            if outcome_attestation is None or self._attestation_verifier is None:
+                raise OutcomeAttestationError(
+                    OUTCOME_ATTESTATION_REQUIRED,
+                    "successful outcome promotion requires a verifier-issued handle",
+                )
+            attestation_claims = self._attestation_verifier.verify(
+                outcome_attestation
+            )
+            attestation_digest = outcome_attestation_digest(outcome_attestation)
+            attestation_nonce_digest = outcome_attestation_nonce_digest(
+                attestation_claims.nonce
+            )
+        elif outcome_attestation is not None:
+            raise OutcomeAttestationError(
+                OUTCOME_ATTESTATION_INVALID,
+                "failed or ambiguous outcomes cannot consume a success handle",
+            )
         incoming_identity = outcome_replay_identity(outcome, receipt_digest)
         reconciliation_id = str(uuid4())
         reconciliation_time = datetime.now(timezone.utc)
@@ -852,6 +922,33 @@ class CockroachEpisodeStore:
                     raise RuntimeError("provider outcome requires an approved proposal")
                 if not isinstance(approval_evidence, Mapping):
                     raise RuntimeError("provider outcome requires approval evidence")
+
+                expected_idempotency_key = None
+                cursor.execute(
+                    """
+                    SELECT provider, idempotency_key
+                    FROM action_outbox
+                    WHERE proposal_id = %s
+                    """,
+                    (proposal_id,),
+                )
+                outbox_identity = cursor.fetchone()
+                if outbox_identity is not None:
+                    if str(outbox_identity[0]) != outcome.provider:
+                        raise OutcomeAttestationError(
+                            OUTCOME_ATTESTATION_BINDING_MISMATCH,
+                            "outcome provider does not match the durable outbox",
+                        )
+                    expected_idempotency_key = str(outbox_identity[1])
+                if attestation_claims is not None:
+                    assert receipt_digest is not None
+                    validate_outcome_attestation_binding(
+                        attestation_claims,
+                        proposal_id=proposal_id,
+                        outcome=outcome,
+                        receipt_digest=receipt_digest,
+                        expected_idempotency_key=expected_idempotency_key,
+                    )
 
                 def append_reconciliation(
                     *,
@@ -971,11 +1068,44 @@ class CockroachEpisodeStore:
                         provider_receipt_id=prior_receipt_id,
                         receipt_digest=prior_digest,
                     )
+                    prior_attestation_digest = None
+                    if prior_status == OutcomeStatus.SUCCEEDED.value:
+                        cursor.execute(
+                            """
+                            SELECT handle_digest
+                            FROM provider_outcome_attestations
+                            WHERE proposal_id = %s
+                                AND consumed_outcome_id = %s
+                            """,
+                            (proposal_id, prior_outcome_id),
+                        )
+                        attestation_row = cursor.fetchone()
+                        if attestation_row is None:
+                            raise RuntimeError(
+                                "successful outcome is missing its consumed attestation"
+                            )
+                        prior_attestation_digest = str(attestation_row[0])
                     if incoming_identity != durable_identity:
+                        if (
+                            attestation_claims is not None
+                            and attestation_claims.expires_at < reconciliation_time
+                        ):
+                            raise OutcomeAttestationError(
+                                OUTCOME_ATTESTATION_EXPIRED,
+                                "unconsumed conflicting handle has expired",
+                            )
                         return append_reconciliation(
                             decision="conflict",
                             durable=durable_identity,
                             outcome_id=prior_outcome_id,
+                        )
+                    if (
+                        prior_status == OutcomeStatus.SUCCEEDED.value
+                        and attestation_digest != prior_attestation_digest
+                    ):
+                        raise OutcomeAttestationError(
+                            OUTCOME_ATTESTATION_REPLAY_CONFLICT,
+                            "exact outcome replay used a different handle",
                         )
                     memory_id = None
                     event_hash = None
@@ -1007,7 +1137,34 @@ class CockroachEpisodeStore:
                         memory_id=memory_id,
                         event_hash=event_hash,
                         replayed=True,
+                        attestation_digest=prior_attestation_digest,
                     )
+
+                if attestation_claims is not None:
+                    if attestation_claims.issued_at > reconciliation_time:
+                        raise OutcomeAttestationError(
+                            OUTCOME_ATTESTATION_INVALID,
+                            "handle was issued in the future",
+                        )
+                    if attestation_claims.expires_at < reconciliation_time:
+                        raise OutcomeAttestationError(
+                            OUTCOME_ATTESTATION_EXPIRED,
+                            "unconsumed handle has expired",
+                        )
+                    cursor.execute(
+                        """
+                        SELECT proposal_id::STRING, consumed_outcome_id::STRING
+                        FROM provider_outcome_attestations
+                        WHERE handle_digest = %s OR nonce_digest = %s
+                        """,
+                        (attestation_digest, attestation_nonce_digest),
+                    )
+                    consumed = cursor.fetchone()
+                    if consumed is not None:
+                        raise OutcomeAttestationError(
+                            OUTCOME_ATTESTATION_REPLAY_CONFLICT,
+                            "handle or nonce was already consumed by another outcome",
+                        )
 
                 cursor.execute(
                     """
@@ -1045,6 +1202,54 @@ class CockroachEpisodeStore:
                     ),
                 )
                 outcome_id = cursor.fetchone()[0]
+
+                if attestation_claims is not None:
+                    cursor.execute(
+                        """
+                        INSERT INTO provider_outcome_attestations (
+                            handle_digest,
+                            nonce_digest,
+                            proposal_id,
+                            run_id,
+                            tenant_id,
+                            incident_id,
+                            provider,
+                            idempotency_key,
+                            status,
+                            provider_receipt_id,
+                            receipt_digest,
+                            policy_version,
+                            issuer,
+                            key_id,
+                            issued_at,
+                            expires_at,
+                            consumed_at,
+                            consumed_outcome_id
+                        ) VALUES (
+                            %s, %s, %s, %s, %s, %s, %s, %s, 'succeeded',
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        )
+                        """,
+                        (
+                            attestation_digest,
+                            attestation_nonce_digest,
+                            proposal_id,
+                            run_id,
+                            tenant_id,
+                            incident_id,
+                            attestation_claims.provider,
+                            attestation_claims.idempotency_key,
+                            attestation_claims.provider_receipt_id,
+                            attestation_claims.receipt_digest,
+                            attestation_claims.policy_version,
+                            attestation_claims.issuer,
+                            attestation_claims.key_id,
+                            attestation_claims.issued_at,
+                            attestation_claims.expires_at,
+                            reconciliation_time,
+                            outcome_id,
+                        ),
+                    )
 
                 terminal_time = outcome.verified_at or outcome.observed_at
                 if outcome.status is not OutcomeStatus.SUCCEEDED:
@@ -1214,6 +1419,7 @@ class CockroachEpisodeStore:
                     receipt_digest=receipt_digest,
                     memory_id=memory_id,
                     event_hash=event.event_hash,
+                    attestation_digest=attestation_digest,
                 )
 
         result = self._transactions.run_transaction(operation)
@@ -1225,8 +1431,16 @@ class CockroachEpisodeStore:
 class InMemoryEpisodeStore:
     """Test/evaluation implementation with the same state-transition contract."""
 
-    def __init__(self, *, id_factory: Callable[[], str] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        attestation_verifier: OutcomeAttestationVerifier | None = None,
+        id_factory: Callable[[], str] | None = None,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
         self._id_factory = id_factory or (lambda: str(uuid4()))
+        self._clock = clock or (lambda: datetime.now(timezone.utc))
+        self._attestation_verifier = attestation_verifier
         self.runs: dict[str, AgentRun] = {}
         self.inputs: dict[str, Mapping[str, Any]] = {}
         self.citations: dict[str, list[tuple[PersistedCitation, RetrievedCitation]]] = {}
@@ -1238,6 +1452,7 @@ class InMemoryEpisodeStore:
         self.reconciliation_journal: list[OutcomeReconciliationEntry] = []
         self.canonical_outcomes: dict[str, Mapping[str, Any]] = {}
         self._provider_receipts: set[tuple[str, str]] = set()
+        self.consumed_attestations: dict[str, Mapping[str, Any]] = {}
 
     def start_run(
         self,
@@ -1346,8 +1561,31 @@ class InMemoryEpisodeStore:
         *,
         proposal_id: str,
         outcome: ProviderOutcome,
+        outcome_attestation: str | None = None,
     ) -> OutcomePromotionResult:
         digest = validate_outcome(outcome)
+        claims = None
+        attestation_digest = None
+        if outcome.status is OutcomeStatus.SUCCEEDED:
+            if outcome_attestation is None or self._attestation_verifier is None:
+                raise OutcomeAttestationError(
+                    OUTCOME_ATTESTATION_REQUIRED,
+                    "successful outcome promotion requires a verifier-issued handle",
+                )
+            claims = self._attestation_verifier.verify(outcome_attestation)
+            attestation_digest = outcome_attestation_digest(outcome_attestation)
+            assert digest is not None
+            validate_outcome_attestation_binding(
+                claims,
+                proposal_id=proposal_id,
+                outcome=outcome,
+                receipt_digest=digest,
+            )
+        elif outcome_attestation is not None:
+            raise OutcomeAttestationError(
+                OUTCOME_ATTESTATION_INVALID,
+                "failed or ambiguous outcomes cannot consume a success handle",
+            )
         incoming_identity = outcome_replay_identity(outcome, digest)
         prior = self.outcomes.get(proposal_id)
         if prior is not None:
@@ -1357,6 +1595,22 @@ class InMemoryEpisodeStore:
                 if incoming_identity == durable_identity
                 else "conflict"
             )
+            if decision == "conflict":
+                if claims is not None and claims.expires_at < self._clock():
+                    raise OutcomeAttestationError(
+                        OUTCOME_ATTESTATION_EXPIRED,
+                        "unconsumed conflicting handle has expired",
+                    )
+            if (
+                decision == "exact_replay"
+                and
+                prior.status is OutcomeStatus.SUCCEEDED
+                and prior.attestation_digest != attestation_digest
+            ):
+                raise OutcomeAttestationError(
+                    OUTCOME_ATTESTATION_REPLAY_CONFLICT,
+                    "exact outcome replay used a different handle",
+                )
             entry = self._append_outcome_reconciliation(
                 proposal_id=proposal_id,
                 outcome_id=prior.outcome_id,
@@ -1371,6 +1625,25 @@ class InMemoryEpisodeStore:
             raise RuntimeError("provider outcome requires an approved proposal")
         run_id, proposal = self.proposals[proposal_id]
         run = self.runs[run_id]
+        if claims is not None:
+            now = self._clock()
+            if claims.issued_at > now:
+                raise OutcomeAttestationError(
+                    OUTCOME_ATTESTATION_INVALID,
+                    "handle was issued in the future",
+                )
+            if claims.expires_at < now:
+                raise OutcomeAttestationError(
+                    OUTCOME_ATTESTATION_EXPIRED,
+                    "unconsumed handle has expired",
+                )
+            nonce_hash = outcome_attestation_nonce_digest(claims.nonce)
+            for consumed in self.consumed_attestations.values():
+                if consumed["nonce_digest"] == nonce_hash:
+                    raise OutcomeAttestationError(
+                        OUTCOME_ATTESTATION_REPLAY_CONFLICT,
+                        "handle nonce was already consumed",
+                    )
         if outcome.provider_receipt_id:
             provider_key = (outcome.provider, outcome.provider_receipt_id)
             if provider_key in self._provider_receipts:
@@ -1407,6 +1680,7 @@ class InMemoryEpisodeStore:
             receipt_digest=digest,
             memory_id=memory_id,
             event_hash=event_hash,
+            attestation_digest=attestation_digest,
         )
         self.outcomes[proposal_id] = result
         self.outcome_identities[proposal_id] = incoming_identity
@@ -1414,6 +1688,14 @@ class InMemoryEpisodeStore:
             run,
             status=AgentRunStatus(outcome.status.value),
         )
+        if claims is not None:
+            assert attestation_digest is not None
+            self.consumed_attestations[attestation_digest] = {
+                "nonce_digest": outcome_attestation_nonce_digest(claims.nonce),
+                "outcome_id": outcome_id,
+                "proposal_id": proposal_id,
+                "receipt_digest": digest,
+            }
         self._append_outcome_reconciliation(
             proposal_id=proposal_id,
             outcome_id=outcome_id,

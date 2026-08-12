@@ -58,7 +58,7 @@ def build_reference(
         raise RuntimeError("outcome replay artifact digest is invalid")
     journal = public["cas"]["journal"]
     return {
-        "schema_version": 1,
+        "schema_version": public["schema_version"],
         "head_sha": source_head,
         "workflow_run_id": run_id,
         "workflow_attempt": attempt,
@@ -91,6 +91,19 @@ def build_reference(
         "chain_genesis": journal[0]["previous_entry_hash"],
         "chain_tip": public["cas"]["chain_tip"],
         "conflict_error_code": public["cas"]["conflict_error_code"],
+        **(
+            {
+                "provider_lookup_count": public["provider"]["lookup_count"],
+                "attestation_handle_digest": public["attestation"][
+                    "handle_digest"
+                ],
+                "attestation_policy_version": public["attestation"][
+                    "policy_version"
+                ],
+            }
+            if public["schema_version"] >= 2
+            else {}
+        ),
     }
 
 
@@ -134,9 +147,10 @@ def promote(
     judge["generated_at"] = public["cas"]["journal"][-1]["recorded_at"]
     judge["claim_boundary"] = (
         "Read-only verification of one retained participant-cluster proposal: "
-        "one real S3 receipt was accepted and promoted, its exact replay was "
-        "idempotent, and a second real S3 receipt committed a typed conflict "
-        "without replacing the outcome or creating another canonical memory. "
+        "a real S3 HEAD+GET lookup issued one short-lived, proposal-bound "
+        "promotion handle; CockroachDB consumed it atomically with the outcome "
+        "and canonical memory. Exact replay stayed idempotent, while forged, "
+        "expired, cross-proposal, and receipt-mismatched handles were rejected. "
         "This is an architectural closure, not a population estimate."
     )
     judge["outcome_replay_cas"] = reference

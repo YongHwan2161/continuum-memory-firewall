@@ -33,6 +33,7 @@ class SqlRoleProvisioningTests(unittest.TestCase):
                 "outcome_evidence",
                 "action_outbox",
                 "outcome_reconciliation_journal",
+                "provider_outcome_attestations",
             },
         )
 

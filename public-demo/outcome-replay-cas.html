@@ -9,17 +9,17 @@
     <style>
       :root{color-scheme:dark;--bg:#07110f;--card:#0e1b18;--line:#21443a;--text:#eefcf7;--muted:#98b8ae;--mint:#64f5bd;--amber:#ffc96b;--red:#ff8793}
       *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 76% 0,#123c31 0,transparent 36%),var(--bg);color:var(--text);font:16px/1.55 Inter,ui-sans-serif,system-ui,sans-serif}main{width:min(1050px,calc(100% - 32px));margin:auto;padding:42px 0 68px}.brand{color:var(--mint);font-weight:900;letter-spacing:.14em}.hero{padding:58px 0 34px}.eyebrow{color:var(--mint);font-size:12px;font-weight:800;letter-spacing:.17em;text-transform:uppercase}h1{font-size:clamp(38px,7vw,70px);line-height:1.02;letter-spacing:-.045em;margin:10px 0 20px;max-width:920px}h1 em{color:var(--mint);font-style:normal}.lede,.note{color:var(--muted);max-width:850px}.status{display:inline-block;margin-top:18px;padding:9px 14px;border:1px solid var(--line);border-radius:999px;font-weight:900}.pass{color:var(--mint)}.hold{color:var(--amber)}.fail{color:var(--red)}
-      .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:22px 0 36px}.card,.step{background:linear-gradient(145deg,#10211d,#0a1714);border:1px solid var(--line);border-radius:16px;padding:18px}.metric span,.step span,.receipt span{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em}.metric strong{display:block;font-size:28px;margin-top:8px}.flow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0 34px}.step b{display:block;margin:8px 0 5px}.step code,.receipt code{color:var(--mint);font-size:12px;word-break:break-all}.step.conflict{border-color:#70434a}.step.conflict b{color:var(--red)}h2{margin:38px 0 14px;font-size:28px}.receipts{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.receipt{margin-bottom:12px}.receipt code{display:block;margin-top:7px}.links{display:flex;flex-wrap:wrap;gap:14px;margin-top:28px}.links a{color:var(--text);text-decoration:none;border-bottom:1px solid var(--mint)}
+      .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:22px 0 36px}.card,.step{background:linear-gradient(145deg,#10211d,#0a1714);border:1px solid var(--line);border-radius:16px;padding:18px}.metric span,.step span,.receipt span{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em}.metric strong{display:block;font-size:28px;margin-top:8px}.flow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0 34px}.step b{display:block;margin:8px 0 5px}.step code,.receipt code{color:var(--mint);font-size:12px;word-break:break-all}.step.conflict{border-color:#70434a}.step.conflict b{color:var(--red)}h2{margin:38px 0 14px;font-size:28px}.receipts{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.receipt{margin-bottom:12px}.receipt code{display:block;margin-top:7px}.links{display:flex;flex-wrap:wrap;gap:14px;margin-top:28px}.links a{color:var(--text);text-decoration:none;border-bottom:1px solid var(--mint)}
       @media(max-width:780px){.metrics{grid-template-columns:repeat(2,1fr)}.flow,.receipts{grid-template-columns:1fr}}@media(max-width:520px){.metrics{grid-template-columns:1fr}}
     </style>
   </head>
   <body>
     <main>
-      <div class="brand">CONTINUUM · OUTCOME CAS</div>
+      <div class="brand">CONTINUUM · PROVIDER-ORIGIN OUTCOME AUTHORITY</div>
       <section class="hero">
-        <div class="eyebrow">Participant CockroachDB · two real S3 receipts</div>
-        <h1>One proposal gets <em>one durable truth.</em></h1>
-        <p class="lede">The first provider receipt is accepted and promoted. Its exact replay is idempotent. A second, real receipt for the same proposal commits a typed conflict before the caller receives the error—without replacing the outcome or creating another memory.</p>
+        <div class="eyebrow">S3 HEAD+GET · short-lived signed handle · participant CockroachDB</div>
+        <h1>The action worker cannot <em>mint its own success.</em></h1>
+        <p class="lede">Only a fresh provider re-read can issue the proposal-bound promotion handle. CockroachDB consumes the handle digest, outcome, and canonical memory atomically; invalid authority produces zero outcome rows.</p>
         <div id="status" class="status hold">VERIFYING NETWORK RECEIPTS</div>
       </section>
       <section class="metrics">
@@ -27,6 +27,8 @@
         <div class="card metric"><span>Canonical promotions</span><strong id="promotions">—</strong></div>
         <div class="card metric"><span>Journal rows</span><strong id="journal-count">—</strong></div>
         <div class="card metric"><span>Scope-visible rows</span><strong id="rls-rows">—</strong></div>
+        <div class="card metric"><span>S3 receipt lookups</span><strong id="lookups">—</strong></div>
+        <div class="card metric"><span>Blocked authority paths</span><strong id="blocked">—</strong></div>
       </section>
       <h2>Proposal-scoped reconciliation journal</h2>
       <section id="flow" class="flow" aria-live="polite"></section>
@@ -35,8 +37,10 @@
         <div class="card receipt"><span>Journal chain tip</span><code id="chain-tip">—</code></div>
         <div class="card receipt"><span>Accepted S3 receipt commitment</span><code id="accepted-receipt">—</code></div>
         <div class="card receipt"><span>Conflicting S3 receipt commitment</span><code id="conflicting-receipt">—</code></div>
+        <div class="card receipt"><span>Consumed handle digest</span><code id="handle-digest">—</code></div>
+        <div class="card receipt"><span>Atomic attestation/outcome/memory joins</span><code id="atomic-join">—</code></div>
       </section>
-      <p class="note">Bounded claim: one retained proposal on the participant cluster, not a population estimate. The public JSON contains no SQL password, database URL, S3 bucket, or object key. UUIDs and opaque receipt commitments remain so the three SHA-256 journal entries can be recomputed.</p>
+      <p class="note">Bounded claim: one retained proposal and five negative controls on the participant cluster, not a population estimate. The signing key and raw handle never enter the artifact, database, or repository; only opaque SHA-256 commitments remain.</p>
       <div class="links">
         <a href="./verify.html">Run the full one-click verifier →</a>
         <a id="workflow" target="_blank" rel="noreferrer">Open exact workflow ↗</a>
@@ -71,19 +75,24 @@
           previous=item.entry_hash;
         }
         const gates=Object.entries(evidence.gate).filter(([key])=>key!=='status').every(([,value])=>value===true);
-        const ok=evidence.kind==='continuum.outcome-replay-cas.public'&&evidence.source_head===ref.head_sha&&await sha(evidenceBytes)===ref.public_sha256&&workflow.id===ref.workflow_run_id&&workflow.run_attempt===ref.workflow_attempt&&workflow.head_sha===ref.head_sha&&workflow.conclusion==='success'&&artifact.id===ref.artifact_id&&artifact.name===ref.artifact_name&&artifact.digest==='sha256:'+ref.artifact_archive_sha256&&artifact.expired===false&&evidence.migration.current_version===33&&evidence.cas.outcome_rows===1&&evidence.cas.canonical_promotions===1&&evidence.cas.journal_rows===3&&evidence.cas.journal.map(item=>item.decision).join('|')==='accepted|exact_replay|conflict'&&evidence.cas.journal[2].error_code==='OUTCOME_REPLAY_CONFLICT'&&chain&&previous===evidence.cas.chain_tip&&gates&&evidence.gate.status==='PASS';
+        const negatives=evidence.attestation?.negative_codes||{};
+        const ok=evidence.schema_version===2&&evidence.kind==='continuum.outcome-replay-cas.public'&&evidence.source_head===ref.head_sha&&await sha(evidenceBytes)===ref.public_sha256&&workflow.id===ref.workflow_run_id&&workflow.run_attempt===ref.workflow_attempt&&workflow.head_sha===ref.head_sha&&workflow.conclusion==='success'&&artifact.id===ref.artifact_id&&artifact.name===ref.artifact_name&&artifact.digest==='sha256:'+ref.artifact_archive_sha256&&artifact.expired===false&&evidence.migration.current_version>=35&&evidence.provider.lookup_method==='s3:HeadObject+GetObject'&&evidence.provider.lookup_count===7&&evidence.attestation.consumed_rows===1&&evidence.attestation.atomic_join_rows===1&&evidence.attestation.raw_handle_persisted===false&&evidence.attestation.negative_outcome_rows===0&&Object.keys(negatives).length===6&&evidence.database.rls.runtime_attestation_insert_sqlstate==='42501'&&evidence.cas.outcome_rows===1&&evidence.cas.canonical_promotions===1&&evidence.cas.journal_rows===3&&evidence.cas.journal.map(item=>item.decision).join('|')==='accepted|exact_replay|conflict'&&evidence.cas.journal[2].error_code==='OUTCOME_REPLAY_CONFLICT'&&chain&&previous===evidence.cas.chain_tip&&gates&&evidence.gate.status==='PASS';
         document.getElementById('outcomes').textContent=evidence.cas.outcome_rows;
         document.getElementById('promotions').textContent=evidence.cas.canonical_promotions;
         document.getElementById('journal-count').textContent=evidence.cas.journal_rows;
         document.getElementById('rls-rows').textContent=evidence.database.rls.proposal_visible_rows;
+        document.getElementById('lookups').textContent=evidence.provider.lookup_count??'—';
+        document.getElementById('blocked').textContent=Object.keys(negatives).length+'/6';
         document.getElementById('artifact-sha').textContent=evidence.deployment_artifact_sha256;
         document.getElementById('chain-tip').textContent=evidence.cas.chain_tip;
         document.getElementById('accepted-receipt').textContent=evidence.provider.accepted_receipt_sha256;
         document.getElementById('conflicting-receipt').textContent=evidence.provider.conflicting_receipt_sha256;
+        document.getElementById('handle-digest').textContent=evidence.attestation?.handle_digest??'—';
+        document.getElementById('atomic-join').textContent=String(evidence.attestation?.atomic_join_rows??'—');
         document.getElementById('flow').innerHTML=evidence.cas.journal.map((item,index)=>`<article class="step ${item.decision==='conflict'?'conflict':''}"><span>0${index+1}</span><b>${item.decision.replace('_',' ').toUpperCase()}</b><code>${item.entry_hash}</code></article>`).join('');
         document.getElementById('workflow').href=ref.workflow_url;
         document.getElementById('artifact').href=ref.artifact_api_url;
-        const status=document.getElementById('status');status.textContent=ok?'PASS · NETWORK + DB CHAIN BOUND':'FAIL CLOSED';status.className='status '+(ok?'pass':'fail');
+        const status=document.getElementById('status');status.textContent=ok?'PASS · PROVIDER ORIGIN + ATOMIC PROMOTION BOUND':'FAIL CLOSED';status.className='status '+(ok?'pass':'fail');
       }
       run().catch(error=>{const status=document.getElementById('status');status.textContent='FAIL CLOSED · '+error.message;status.className='status fail'});
     </script>

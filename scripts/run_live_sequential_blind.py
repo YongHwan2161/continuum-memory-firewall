@@ -24,6 +24,7 @@ from continuum.orchestrator import (
     OrchestrationError,
     RetrievalStoreTools,
 )
+from continuum.outcome_attestation import ProviderOutcomeAttestationAuthority
 from continuum.release_guardian import (
     RELEASE_ACTION_POLICIES,
     ReleaseGuardianCase,
@@ -179,7 +180,12 @@ def main() -> None:
     )
     connect = psycopg_connection_factory(database_url)
     migration = Migrator(connect).migrate()
-    episode_store = CockroachEpisodeStore(connect)
+    outcome_authority = ProviderOutcomeAttestationAuthority.ephemeral(
+        issuer="sequential-blind-provider-verifier-v1"
+    )
+    episode_store = CockroachEpisodeStore(
+        connect, attestation_verifier=outcome_authority
+    )
     retrieval_store = MemoryRetrievalStore(connect)
     embedder = BedrockTitanEmbedder(region=args.embedding_region)
     model = BedrockConverseClient(region=args.agent_region)
@@ -337,7 +343,18 @@ def main() -> None:
                         if outcome_status is not OutcomeStatus.SUCCEEDED:
                             failure_cause = "PROVIDER_ACTION_TYPE_MISMATCH"
                         outcome_result = episode_store.record_outcome_and_promote(
-                            proposal_id=result.proposal_id, outcome=provider_outcome
+                            proposal_id=result.proposal_id,
+                            outcome=provider_outcome,
+                            outcome_attestation=(
+                                outcome_authority.issue(
+                                    proposal_id=result.proposal_id,
+                                    idempotency_key=idempotency_key,
+                                    outcome=provider_outcome,
+                                    policy_version="sequential-blind-v1",
+                                )
+                                if provider_outcome.status is OutcomeStatus.SUCCEEDED
+                                else None
+                            ),
                         )
                         if outcome_result.memory_id is not None:
                             retrieval_store.index_memory(

@@ -25,7 +25,13 @@ from continuum.episode import (
     OutcomeStatus,
     ProviderOutcome,
     canonical_json_bytes,
+    outcome_replay_identity,
     validate_outcome,
+)
+from continuum.outcome_attestation import (
+    OUTCOME_ATTESTATION_INVALID,
+    OutcomeAttestationError,
+    ProviderOutcomeAttestationAuthority,
 )
 from continuum.store import CockroachMemoryStore, ConnectionFactory
 
@@ -937,11 +943,13 @@ class TransactionalOutboxWorker:
         outbox: OutboxStore,
         episodes: EpisodeStore,
         provider: ActionProvider,
+        attestation_authority: ProviderOutcomeAttestationAuthority,
         worker_id: str,
     ) -> None:
         self.outbox = outbox
         self.episodes = episodes
         self.provider = provider
+        self.attestation_authority = attestation_authority
         self.worker_id = _validate_worker(worker_id)
         _validate_provider(provider.name)
 
@@ -1057,9 +1065,44 @@ class TransactionalOutboxWorker:
         outcome: ProviderOutcome,
         now: datetime,
     ) -> DispatchResult:
+        outcome_attestation = None
+        if outcome.status is OutcomeStatus.SUCCEEDED:
+            if not item.provider_capabilities.receipt_lookup:
+                raise OutcomeAttestationError(
+                    OUTCOME_ATTESTATION_INVALID,
+                    "successful outcome cannot be promoted without provider lookup",
+                )
+            verified = self.provider.lookup(idempotency_key=item.idempotency_key)
+            if verified is None:
+                raise OutcomeAttestationError(
+                    OUTCOME_ATTESTATION_INVALID,
+                    "provider lookup returned no durable success receipt",
+                )
+            incoming_digest = validate_outcome(outcome)
+            verified_digest = validate_outcome(verified)
+            if (
+                outcome_replay_identity(outcome, incoming_digest)
+                != outcome_replay_identity(verified, verified_digest)
+                or outcome.evidence != verified.evidence
+            ):
+                raise OutcomeAttestationError(
+                    OUTCOME_ATTESTATION_INVALID,
+                    "provider lookup does not match the dispatched outcome",
+                )
+            outcome = verified
+            outcome_attestation = self.attestation_authority.issue(
+                proposal_id=item.proposal_id,
+                idempotency_key=item.idempotency_key,
+                outcome=outcome,
+                policy_version="provider-receipt-lookup-v1",
+                # The authority owns the issuance clock.  Worker scheduling
+                # timestamps and old provider observation times must not be
+                # able to lengthen or pre-expire the capability lifetime.
+            )
         promotion = self.episodes.record_outcome_and_promote(
             proposal_id=item.proposal_id,
             outcome=outcome,
+            outcome_attestation=outcome_attestation,
         )
         acknowledged = self.outbox.mark_acknowledged(
             outbox_id=item.outbox_id,

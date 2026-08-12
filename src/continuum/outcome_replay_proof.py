@@ -58,7 +58,8 @@ def validate_outcome_replay_proof(
     *,
     allowed_kinds: Sequence[str] = (RAW_KIND, PUBLIC_KIND),
 ) -> None:
-    if report.get("schema_version") != 1 or report.get("kind") not in allowed_kinds:
+    schema_version = report.get("schema_version")
+    if schema_version not in {1, 2} or report.get("kind") not in allowed_kinds:
         raise ValueError("outcome replay proof schema is invalid")
     if not _commit(report.get("source_head")) or not _sha256(
         report.get("deployment_artifact_sha256")
@@ -70,6 +71,7 @@ def validate_outcome_replay_proof(
     provider = report.get("provider")
     cas = report.get("cas")
     gate = report.get("gate")
+    attestation = report.get("attestation")
     if not all(
         isinstance(item, Mapping)
         for item in (workflow, migration, database, provider, cas, gate)
@@ -77,12 +79,21 @@ def validate_outcome_replay_proof(
         raise ValueError("outcome replay proof sections are incomplete")
     if int(workflow.get("run_id", 0)) < 1 or int(workflow.get("run_attempt", 0)) < 1:
         raise ValueError("outcome replay workflow receipt is invalid")
-    if int(migration.get("current_version", 0)) < 33:
+    minimum_migration = 35 if schema_version == 2 else 33
+    if int(migration.get("current_version", 0)) < minimum_migration:
         raise ValueError("outcome replay proof predates the CAS schema")
-    if database.get("engine") != "CockroachDB" or database.get("rls") != {
+    expected_rls: dict[str, Any] = {
         "all_visible_reconciliations_in_scope": True,
         "proposal_visible_rows": 3,
-    }:
+    }
+    if schema_version == 2:
+        expected_rls.update(
+            {
+                "attestation_visible_rows": 1,
+                "runtime_attestation_insert_sqlstate": "42501",
+            }
+        )
+    if database.get("engine") != "CockroachDB" or database.get("rls") != expected_rls:
         raise ValueError("outcome replay proof lacks scoped RLS evidence")
     if not str(database.get("scope_sql_role", "")).startswith("continuum_scope_"):
         raise ValueError("outcome replay proof SQL identity is invalid")
@@ -94,6 +105,11 @@ def validate_outcome_replay_proof(
         "reconciliation_timeout_seconds": 0,
     }:
         raise ValueError("outcome replay provider capability manifest is invalid")
+    if schema_version == 2 and (
+        provider.get("lookup_method") != "s3:HeadObject+GetObject"
+        or provider.get("lookup_count") != 7
+    ):
+        raise ValueError("outcome replay proof lacks provider-origin lookups")
     for field in (
         "accepted_object_sha256",
         "conflicting_object_sha256",
@@ -104,6 +120,39 @@ def validate_outcome_replay_proof(
             raise ValueError("outcome replay provider commitment is invalid")
     if provider["accepted_receipt_sha256"] == provider["conflicting_receipt_sha256"]:
         raise ValueError("outcome replay proof requires two distinct real receipts")
+    if schema_version == 2:
+        if not isinstance(attestation, Mapping):
+            raise ValueError("outcome attestation proof is missing")
+        if (
+            attestation.get("algorithm") != "HMAC-SHA256"
+            or attestation.get("issuer") != "s3-provider-origin-verifier-v1"
+            or attestation.get("policy_version") != "s3-receipt-lookup-v1"
+            or attestation.get("ttl_seconds") != 300
+            or attestation.get("consumed_rows") != 1
+            or attestation.get("atomic_join_rows") != 1
+            or attestation.get("raw_handle_persisted") is not False
+            or attestation.get("negative_outcome_rows") != 0
+        ):
+            raise ValueError("outcome attestation admission evidence is invalid")
+        for field in ("handle_digest", "stored_handle_digest", "stored_nonce_digest"):
+            if not _sha256(attestation.get(field)):
+                raise ValueError("outcome attestation digest is invalid")
+        if attestation["handle_digest"] != attestation["stored_handle_digest"]:
+            raise ValueError("outcome attestation consumption digest drifted")
+        if not _uuid(attestation.get("consumed_outcome_id")):
+            raise ValueError("outcome attestation consumed outcome is invalid")
+        if not re.fullmatch(r"[0-9a-f]{16}", str(attestation.get("key_id"))):
+            raise ValueError("outcome attestation key identity is invalid")
+        expected_negative_codes = {
+            "cross_proposal": "OUTCOME_ATTESTATION_BINDING_MISMATCH",
+            "cross_provider": "OUTCOME_ATTESTATION_BINDING_MISMATCH",
+            "expired_handle": "OUTCOME_ATTESTATION_EXPIRED",
+            "forged_handle": "OUTCOME_ATTESTATION_INVALID",
+            "missing_handle": "OUTCOME_ATTESTATION_REQUIRED",
+            "receipt_mismatch": "OUTCOME_ATTESTATION_BINDING_MISMATCH",
+        }
+        if attestation.get("negative_codes") != expected_negative_codes:
+            raise ValueError("outcome attestation negative controls are incomplete")
     expected_cas = {
         "outcome_rows": 1,
         "canonical_promotions": 1,
@@ -197,6 +246,8 @@ def validate_outcome_replay_proof(
         "conflicting_receipt_sha256"
     ):
         raise ValueError("outcome replay provider receipt binding is invalid")
+    if schema_version == 2 and attestation.get("consumed_outcome_id") != shared_outcome:
+        raise ValueError("outcome attestation is not bound to the durable outcome")
     expected_gate = {
         "one_durable_outcome": True,
         "one_canonical_promotion": True,
@@ -207,6 +258,16 @@ def validate_outcome_replay_proof(
         "scope_rls_valid": True,
         "status": "PASS",
     }
+    if schema_version == 2:
+        expected_gate.update(
+            {
+                "provider_lookup_before_issue": True,
+                "signed_handle_consumed_once": True,
+                "atomic_attestation_outcome_promotion": True,
+                "unauthorized_promotions_blocked": True,
+                "raw_handle_absent": True,
+            }
+        )
     if any(gate.get(key) != value for key, value in expected_gate.items()):
         raise ValueError("outcome replay proof gate is not PASS")
 
@@ -216,7 +277,7 @@ def build_public_outcome_replay_proof(
 ) -> dict[str, Any]:
     validate_outcome_replay_proof(report, allowed_kinds=(RAW_KIND,))
     public = {
-        "schema_version": 1,
+        "schema_version": report["schema_version"],
         "kind": PUBLIC_KIND,
         "source_head": report["source_head"],
         "deployment_artifact_sha256": report["deployment_artifact_sha256"],
@@ -229,7 +290,14 @@ def build_public_outcome_replay_proof(
         "claim_boundary": (
             "One retained participant-cluster proposal with two real disposable "
             "S3 receipts; this is an architectural closure, not a population estimate."
+            if report["schema_version"] == 1
+            else "One retained participant-cluster proposal with two real disposable "
+            "S3 receipts. Schema v2 additionally proves provider-origin lookup, "
+            "short-lived signed admission, and atomic handle consumption; this is "
+            "an architectural closure, not a population estimate."
         ),
     }
+    if report["schema_version"] == 2:
+        public["attestation"] = dict(report["attestation"])
     validate_outcome_replay_proof(public, allowed_kinds=(PUBLIC_KIND,))
     return public

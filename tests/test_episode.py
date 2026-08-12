@@ -19,6 +19,10 @@ from continuum.episode import (
     validate_citations,
     validate_proposal,
 )
+from continuum.outcome_attestation import ProviderOutcomeAttestationAuthority
+
+
+NOW = datetime(2026, 8, 2, tzinfo=timezone.utc)
 
 
 class SequentialIds:
@@ -32,13 +36,29 @@ class SequentialIds:
 
 class EpisodeContractTests(unittest.TestCase):
     def setUp(self):
-        self.store = InMemoryEpisodeStore(id_factory=SequentialIds())
+        self.authority = ProviderOutcomeAttestationAuthority.ephemeral(
+            clock=lambda: NOW
+        )
+        self.store = InMemoryEpisodeStore(
+            attestation_verifier=self.authority,
+            id_factory=SequentialIds(),
+            clock=lambda: NOW,
+        )
         self.run = self.store.start_run(
             tenant_id="00000000-0000-0000-0000-000000000101",
             incident_id="00000000-0000-0000-0000-000000000201",
             arm=AgentArm.CONTINUUM,
             model_id="amazon.nova-micro-v1:0",
             input_payload={"symptom": "checkout latency"},
+        )
+
+    def attest(self, proposal_id, outcome):
+        return self.authority.issue(
+            proposal_id=proposal_id,
+            idempotency_key=f"test:{proposal_id}",
+            outcome=outcome,
+            policy_version="episode-test-v1",
+            issued_at=NOW,
         )
 
     def test_episode_persists_citations_then_proposal(self):
@@ -148,7 +168,7 @@ class EpisodeContractTests(unittest.TestCase):
             actor="policy:synthetic-eval-v1",
             reason="allowlisted reversible synthetic action",
         )
-        observed = datetime(2026, 8, 2, tzinfo=timezone.utc)
+        observed = NOW
         outcome = ProviderOutcome(
             provider="synthetic-provider",
             status=OutcomeStatus.SUCCEEDED,
@@ -160,10 +180,12 @@ class EpisodeContractTests(unittest.TestCase):
         first = self.store.record_outcome_and_promote(
             proposal_id=proposal_id,
             outcome=outcome,
+            outcome_attestation=self.attest(proposal_id, outcome),
         )
         replay = self.store.record_outcome_and_promote(
             proposal_id=proposal_id,
             outcome=outcome,
+            outcome_attestation=self.attest(proposal_id, outcome),
         )
 
         self.assertIsNotNone(first.memory_id)
@@ -200,29 +222,35 @@ class EpisodeContractTests(unittest.TestCase):
             actor="policy:synthetic-eval-v1",
             reason="read-only",
         )
-        observed = datetime(2026, 8, 2, tzinfo=timezone.utc)
-        first = self.store.record_outcome_and_promote(
-            proposal_id=proposal_id,
-            outcome=ProviderOutcome(
+        observed = NOW
+        first_outcome = ProviderOutcome(
                 provider="synthetic-provider",
                 status=OutcomeStatus.SUCCEEDED,
                 provider_receipt_id="receipt-1",
                 evidence={"expected_action_matched": True},
                 observed_at=observed,
                 verified_at=observed,
-            ),
+            )
+        first = self.store.record_outcome_and_promote(
+            proposal_id=proposal_id,
+            outcome=first_outcome,
+            outcome_attestation=self.attest(proposal_id, first_outcome),
         )
 
+        conflicting_outcome = ProviderOutcome(
+            provider="synthetic-provider",
+            status=OutcomeStatus.SUCCEEDED,
+            provider_receipt_id="receipt-2",
+            evidence={"expected_action_matched": True},
+            observed_at=observed,
+            verified_at=observed,
+        )
         with self.assertRaises(OutcomeReplayConflictError) as raised:
             self.store.record_outcome_and_promote(
                 proposal_id=proposal_id,
-                outcome=ProviderOutcome(
-                    provider="synthetic-provider",
-                    status=OutcomeStatus.SUCCEEDED,
-                    provider_receipt_id="receipt-2",
-                    evidence={"expected_action_matched": True},
-                    observed_at=observed,
-                    verified_at=observed,
+                outcome=conflicting_outcome,
+                outcome_attestation=self.attest(
+                    proposal_id, conflicting_outcome
                 ),
             )
 
