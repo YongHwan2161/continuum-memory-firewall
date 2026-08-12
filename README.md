@@ -236,6 +236,17 @@ verification of the author signature with:
 python scripts/verify_network_sign_once.py --release-tag hackathon-v22
 ```
 
+Version 22 preserves the v21 evidence and adds the participant-cluster outcome
+replay CAS proof, two real S3 receipt commitments, the three-entry database
+journal, public chain recomputation, and release-asset binding. It is published
+at
+<https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v22>.
+Coordinator run `31548463634`, Pages run `31548509773`, and credential-free
+monitor run `31548582748` passed on exact target
+`8481ac3804bf38b69e87086a9257a895d8f3b124`. The terminal receipt is
+`3f386203…a1d19`; immutable envelope SHA-256 is `0b6cd0ee…39f71`, and the
+outcome-CAS release asset is `sha256:7218a296…42b9c`.
+
 Version 21 preserves the v20 evidence and adds the exact failed candidate,
 successful cross-head reconciler, both Actions artifacts, two non-reexecuted
 provider actions, raw report receipt, redacted online-memory projection,

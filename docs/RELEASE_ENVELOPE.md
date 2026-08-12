@@ -6,7 +6,20 @@ counterfactual cross-environment transfer plus online CockroachDB memory-lineage
 and proposal-scoped outcome replay CAS evidence. It is published only by
 `.github/workflows/release-envelope.yml` after every fail-closed gate passes.
 
-The published v21 receipt is exact and terminal: coordinator run `31510629746`
+The published v22 receipt is exact and terminal: coordinator run `31548463634`
+targeted `8481ac3804bf38b69e87086a9257a895d8f3b124`; immutable envelope SHA-256
+is `0b6cd0ee76bf596bf81ebdd3d98055cc65f4504aa4e2fb03a6a404d8fa539f71`;
+Pages run `31548509773` recorded `PAGES_MATERIALIZED`; and the public terminal
+receipt SHA-256 is
+`3f386203e0c2ef825b418993a06b273bf85fd0e0ef3faac6df40933779ea1d19`.
+The receipt binds coordinator artifact `9123349934` with digest
+`sha256:adec921af2859372243e0d620f25456a06ce81c3fd097fac7f27b2907575a1c8`.
+Credential-free monitor run `31548582748` passed and retained artifact
+`9123384105` (`sha256:2c9f02ca3fd53dae0e5b6c07bf3450bfd36324eca9e94a956cdde279aec18d8e`).
+The outcome CAS release asset is byte-bound at
+`sha256:7218a29669e024874a62f02ac6a55b6a62da4102a6b63e09ee2b6fb919e42b9c`.
+
+The prior published v21 receipt is exact and terminal: coordinator run `31510629746`
 targeted `0ac85de1835c3235634e963d313e62fa82ed63da`; immutable envelope SHA-256 is
 `dd776c0770397bd0209c66b6cbbebca7b04d11a2b0985b4c3bef6c18b341f0e7`;
 Pages run `31510716374` recorded `PAGES_MATERIALIZED`; and the public terminal
