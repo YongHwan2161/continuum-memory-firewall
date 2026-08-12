@@ -1,12 +1,34 @@
 # Immutable competition release envelope
 
-`hackathon-v22` is the proof unit for the receipt-compiled competition story,
+`hackathon-v24` is the current proof unit for the receipt-compiled competition story,
 closed-loop CI recovery, preregistered ambiguity-first diagnosis, and
 counterfactual cross-environment transfer plus online CockroachDB memory-lineage
-and proposal-scoped outcome replay CAS evidence. It is published only by
+and proposal-scoped outcome replay CAS evidence. It also carries the
+quota-independent offline judge capsule. It is published only by
 `.github/workflows/release-envelope.yml` after every fail-closed gate passes.
 
-The published v22 receipt is exact and terminal: coordinator run `31548463634`
+The published v24 receipt is exact and terminal: coordinator run `31611395093`
+targeted `d2e3c1f80515c221ccca67a113cbaaf593baa391`; immutable envelope SHA-256
+is `a1c538d92351ad1159a95c674ee66604de4ff5fae156c9fd0606763f378b545f`;
+Pages run `31611493199` recorded `PAGES_MATERIALIZED`; and the public terminal
+receipt SHA-256 is
+`e9ee7ed14d8670c11712ca3e0dbdd3c418a54804cd5e9edb3177ed33749bdae6`.
+The receipt binds coordinator artifact `9147359843` with digest
+`sha256:c1ed86ae0edecd572cf273c8f5ccede6414ac761133ab060335abae6ef63bcb4`.
+Authenticated monitor run `31611785532` passed all 44 checks and retained
+artifact `9147494855`
+(`sha256:9c693617865cd2147327e7dacb34af6f8178d9f22acd468beb40a69e7df00c0e`).
+The capsule asset is byte-bound at
+`sha256:9dd2b05fb61732fd935c5db4eae917e7d83d3f84264f9381ec1401caf8a9487d`
+with self receipt
+`8c943305434bbdca4da01d32b25d98bc4c91cba9b30542dfe79e3605327427f9`.
+
+`hackathon-v23` remains immutable failed browser-validation history. Its
+coordinator and Pages transactions closed, but the first headed-browser check
+found that CSP blocked `offline-judge.js`. No consumed epoch was edited; PR
+`#146` corrected the contract and produced v24.
+
+The prior published v22 receipt is exact and terminal: coordinator run `31548463634`
 targeted `8481ac3804bf38b69e87086a9257a895d8f3b124`; immutable envelope SHA-256
 is `0b6cd0ee76bf596bf81ebdd3d98055cc65f4504aa4e2fb03a6a404d8fa539f71`;
 Pages run `31548509773` recorded `PAGES_MATERIALIZED`; and the public terminal
@@ -299,7 +321,7 @@ asset state, and SHA-256 digest. A judge can independently download the envelope
 and validate its sidecar without trusting the public page:
 
 ```bash
-gh release download hackathon-v22 --pattern 'continuum-release-envelope-v2.json*'
+gh release download hackathon-v24 --pattern 'continuum-release-envelope-v2.json*'
 sha256sum -c continuum-release-envelope-v2.json.sha256
 ```
 
@@ -310,7 +332,7 @@ attestation API and the in-toto subject digest. Full cryptographic policy
 verification is one repository command:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v22
+python scripts/verify_network_sign_once.py --release-tag hackathon-v24
 ```
 
 That command downloads the immutable envelope, detached author bundle, and both

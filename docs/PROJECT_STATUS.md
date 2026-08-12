@@ -1,6 +1,6 @@
 # Project status
 
-**Status date:** 2026-08-12
+**Status date:** 2026-08-13
 **Current milestone:** P2C — authenticated managed-cloud slice submitted; iterative hardening open
 **Overall state:** the local promotion-to-retrieval vertical slice and repository
 MCP contract are implemented and tested. A private, cost-bounded AWS Lambda
@@ -100,6 +100,20 @@ run `31548582748` passed every gate, including `outcome_replay_cas_closure`,
 and retained artifact `9123384105` (`sha256:2c9f02ca…8d8e`). The live
 outcome page independently rendered `PASS · NETWORK + DB CHAIN BOUND`.
 
+Quota-independent judge delivery is now live-complete. PR `#145` introduced a
+release-compiled capsule; the first immutable v23 browser epoch exposed a CSP
+block and remains unchanged as failed audit history. PR `#146` corrected the
+same-origin script policy and merged as exact v24 target
+`d2e3c1f80515c221ccca67a113cbaaf593baa391`. Coordinator run `31611395093`
+published immutable `hackathon-v24`; Pages run `31611493199` reached
+`PAGES_MATERIALIZED`; and a fresh headed browser passed all 37 rows using six
+same-origin GETs and zero GitHub API requests. Capsule SHA-256 is
+`9dd2b05f…a9487d`, envelope SHA-256 is `a1c538d9…8b545f`, and terminal receipt
+is `e9ee7ed1…9bdae6`. Authenticated freshness monitor run `31611785532` passed
+all 44 online checks and retained artifact `9147494855`
+(`sha256:9c693617…00c0e`). See
+[the exact v24 evidence](evidence/2026-08-13-zero-api-judge-v24.md).
+
 The prior online-lineage publication is also complete. PR `#139` merged as `0ac85de1`; release
 coordinator run `31510629746` published immutable `hackathon-v21` at exact
 target `0ac85de1835c3235634e963d313e62fa82ed63da`, and Pages run `31510716374`
@@ -121,7 +135,7 @@ evidence, and explicit non-claims.
 | Idempotent replay | Implemented | Replaying the same source event returns the existing canonical record without duplication |
 | Serializable retry handling | Implemented | SQLSTATE `40001` is retried at the transaction boundary; unit tests exercise retry and exhaustion |
 | Concurrent action claim | Implemented | Two concurrent workers produce one `CLAIMED` result and one `DUPLICATE` result |
-| CockroachDB schema migrations | Implemented, integration-tested, and live at v31 | Thirty-one packaged single-statement migrations include `VECTOR(512)`, the complete vector prefix, tenant/control-plane RLS, the four-table episode contract, approval/receipt integrity, and the transactional outbox; CI verifies initial apply and replay |
+| CockroachDB schema migrations | Implemented, integration-tested, and live at v33 | Thirty-three packaged single-statement migrations include `VECTOR(512)`, the complete vector prefix, tenant/control-plane RLS, the four-table episode contract, approval/receipt integrity, the transactional outbox, proposal-scoped outcome CAS, and its reconciliation journal; CI verifies initial apply and replay |
 | Migration integrity and recovery | Implemented and integration-tested | SHA-256 history rejects drift and gaps; durable pre-DDL intent resumes the DDL/history crash gap; a renewable lease excludes a second owner; `XXA00` fails closed |
 | Existing-schema adoption | Implemented and fail-closed | Unmanaged tables are refused by default; explicit adoption validates required columns, indexes, and composite scope foreign keys |
 | Semantic live-DB evaluation | Live-smoked on participant CockroachDB Cloud | Titan v2 ran 60 adversarial and similar-meaning queries across six variant classes; Recall@1/3/5 = 0.8667/0.9833/1.0, zero forbidden-scope rows, p50 = 248.149 ms, p95 = 279.012 ms |
@@ -323,7 +337,8 @@ work before the submission deadline is:
 2. **Preserve statistical honesty:** claim the paired advantage over raw-RAG;
    describe the stateless comparison as directional and latency as measured but
    not superior.
-3. **Burn in the signed judge path:** monitor the Pages author bundle, immutable
+3. **Burn in the two-plane judge path:** monitor the zero-API browser capsule,
+   authenticated provider-freshness job, Pages author bundle, immutable
    release asset, public attestation index, Rekor proof, platform release
    countersignature, and strict verifier through the judging window. Alert on a
    second author provenance, a missing platform receipt, or digest divergence.
@@ -351,6 +366,9 @@ The exact commands and stop conditions are in
   capabilities before it may use the automatic retry path.
 - Live memory citation URLs do not yet provide durable reviewer-visible
   per-memory detail pages.
+- A successful `ProviderOutcome` is replay-CAS protected once admitted, but the
+  storage API does not yet require a server-issued provider-origin attestation
+  handle. Provider lookup authority therefore remains the next fundamental P0.
 - The Devpost entry is submitted and editable while submissions remain open.
   Material edits must be followed by a fresh judge-path check and confirmation
   that the submission card still reports `Submitted`.

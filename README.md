@@ -224,7 +224,7 @@ receives a token or database credential. The executable database evidence is
 the integration suite and linked exact-head workflows in
 [Project Status](docs/PROJECT_STATUS.md).
 
-The v22 release envelope receives exactly one author-controlled signature in
+The current v24 release envelope receives exactly one author-controlled signature in
 the same main-only workflow that publishes it. Its Fulcio/Rekor Sigstore bundle
 is an immutable release asset and a byte-identical Pages resource. GitHub also
 adds one distinguishable immutable-release countersignature; the verifier
@@ -233,8 +233,26 @@ a second author signing operation. Perform strict cryptographic policy
 verification of the author signature with:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v22
+python scripts/verify_network_sign_once.py --release-tag hackathon-v24
 ```
+
+Version 24 makes the primary judge click quota-independent. The release
+coordinator runs the complete authenticated online verifier, freezes all 44
+PASS checks in a self-addressed capsule, and binds it to the signed envelope.
+The browser then validates 37 judge rows from six same-origin static GETs with
+zero GitHub API requests. It is published at
+<https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v24>.
+Coordinator run `31611395093`, Pages run `31611493199`, and authenticated
+freshness monitor run `31611785532` passed on exact target
+`d2e3c1f80515c221ccca67a113cbaaf593baa391`. Envelope SHA-256 is
+`a1c538d9…8b545f`; capsule SHA-256 is `9dd2b05f…a9487d`; and the public terminal
+receipt is `e9ee7ed1…9bdae6`. See
+[the exact v24 evidence](docs/evidence/2026-08-13-zero-api-judge-v24.md).
+
+Version 23 is preserved as immutable failed browser-validation history. Its
+release transaction succeeded, but the first real headed-browser check found
+that CSP blocked the new same-origin external verifier script. No v23 asset was
+modified or backfilled; reviewed PR #146 created the v24 successor.
 
 Version 22 preserves the v21 evidence and adds the participant-cluster outcome
 replay CAS proof, two real S3 receipt commitments, the three-entry database
