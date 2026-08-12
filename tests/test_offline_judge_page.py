@@ -21,6 +21,7 @@ class OfflineJudgePageTests(unittest.TestCase):
 
     def test_primary_button_uses_only_offline_listener(self) -> None:
         self.assertIn('<script src="./offline-judge.js"></script>', self.html)
+        self.assertIn("script-src 'self' 'unsafe-inline'", self.html)
         self.assertNotIn(
             "document.querySelector('#run').addEventListener('click',run);",
             self.html,
