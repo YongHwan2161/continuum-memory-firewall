@@ -6,6 +6,8 @@ on:
     - cron: "17 */6 * * *"
 
 permissions:
+  actions: read
+  attestations: read
   contents: read
 
 concurrency:
@@ -19,6 +21,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
       - name: Run the credential-free judge flow
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           PYTHONPATH=src:. python -m scripts.judge_readonly_verify \
             --evidence-url \

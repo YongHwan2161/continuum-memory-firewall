@@ -128,7 +128,9 @@ def promote(
         page_url=page_url,
         public_url=public_url,
     )
-    judge["schema_version"] = 15
+    # Promotion must never downgrade newer judge contracts (for example the
+    # schema-16 offline capsule added after the CAS proof was introduced).
+    judge["schema_version"] = max(int(judge.get("schema_version", 0)), 15)
     judge["generated_at"] = public["cas"]["journal"][-1]["recorded_at"]
     judge["claim_boundary"] = (
         "Read-only verification of one retained participant-cluster proposal: "
@@ -165,6 +167,7 @@ def promote(
             "transfer_firewall_asset_name": "transfer_firewall_asset_url",
             "online_memory_lineage_asset_name": "online_memory_lineage_asset_url",
             "outcome_replay_cas_asset_name": "outcome_replay_cas_asset_url",
+            "offline_judge_capsule_asset_name": "offline_judge_capsule_asset_url",
         }
         for name_field, url_field in name_fields.items():
             asset_name = release.get(name_field)

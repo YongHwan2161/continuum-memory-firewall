@@ -6,12 +6,14 @@ import argparse
 import base64
 import hashlib
 import json
+import os
 import re
 from typing import Any, Callable
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 from scripts.release_transaction_coordinator import verify_receipt
+from scripts.offline_judge_capsule import verify_envelope_binding
 from continuum.adaptive_diagnosis import build_public_adaptive_diagnosis
 from continuum.blind_holdout import build_public_blind_holdout
 from continuum.ci_recovery import build_public_ci_recovery
@@ -45,13 +47,21 @@ def _require_https(url: str) -> None:
 
 def _get_bytes(url: str, *, timeout: float = 10.0) -> bytes:
     _require_https(url)
+    parts = urlsplit(url)
+    headers = {
+        "Accept": "application/json,text/html;q=0.9,*/*;q=0.1",
+        "User-Agent": "continuum-memory-firewall-judge-verifier/1",
+    }
+    # Scheduled/release workflows may use their ephemeral GITHUB_TOKEN to avoid
+    # the public anonymous quota.  The token is never forwarded to Pages, MCP,
+    # release-download, or any other host.
+    github_token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if parts.hostname == "api.github.com" and github_token:
+        headers["Authorization"] = f"Bearer {github_token}"
     request = Request(
         url,
         method="GET",
-        headers={
-            "Accept": "application/json,text/html;q=0.9,*/*;q=0.1",
-            "User-Agent": "continuum-memory-firewall-judge-verifier/1",
-        },
+        headers=headers,
     )
     with urlopen(request, timeout=timeout) as response:
         if response.status != 200:
@@ -1114,7 +1124,7 @@ def verify_evidence(
             and runtime["control_plane_and_migrator_role_options_empty"] is True
         ),
         "representative_scale_gate": (
-            schema_version in {4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
+            schema_version in {4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
             and scale_report.get("gate", {}).get("status") == "PASS"
             and [scale.get("row_count") for scale in scales] == [10_000, 50_000]
         ),
@@ -1280,6 +1290,7 @@ def verify_evidence(
         transfer_firewall_asset: dict[str, Any] = {}
         online_memory_lineage_asset: dict[str, Any] = {}
         outcome_replay_cas_asset: dict[str, Any] = {}
+        offline_judge_capsule_asset: dict[str, Any] = {}
         if schema_version >= 8:
             guardian_reference = evidence["release_guardian"]
             guardian_workflow = fetch_json(
@@ -1357,6 +1368,11 @@ def verify_evidence(
                     release_reference["outcome_replay_cas_asset_name"],
                     {},
                 )
+            if "offline_judge_capsule" in evidence:
+                offline_judge_capsule_asset = release_assets.get(
+                    release_reference["offline_judge_capsule_asset_name"],
+                    {},
+                )
         network_reference: dict[str, Any] = {}
         signature_bundle_asset: dict[str, Any] = {}
         signature_bundle_sha = ""
@@ -1374,6 +1390,10 @@ def verify_evidence(
         transaction_coordinator_workflow: dict[str, Any] = {}
         transaction_coordinator_artifact: dict[str, Any] = {}
         transaction_receipt_valid = False
+        offline_judge_reference: dict[str, Any] = {}
+        offline_judge_capsule: dict[str, Any] = {}
+        offline_judge_capsule_sha = ""
+        offline_judge_capsule_valid = False
         if schema_version >= 7:
             network_reference = evidence["network_sign_once"]
             envelope_digest = str(
@@ -1474,6 +1494,35 @@ def verify_evidence(
                     transaction_receipt_valid = True
                 except (KeyError, RuntimeError, TypeError, ValueError):
                     transaction_receipt_valid = False
+            if schema_version >= 16:
+                try:
+                    offline_judge_reference = evidence["offline_judge_capsule"]
+                    offline_judge_capsule_bytes = fetch_bytes(
+                        offline_judge_reference["public_url"]
+                    )
+                    parsed_offline_capsule = json.loads(
+                        offline_judge_capsule_bytes.decode("utf-8")
+                    )
+                    if not isinstance(parsed_offline_capsule, dict):
+                        raise RuntimeError("offline capsule must be a JSON object")
+                    offline_judge_capsule = parsed_offline_capsule
+                    offline_judge_capsule_sha = hashlib.sha256(
+                        offline_judge_capsule_bytes
+                    ).hexdigest()
+                    verify_envelope_binding(
+                        capsule=offline_judge_capsule,
+                        capsule_bytes=offline_judge_capsule_bytes,
+                        envelope=envelope,
+                    )
+                    offline_judge_capsule_valid = True
+                except (
+                    KeyError,
+                    RuntimeError,
+                    TypeError,
+                    ValueError,
+                    json.JSONDecodeError,
+                ):
+                    offline_judge_capsule_valid = False
         grounding_code = (
             "ORCHESTRATION_PROPOSAL_CITES_A_HANDLE_NOT_ISSUED_BY_SEARCH"
         )
@@ -1703,6 +1752,11 @@ def verify_evidence(
                         == "sha256:"
                         + evidence["outcome_replay_cas"]["public_sha256"]
                     )
+                    and (
+                        schema_version < 16
+                        or offline_judge_capsule_asset.get("digest")
+                        == "sha256:" + offline_judge_capsule_sha
+                    )
                 ),
                 "release_envelope_gate": (
                     envelope.get("schema_version") == 2
@@ -1715,6 +1769,13 @@ def verify_evidence(
                         "schema_version"
                     )
                     == schema_version
+                    and (
+                        schema_version < 16
+                        or envelope.get("offline_judge_capsule", {}).get(
+                            "asset_sha256"
+                        )
+                        == offline_judge_capsule_sha
+                    )
                     and (
                         schema_version < 8
                         or envelope.get("release_guardian", {}).get(
@@ -1950,6 +2011,46 @@ def verify_evidence(
                     .get("rls", {})
                     .get("combined_sha256")
                 ),
+                "offline_judge_capsule_bound": (
+                    schema_version < 16
+                    or (
+                        offline_judge_reference.get("schema_version") == 1
+                        and offline_judge_reference.get("asset_name")
+                        == "judge-offline-capsule-v1.json"
+                        and offline_judge_capsule_valid
+                        and offline_judge_capsule_asset.get("state") == "uploaded"
+                        and offline_judge_capsule_asset.get("digest")
+                        == "sha256:" + offline_judge_capsule_sha
+                        and offline_judge_capsule.get("compiler", {}).get(
+                            "source_head"
+                        )
+                        == release.get("target_commitish")
+                        and offline_judge_capsule.get("compiler", {}).get(
+                            "successor_release_tag"
+                        )
+                        == release_reference.get("tag")
+                        and offline_judge_capsule.get("request_policy", {}).get(
+                            "judge_click_github_api_requests"
+                        )
+                        == 0
+                        and envelope.get("offline_judge_capsule", {}).get(
+                            "asset_sha256"
+                        )
+                        == offline_judge_capsule_sha
+                        and envelope.get("offline_judge_capsule", {}).get(
+                            "receipt_sha256"
+                        )
+                        == offline_judge_capsule.get("receipt_sha256")
+                        and transaction_pages_evidence.get(
+                            "offline_judge_capsule_sha256"
+                        )
+                        == offline_judge_capsule_sha
+                        and transaction_pages_evidence.get(
+                            "offline_judge_capsule_receipt_sha256"
+                        )
+                        == offline_judge_capsule.get("receipt_sha256")
+                    )
+                ),
                 "network_sign_once_subject_visible": (
                     schema_version < 7
                     or (
@@ -2108,6 +2209,19 @@ def verify_evidence(
                             "public_bundle_sha256"
                         )
                         == network_bundle_sha
+                        and (
+                            schema_version < 16
+                            or (
+                                transaction_pages_evidence.get(
+                                    "offline_judge_capsule_sha256"
+                                )
+                                == offline_judge_capsule_sha
+                                and transaction_pages_evidence.get(
+                                    "offline_judge_capsule_receipt_sha256"
+                                )
+                                == offline_judge_capsule.get("receipt_sha256")
+                            )
+                        )
                         and transaction_pages_workflow.get("conclusion")
                         == "success"
                         and transaction_pages_workflow.get("head_sha")

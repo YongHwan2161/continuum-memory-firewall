@@ -16,10 +16,10 @@ def test_upload_artifact_digest_is_normalized_before_pages_dispatch() -> None:
     assert '-f coordinator_artifact_digest="$COORDINATOR_ARTIFACT_DIGEST"' not in workflow
 
 
-def test_v20_downloads_and_reprojects_exact_transfer_artifact() -> None:
+def test_v23_downloads_and_reprojects_exact_transfer_and_offline_capsule() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
 
-    assert "default: hackathon-v20" in workflow
+    assert "default: hackathon-v23" in workflow
     assert "for plane in source vector_scale" in workflow
     assert (
         "sequential_blind_campaign ci_recovery adaptive_diagnosis "
@@ -46,3 +46,8 @@ def test_v20_downloads_and_reprojects_exact_transfer_artifact() -> None:
     ) in workflow
     assert workflow.count('"transfer-firewall-v1.json",') == 2
     assert workflow.count('"transfer-firewall-v1.json.sha256",') == 2
+    assert "python -m scripts.offline_judge_capsule build" in workflow
+    assert "--offline-judge-capsule build/release/judge-offline-capsule-v1.json" in workflow
+    assert workflow.count("PYTHONPATH: src:.") >= 2
+    assert workflow.count('"judge-offline-capsule-v1.json",') == 2
+    assert workflow.count('"judge-offline-capsule-v1.json.sha256",') == 2

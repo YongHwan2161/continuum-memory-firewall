@@ -89,6 +89,25 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --pattern release-transaction-receipt.json \
               --dir "$RUNNER_TEMP/network-sign-once"
+            gh release download "$tag" \
+              --repo "$GITHUB_REPOSITORY" \
+              --pattern judge-offline-capsule-v1.json \
+              --dir build-pages/evidence
+            cp "$RUNNER_TEMP/network-sign-once/continuum-release-envelope-v2.json" \
+              build-pages/evidence/continuum-release-envelope-v2.json
+            envelope_public="build-pages/evidence/continuum-release-envelope-v2.json"
+            capsule_public="build-pages/evidence/judge-offline-capsule-v1.json"
+            envelope_expected="$(jq -r '.assets[] | select(.name == "continuum-release-envelope-v2.json") | .digest' <<<"$receipt")"
+            capsule_expected="$(jq -r '.assets[] | select(.name == "judge-offline-capsule-v1.json") | .digest' <<<"$receipt")"
+            envelope_actual="sha256:$(sha256sum "$envelope_public" | cut -d' ' -f1)"
+            capsule_actual="sha256:$(sha256sum "$capsule_public" | cut -d' ' -f1)"
+            test "$envelope_actual" = "$envelope_expected"
+            test "$capsule_actual" = "$capsule_expected"
+            python -m scripts.offline_judge_capsule verify \
+              --capsule "$capsule_public" \
+              --envelope "$envelope_public"
+            offline_capsule_sha256="${capsule_actual#sha256:}"
+            offline_capsule_receipt_sha256="$(jq -r '.receipt_sha256' "$capsule_public")"
 
             coordinator_run_id="$COORDINATOR_RUN_ID_INPUT"
             coordinator_source_digest="$COORDINATOR_SOURCE_INPUT"
@@ -198,7 +217,10 @@ jobs:
               --arg release_tag "$tag" \
               --arg release_target "$(jq -r '.target_commitish' <<<"$receipt")" \
               --arg public_bundle_sha256 "$network_sha" \
-              '{status:"success",pages_workflow_run_id:$pages_workflow_run_id,pages_workflow_url:$pages_workflow_url,pages_source_digest:$pages_source_digest,coordinator_workflow_run_id:$coordinator_workflow_run_id,coordinator_workflow_url:$coordinator_workflow_url,coordinator_source_digest:$coordinator_source_digest,coordinator_artifact_id:$coordinator_artifact_id,coordinator_artifact_name:$coordinator_artifact_name,coordinator_artifact_digest:$coordinator_artifact_digest,coordinator_receipt_sha256:$coordinator_receipt_sha256,public_receipt_url:$public_receipt_url,release_tag:$release_tag,release_target:$release_target,public_bundle_sha256:$public_bundle_sha256}' \
+              --arg offline_judge_capsule_sha256 "$offline_capsule_sha256" \
+              --arg offline_judge_capsule_receipt_sha256 "$offline_capsule_receipt_sha256" \
+              --arg offline_judge_capsule_public_url "https://yonghwan2161.github.io/continuum-memory-firewall/evidence/judge-offline-capsule-v1.json" \
+              '{status:"success",pages_workflow_run_id:$pages_workflow_run_id,pages_workflow_url:$pages_workflow_url,pages_source_digest:$pages_source_digest,coordinator_workflow_run_id:$coordinator_workflow_run_id,coordinator_workflow_url:$coordinator_workflow_url,coordinator_source_digest:$coordinator_source_digest,coordinator_artifact_id:$coordinator_artifact_id,coordinator_artifact_name:$coordinator_artifact_name,coordinator_artifact_digest:$coordinator_artifact_digest,coordinator_receipt_sha256:$coordinator_receipt_sha256,public_receipt_url:$public_receipt_url,release_tag:$release_tag,release_target:$release_target,public_bundle_sha256:$public_bundle_sha256,offline_judge_capsule_sha256:$offline_judge_capsule_sha256,offline_judge_capsule_receipt_sha256:$offline_judge_capsule_receipt_sha256,offline_judge_capsule_public_url:$offline_judge_capsule_public_url}' \
               >"$RUNNER_TEMP/network-sign-once/pages.json"
             python scripts/release_transaction_coordinator.py advance \
               --input "$RUNNER_TEMP/network-sign-once/immutable-receipt.json" \
