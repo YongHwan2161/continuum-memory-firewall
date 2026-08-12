@@ -183,10 +183,16 @@ outcome and promotion. Any mismatch commits a typed conflict to a per-proposal
 SHA-256 journal before returning `OUTCOME_REPLAY_CONFLICT`. See the
 [live outcome replay CAS receipt](evidence/2026-08-12-outcome-replay-cas-live.md).
 
-The next authority gap is provider-origin verification at the promotion
-boundary. The database currently compares a caller-supplied receipt identity
-correctly, but the caller still supplies that identity. A provider-verifier
-attestation should resolve the receipt from the provider, bind proposal,
-provider, policy version, freshness, and evidence digest, and become the only
-input accepted by outcome promotion. That would make fabricated, stale, and
-cross-proposal receipts fail before CAS rather than merely conflict safely.
+The former provider-origin authority gap is now closed. A fresh adapter lookup
+issues a short-lived handle bound to proposal, provider, idempotency identity,
+receipt, policy, freshness, nonce, and signing key ID. Migrations 34 and 35 make
+that handle mandatory and consume only its digests in the same transaction as
+the outcome and canonical promotion. The participant-cluster proof rejected
+six negative classes with zero negative outcome rows and prevented the runtime
+scope role from inserting attestation records. See
+[the live provider-origin receipt](evidence/2026-08-13-provider-outcome-attestation-live.md).
+
+The remaining authority-lifecycle gap is durable signing-key custody. The live
+proof uses a process-scoped HMAC key; a versioned asymmetric KMS issuer plus a
+pinned public verification keyring should prove restart-safe rotation and
+rollback while keeping `kms:Sign` unavailable to the action worker.

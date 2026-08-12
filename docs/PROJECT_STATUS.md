@@ -6,7 +6,7 @@
 MCP contract are implemented and tested. A private, cost-bounded AWS Lambda
 worker is deployed and has completed two live read-only CockroachDB Cloud
 Managed MCP calls while rejecting a write tool before credential access. The
-participant cluster is at migration version 33. A verified caller resolves
+participant cluster is at migration version 35. A verified caller resolves
 through an audited, versioned database binding to a matching NOBYPASSRLS SQL
 identity; database-native row policies enforce the same tenant and incident
 scope. The public `/mcp` endpoint accepts only five-minute Cognito
@@ -88,6 +88,21 @@ rows. Artifact `9122846707` is bound by archive digest
 retained-proposal architectural closure, not a population estimate. See
 [2026-08-12-outcome-replay-cas-live.md](evidence/2026-08-12-outcome-replay-cas-live.md).
 
+Provider-origin admission is now live-complete as well. PR `#148` merged as
+`43d63f0ab3af16f83733e2950cffb2954c532582`; main-only OIDC run
+`31650943912` applied migrations 34 and 35, performed seven fresh S3
+`HeadObject`/`GetObject` lookups, and issued one five-minute HMAC-SHA256 handle
+bound to the exact proposal, provider, idempotency key, receipt, success
+status, policy, issuer, key ID, nonce, and expiry. CockroachDB consumed the
+handle digest and nonce in the same transaction as one outcome and one
+canonical promotion. Missing, forged, expired, cross-proposal, cross-provider,
+and receipt-mismatched handles all failed with zero negative outcome rows. The
+raw handle was not persisted; the scope SQL role saw one attestation row but
+could not insert one (`SQLSTATE 42501`). Artifact `9162583114` has archive
+digest `sha256:682b46d1…e0bf9`; the public projection is
+`sha256:47934505…8673b`. See
+[2026-08-13-provider-outcome-attestation-live.md](evidence/2026-08-13-provider-outcome-attestation-live.md).
+
 Outcome-CAS publication is complete. PR `#143` merged as exact release target
 `8481ac3804bf38b69e87086a9257a895d8f3b124`; coordinator run `31548463634`
 published immutable `hackathon-v22`, and Pages run `31548509773` materialized
@@ -135,7 +150,7 @@ evidence, and explicit non-claims.
 | Idempotent replay | Implemented | Replaying the same source event returns the existing canonical record without duplication |
 | Serializable retry handling | Implemented | SQLSTATE `40001` is retried at the transaction boundary; unit tests exercise retry and exhaustion |
 | Concurrent action claim | Implemented | Two concurrent workers produce one `CLAIMED` result and one `DUPLICATE` result |
-| CockroachDB schema migrations | Implemented, integration-tested, and live at v33 | Thirty-three packaged single-statement migrations include `VECTOR(512)`, the complete vector prefix, tenant/control-plane RLS, the four-table episode contract, approval/receipt integrity, the transactional outbox, proposal-scoped outcome CAS, and its reconciliation journal; CI verifies initial apply and replay |
+| CockroachDB schema migrations | Implemented, integration-tested, and live at v35 | Thirty-five packaged single-statement migrations include `VECTOR(512)`, the complete vector prefix, tenant/control-plane RLS, the four-table episode contract, approval/receipt integrity, the transactional outbox, proposal-scoped outcome CAS, its reconciliation journal, provider-origin attestations, and attestation RLS; CI verifies initial apply and replay |
 | Migration integrity and recovery | Implemented and integration-tested | SHA-256 history rejects drift and gaps; durable pre-DDL intent resumes the DDL/history crash gap; a renewable lease excludes a second owner; `XXA00` fails closed |
 | Existing-schema adoption | Implemented and fail-closed | Unmanaged tables are refused by default; explicit adoption validates required columns, indexes, and composite scope foreign keys |
 | Semantic live-DB evaluation | Live-smoked on participant CockroachDB Cloud | Titan v2 ran 60 adversarial and similar-meaning queries across six variant classes; Recall@1/3/5 = 0.8667/0.9833/1.0, zero forbidden-scope rows, p50 = 248.149 ms, p95 = 279.012 ms |
@@ -151,6 +166,7 @@ evidence, and explicit non-claims.
 | Per-episode paired drill-down | Implemented, live-generated, and checksum-bound | The exact-head `2ef2247` rerun projects 540 observations into 180 three-arm incidents. Each arm exposes scoped search results, SHA-256 citation-handle fingerprints, typed proposal, provider outcome evidence, and promotion decision. Projection gates: exact pairing PASS, issued handles only PASS, Continuum unsafe proposals 0, cross-scope rows 0, private identifier keys 0 |
 | Network-visible sign-once | Implemented and publicly verifiable | `hackathon-v10` is durable-draft-first, author-signed, and published in one main-only workflow. It emits exactly one Fulcio/Rekor author bundle, verifies exact workflow/ref/source/runner policy, includes the bundle before immutability, and serves the two-authority network bundle through Pages. The gate separately requires GitHub's one immutable-release countersignature, so platform signing is not misreported as an author replay. |
 | Release transaction coordinator | Implemented, fault-injection tested, and publicly gated | A hash-chained receipt advances through `PREPARED`, `AUTHOR_ATTESTED`, `ASSETS_UPLOADED`, `IMMUTABLE`, and `PAGES_MATERIALIZED`. Reruns adopt the exact draft and existing author attestation; changed target/digest or duplicate signatures become fail-closed `AMBIGUOUS`. The judge path binds the terminal receipt, Pages run, release target, and public attestation-bundle digest. |
+| Provider-origin promotion admission | Implemented, integration-tested, and participant-cluster live-proven | A verifier performs a fresh provider lookup before issuing a five-minute signed handle. CockroachDB atomically consumes its digest and nonce with the outcome and promotion. Six negative classes produced typed rejection and zero outcome rows; the runtime scope role cannot mint database attestation rows. Live run `31650943912`, artifact `9162583114`, public SHA-256 `47934505…8673b`. |
 | Transactional outbox | Implemented, integration-tested, and participant-cluster fault-smoked | Before-send, idempotent after-send, and before-ack crashes converged to one logical effect and zero duplicates; a non-idempotent after-send crash became `ambiguous`, was not resent, and did not promote memory |
 | Tenant and incident integrity | Implemented | Composite foreign keys and query predicates bind candidates, canonical memory, actions, and retrieval audit to the same scope |
 | Vector write and retrieval | Implemented and participant-cluster live-smoked | Deterministic local embeddings remain for tests; the live deployment uses `amazon.titan-embed-text-v2:0` with 512 dimensions and mandatory tenant/incident scope |
@@ -163,7 +179,7 @@ evidence, and explicit non-claims.
 | AWS Managed MCP worker | Deployed and live-smoked | Private direct-invoke Lambda returned `ok: true` for `list_databases` and `list_tables`; `insert_rows` returned `INVALID_REQUEST` before secret access |
 | AWS infrastructure and package | Deployed and verified | Budget, private Lambda, and authenticated-MCP stacks are complete. The EC2 host has no SSH, requires IMDSv2, reads one runtime secret and one exact S3 object, verifies a deterministic artifact hash, and is managed through SSM |
 | Reviewer experience | Deployed public simulation and read-only verifier | GitHub Pages opens without login; `verify.html` checks the public exact-head workflow, 60-query metrics, MCP health, Devpost receipt, RLS, control plane, bounded pools, vector-index contract, and exactly one network-visible Sigstore subject using HTTP GET only. Full signature verification is available as one CLI command. |
-| Live CockroachDB Cloud | Migrated, semantically evaluated, RLS-confined, and egress-restricted | Migration version 33 is current; all visible rows in each protected table matched the caller scope; the allowlist contains only the AWS Elastic IP `/32` |
+| Live CockroachDB Cloud | Migrated, semantically evaluated, RLS-confined, and egress-restricted | Migration version 35 is current; all visible rows in each protected table matched the caller scope; the allowlist contains only the AWS Elastic IP `/32` |
 | Public MCP endpoint | Deployed and cross-scope-smoked | `https://47-131-98-12.sslip.io/mcp` has valid TLS, health `200`, missing auth `401`, five-minute OIDC, allowed search/fetch PASS, hidden forbidden memory, and cross-scope fetch denial |
 | CockroachDB Managed MCP | Live read-only evidence and guarded v3 rotation complete | Run `30709230016` replaced the AWS secret, waited beyond the five-minute cache bound, passed `list_databases` and `list_tables`, and retained pre-secret write denial; the v2 provider key and temporary GitHub secret were then deleted |
 | AWS service use | Live deployment evidenced | Lambda, EC2, Elastic IP, SSM, Secrets Manager, S3, CloudWatch Logs, CloudFormation, Cognito, Bedrock, IAM OIDC, and AWS Budgets are active; the USD 20 judging-window budget retains forecast-at-80% and actual-at-100% email alerts |
@@ -366,9 +382,11 @@ The exact commands and stop conditions are in
   capabilities before it may use the automatic retry path.
 - Live memory citation URLs do not yet provide durable reviewer-visible
   per-memory detail pages.
-- A successful `ProviderOutcome` is replay-CAS protected once admitted, but the
-  storage API does not yet require a server-issued provider-origin attestation
-  handle. Provider lookup authority therefore remains the next fundamental P0.
+- The live provider-origin proof uses one process-scoped HMAC authority for a
+  bounded run. It proves the admission protocol, binding, expiry, atomic
+  consumption, and RLS boundary, but not durable signer custody or rotation
+  continuity across verifier restarts. A versioned asymmetric KMS issuer and
+  public verification keyring remain the next authority-lifecycle P0.
 - The Devpost entry is submitted and editable while submissions remain open.
   Material edits must be followed by a fresh judge-path check and confirmation
   that the submission card still reports `Submitted`.

@@ -560,7 +560,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         self.assertEqual(envelope["application_deployment"]["migration_version"], 31)
         self.assertEqual(envelope["vector_benchmark"]["row_counts"], [10_000, 50_000])
         self.assertEqual(envelope["agent_pressure"]["concurrent_agents"], [10, 25, 50])
-        self.assertEqual(len(envelope["database_policy"]["rls"]["files"]), 3)
+        self.assertEqual(len(envelope["database_policy"]["rls"]["files"]), 4)
         self.assertEqual(len(envelope["public_judge_evidence"]["sha256"]), 64)
         self.assertEqual(
             envelope["lineage"]["baseline_runtime_sha"],
@@ -793,8 +793,16 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         envelope = self.build(outcome_replay_cas_public=outcome)
 
         self.assertEqual(envelope["gates"]["status"], "PASS")
-        self.assertEqual(envelope["outcome_replay_cas"]["workflow_run_id"], 31546885169)
+        self.assertEqual(envelope["outcome_replay_cas"]["workflow_run_id"], 31650943912)
         self.assertEqual(envelope["outcome_replay_cas"]["cas"]["outcome_rows"], 1)
+        self.assertEqual(envelope["outcome_replay_cas"]["schema_version"], 2)
+        self.assertEqual(
+            envelope["outcome_replay_cas"]["attestation"]["consumed_rows"], 1
+        )
+        self.assertEqual(
+            envelope["outcome_replay_cas"]["attestation"]["negative_outcome_rows"],
+            0,
+        )
         self.assertEqual(
             [
                 item["decision"]

@@ -6,7 +6,7 @@ on:
       release_tag:
         description: New or resumable immutable GitHub Release tag
         required: true
-        default: hackathon-v24
+        default: hackathon-v25
       release_target:
         description: Exact existing release target to reconcile; blank uses the workflow SHA
         required: false

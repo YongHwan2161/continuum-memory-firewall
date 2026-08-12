@@ -208,26 +208,44 @@ the one durable outcome; a different real S3 receipt commits a conflict journal
 entry before the typed error reaches the caller. See
 [the live proof](evidence/2026-08-12-outcome-replay-cas-live.md).
 
-### Next fundamental P0 — provider-origin outcome attestation admission
+### Completed fundamental P0 — provider-origin outcome attestation admission
 
-Replay identity is now storage-enforced, but `record_outcome_and_promote` can
-still receive a caller-constructed successful `ProviderOutcome`. Move provider
-verification authority into a server-issued, single-use attestation handle:
+Migrations 34 and 35, the server-issued handle contract, atomic CockroachDB
+consumption, and RLS are implemented. The handle binds proposal, provider,
+idempotency key, provider receipt and digest, success status, verifier policy,
+issuer, key ID, nonce, issue time, and expiry. The outbox worker can mint it
+only after a fresh adapter receipt lookup; callers cannot construct a bare
+successful `ProviderOutcome` and reach promotion.
 
-- bind proposal ID, provider, action/idempotency identity, provider lookup
-  result, receipt ID/digest, status, verifier policy/version, nonce, and expiry;
-- let only the adapter verifier mint a handle after an actual provider lookup;
-- consume the handle in the same CockroachDB transaction as first outcome
-  acceptance and canonical promotion;
-- reject fake, expired, cross-proposal, cross-provider, and replayed handles;
-- prove the identical contract against disposable GitHub and S3 adapters; and
-- expose only redacted attestation digests in the release envelope and judge
-  page.
+Participant-cluster run `31650943912` performed seven real S3
+`HeadObject`/`GetObject` lookups. One five-minute handle produced exactly one
+outcome, one attestation consumption, and one canonical promotion in one
+transaction. Missing, forged, expired, cross-proposal, cross-provider, and
+receipt-mismatched handles produced typed failures and zero negative outcome
+rows. Exact replay remained idempotent, conflicting replay remained journaled,
+the raw handle was not persisted, and the NOBYPASSRLS scope role could read its
+one row but could not insert an attestation row (`SQLSTATE 42501`). See
+[the live receipt](evidence/2026-08-13-provider-outcome-attestation-live.md).
 
-This is the highest-value remaining P0 because it closes who is authorized to
-assert provider success. More evaluation would repeat current evidence; this
-change prevents a compromised worker or buggy caller from manufacturing the
-one fact that makes an episode canonical.
+### Next fundamental P0 — durable verifier key custody and rotation continuity
+
+The protocol is closed, but the live proof intentionally used one
+process-scoped HMAC authority. The next authority seam is operational custody:
+
+- issue handles with a versioned AWS KMS asymmetric signing key held by a
+  verifier-only role after provider lookup;
+- let promotion verify signatures locally from a pinned public-key keyring so
+  the database transaction has no network dependency and workers have no sign
+  permission;
+- bind key ARN/version and verifier policy to the persisted digest receipt;
+- prove dual-key overlap, rotation, rollback, expiry, verifier restart, and
+  exact committed replay without re-signing; and
+- add a negative IAM proof that the action worker cannot call `kms:Sign`.
+
+This is higher leverage than another benchmark because it turns the proven
+admission protocol into a durable production authority boundary. A second real
+adapter should follow under the same key contract rather than create a second
+ad hoc signer.
 
 The following items should be pulled into the milestone they block:
 

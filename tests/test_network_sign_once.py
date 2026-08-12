@@ -329,7 +329,9 @@ class NetworkSignOnceTests(unittest.TestCase):
                 / "attest-release-envelope.yml"
             ).exists()
         )
-        self.assertIn("release:\n    types:\n      - published", pages_workflow)
+        self.assertIn("on:\n  workflow_dispatch:", pages_workflow)
+        self.assertNotIn("\n  push:\n", pages_workflow)
+        self.assertNotIn("\n  release:\n", pages_workflow)
         self.assertIn("Materialize the signed envelope bundle", pages_workflow)
         self.assertIn("PAGES_MATERIALIZED", pages_workflow)
         self.assertIn("--method GET", pages_workflow)

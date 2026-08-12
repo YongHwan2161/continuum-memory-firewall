@@ -13,6 +13,7 @@ from continuum.outcome_replay_proof import (
     build_public_outcome_replay_proof,
     validate_outcome_replay_proof,
 )
+from scripts.build_release_envelope import RLS_MIGRATIONS, _migration_receipt
 
 
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
@@ -149,11 +150,18 @@ def promote(
         "Read-only verification of one retained participant-cluster proposal: "
         "a real S3 HEAD+GET lookup issued one short-lived, proposal-bound "
         "promotion handle; CockroachDB consumed it atomically with the outcome "
-        "and canonical memory. Exact replay stayed idempotent, while forged, "
-        "expired, cross-proposal, and receipt-mismatched handles were rejected. "
-        "This is an architectural closure, not a population estimate."
+        "and canonical memory. Exact replay stayed idempotent, while missing, "
+        "forged, expired, cross-proposal, cross-provider, and receipt-mismatched "
+        "handles were rejected. This "
+        "is an architectural closure, not a population estimate."
     )
     judge["outcome_replay_cas"] = reference
+    judge["database_policy"] = {
+        "rls_combined_sha256": _migration_receipt(
+            Path(__file__).parents[1],
+            RLS_MIGRATIONS,
+        )["combined_sha256"]
+    }
     if release_tag is not None:
         if not release_tag or any(character.isspace() for character in release_tag):
             raise RuntimeError("release tag is invalid")

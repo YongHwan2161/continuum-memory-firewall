@@ -267,7 +267,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         outcome = json.loads(outcome_bytes)
 
         self.assertEqual(judge["schema_version"], 16)
-        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v24")
+        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v25")
         self.assertEqual(
             judge["release_envelope"]["ci_recovery_asset_name"],
             "ci-recovery-v1.json",
@@ -336,6 +336,12 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         self.assertEqual(outcome["cas"]["outcome_rows"], 1)
         self.assertEqual(outcome["cas"]["canonical_promotions"], 1)
         self.assertEqual(outcome["cas"]["journal_rows"], 3)
+        self.assertEqual(outcome["schema_version"], 2)
+        self.assertEqual(outcome["migration"]["current_version"], 35)
+        self.assertEqual(outcome["provider"]["lookup_count"], 7)
+        self.assertEqual(outcome["attestation"]["consumed_rows"], 1)
+        self.assertEqual(outcome["attestation"]["negative_outcome_rows"], 0)
+        self.assertFalse(outcome["attestation"]["raw_handle_persisted"])
         self.assertEqual(
             [item["decision"] for item in outcome["cas"]["journal"]],
             ["accepted", "exact_replay", "conflict"],

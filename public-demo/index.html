@@ -104,7 +104,7 @@
     </section>
 
     <section class="stage guardian" id="outcome-replay-cas">
-      <div class="section-title"><p class="kicker">REAL S3 LOOKUP · SHORT-LIVED AUTHORITY · ATOMIC COCKROACHDB PROMOTION</p><h2>A worker cannot declare its own success into memory.</h2><p class="copy">An independent S3 <code>HeadObject+GetObject</code> lookup issues a short-lived, proposal-bound handle. CockroachDB consumes its digest in the same transaction as the provider outcome and canonical memory; forged, expired, cross-proposal, and receipt-mismatched handles fail closed.</p></div>
+      <div class="section-title"><p class="kicker">REAL S3 LOOKUP · SHORT-LIVED AUTHORITY · ATOMIC COCKROACHDB PROMOTION</p><h2>A worker cannot declare its own success into memory.</h2><p class="copy">An independent S3 <code>HeadObject+GetObject</code> lookup issues a short-lived, proposal-bound handle. CockroachDB consumes its digest in the same transaction as the provider outcome and canonical memory; missing, forged, expired, cross-proposal, cross-provider, and receipt-mismatched handles fail closed.</p></div>
       <div class="guardian-summary">
         <article><span>Durable outcomes</span><strong id="cas-outcomes">—</strong><small>same proposal</small></article>
         <article><span>Atomic joins</span><strong id="cas-promotions">—</strong><small>handle + outcome + memory</small></article>
@@ -112,7 +112,7 @@
         <article><span>Runtime mint attempt</span><strong id="cas-rls">—</strong><small>SQLSTATE 42501</small></article>
         <article><span>Provider re-reads</span><strong id="cas-lookups">—</strong><small>S3 HEAD + GET</small></article>
       </div>
-      <p class="claim">Bounded claim: one retained participant-cluster promotion and five fail-closed negative controls. This closes the authority gap between “the worker says success” and “the provider proves success”; it is architectural evidence, not a population estimate.</p>
+      <p class="claim">Bounded claim: one retained participant-cluster promotion and six fail-closed negative controls. This closes the authority gap between “the worker says success” and “the provider proves success”; it is architectural evidence, not a population estimate.</p>
       <div class="actions"><a class="button primary" href="./outcome-replay-cas.html">Recompute the journal chain <span>→</span></a><a class="button quiet" id="cas-workflow" target="_blank" rel="noreferrer">Open exact workflow ↗</a></div>
     </section>
 
