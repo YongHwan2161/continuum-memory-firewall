@@ -19,7 +19,7 @@ def test_upload_artifact_digest_is_normalized_before_pages_dispatch() -> None:
 def test_v23_downloads_and_reprojects_exact_transfer_and_offline_capsule() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
 
-    assert "default: hackathon-v23" in workflow
+    assert "default: hackathon-v24" in workflow
     assert "for plane in source vector_scale" in workflow
     assert (
         "sequential_blind_campaign ci_recovery adaptive_diagnosis "
