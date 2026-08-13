@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://api.github.com; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <title>Continuum Outcome Replay CAS</title>
     <style>
@@ -20,7 +20,7 @@
         <div class="eyebrow">S3 HEAD+GET · short-lived signed handle · participant CockroachDB</div>
         <h1>The action worker cannot <em>mint its own success.</em></h1>
         <p class="lede">Only a fresh provider re-read can issue the proposal-bound promotion handle. CockroachDB consumes the handle digest, outcome, and canonical memory atomically; invalid authority produces zero outcome rows.</p>
-        <div id="status" class="status hold">VERIFYING NETWORK RECEIPTS</div>
+        <div id="status" class="status hold">VERIFYING STATIC RECEIPTS</div>
       </section>
       <section class="metrics">
         <div class="card metric"><span>Outcome rows</span><strong id="outcomes">—</strong></div>
@@ -50,8 +50,13 @@
       </div>
     </main>
     <script>
-      const evidenceUrl='./evidence/outcome-replay-cas-v1.json';
-      const judgeUrl='./evidence/judge-verification.json';
+      const paths={
+        evidence:'./evidence/outcome-replay-cas-v1.json',
+        judge:'./evidence/judge-verification.json',
+        envelope:'./evidence/continuum-release-envelope-v2.json',
+        capsule:'./evidence/judge-offline-capsule-v1.json',
+        transaction:'./evidence/release-transaction-receipt.json'
+      };
       const enc=new TextEncoder();
       const canonical=value=>{
         if(value===null||typeof value!=='object')return JSON.stringify(value);
@@ -59,15 +64,16 @@
         return '{'+Object.keys(value).sort().map(key=>JSON.stringify(key)+':'+canonical(value[key])).join(',')+'}';
       };
       const sha=async value=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',typeof value==='string'?enc.encode(value):value))).map(x=>x.toString(16).padStart(2,'0')).join('');
+      const parse=value=>JSON.parse(new TextDecoder().decode(value));
+      const get=async path=>{const response=await fetch(path,{cache:'no-store',credentials:'omit'});if(!response.ok)throw new Error('static receipt unavailable');return response.arrayBuffer()};
+      const selfHash=async value=>{const body={...value};delete body.receipt_sha256;return sha(canonical(body))};
       const entryPayload=item=>({decision:item.decision,durable:item.durable,error_code:item.error_code,incident_id:item.incident_id,incoming:item.incoming,outcome_id:item.outcome_id,previous_entry_hash:item.previous_entry_hash,proposal_id:item.proposal_id,reconciliation_id:item.reconciliation_id,recorded_at:item.recorded_at,run_id:item.run_id,sequence_no:item.sequence_no,tenant_id:item.tenant_id});
       async function run(){
-        const [evidenceResponse,judgeResponse]=await Promise.all([fetch(evidenceUrl,{cache:'no-store'}),fetch(judgeUrl,{cache:'no-store'})]);
-        if(!evidenceResponse.ok||!judgeResponse.ok)throw new Error('public evidence unavailable');
-        const evidenceBytes=await evidenceResponse.arrayBuffer();
-        const evidence=JSON.parse(new TextDecoder().decode(evidenceBytes));
-        const judge=await judgeResponse.json();
+        const [evidenceBytes,judgeBytes,envelopeBytes,capsuleBytes,transactionBytes]=await Promise.all(Object.values(paths).map(get));
+        const evidence=parse(evidenceBytes),judge=parse(judgeBytes),envelope=parse(envelopeBytes),capsule=parse(capsuleBytes),transaction=parse(transactionBytes);
         const ref=judge.outcome_replay_cas;
-        const [workflow,artifact]=await Promise.all([fetch(ref.workflow_api_url,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('workflow API unavailable');return r.json()}),fetch(ref.artifact_api_url,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('artifact API unavailable');return r.json()})]);
+        const frozen=envelope.outcome_replay_cas||{},terminal=transaction.events?.at(-1)?.evidence||{};
+        const envelopeSha=await sha(envelopeBytes),capsuleSha=await sha(capsuleBytes);
         let previous='0'.repeat(64);let chain=true;
         for(const [index,item] of evidence.cas.journal.entries()){
           const computed=await sha(canonical(entryPayload(item)));
@@ -76,7 +82,10 @@
         }
         const gates=Object.entries(evidence.gate).filter(([key])=>key!=='status').every(([,value])=>value===true);
         const negatives=evidence.attestation?.negative_codes||{};
-        const ok=evidence.schema_version===2&&evidence.kind==='continuum.outcome-replay-cas.public'&&evidence.source_head===ref.head_sha&&await sha(evidenceBytes)===ref.public_sha256&&workflow.id===ref.workflow_run_id&&workflow.run_attempt===ref.workflow_attempt&&workflow.head_sha===ref.head_sha&&workflow.conclusion==='success'&&artifact.id===ref.artifact_id&&artifact.name===ref.artifact_name&&artifact.digest==='sha256:'+ref.artifact_archive_sha256&&artifact.expired===false&&evidence.migration.current_version>=35&&evidence.provider.lookup_method==='s3:HeadObject+GetObject'&&evidence.provider.lookup_count===7&&evidence.attestation.consumed_rows===1&&evidence.attestation.atomic_join_rows===1&&evidence.attestation.raw_handle_persisted===false&&evidence.attestation.negative_outcome_rows===0&&Object.keys(negatives).length===6&&evidence.database.rls.runtime_attestation_insert_sqlstate==='42501'&&evidence.cas.outcome_rows===1&&evidence.cas.canonical_promotions===1&&evidence.cas.journal_rows===3&&evidence.cas.journal.map(item=>item.decision).join('|')==='accepted|exact_replay|conflict'&&evidence.cas.journal[2].error_code==='OUTCOME_REPLAY_CONFLICT'&&chain&&previous===evidence.cas.chain_tip&&gates&&evidence.gate.status==='PASS';
+        const releaseBound=envelope.gates?.status==='PASS'&&envelope.gates?.checks?.outcome_replay_cas_artifact_bound===true&&envelope.release?.tag===judge.release_envelope?.tag&&frozen.public_sha256===ref.public_sha256&&frozen.workflow_run_id===ref.workflow_run_id&&frozen.workflow_attempt===ref.workflow_attempt&&frozen.head_sha===ref.head_sha&&frozen.artifact_id===ref.artifact_id&&frozen.artifact_name===ref.artifact_name&&frozen.artifact_archive_sha256===ref.artifact_archive_sha256&&frozen.immutable_release_asset_url===envelope.release?.assets?.outcome_replay_cas;
+        const capsuleBound=capsule.schema_version===1&&capsule.kind==='continuum.offline-judge-capsule.v1'&&capsule.gate?.status==='PASS'&&capsule.online_verification?.checks?.outcome_replay_cas_closure===true&&capsule.request_policy?.judge_click_github_api_requests===0&&capsule.compiler?.successor_release_tag===envelope.release?.tag&&capsule.compiler?.source_head===envelope.release?.commit_sha&&capsule.receipt_sha256===await selfHash(capsule)&&capsuleSha===envelope.offline_judge_capsule?.asset_sha256&&capsule.receipt_sha256===envelope.offline_judge_capsule?.receipt_sha256;
+        const transactionBound=transaction.receipt_sha256===await selfHash(transaction)&&transaction.state==='PAGES_MATERIALIZED'&&transaction.release_tag===envelope.release?.tag&&transaction.source_digest===envelope.release?.commit_sha&&transaction.envelope_sha256===envelopeSha&&terminal.release_tag===envelope.release?.tag&&terminal.release_target===envelope.release?.commit_sha&&terminal.offline_judge_capsule_sha256===capsuleSha&&terminal.offline_judge_capsule_receipt_sha256===capsule.receipt_sha256;
+        const ok=evidence.schema_version===2&&evidence.kind==='continuum.outcome-replay-cas.public'&&evidence.source_head===ref.head_sha&&await sha(evidenceBytes)===ref.public_sha256&&evidence.migration.current_version>=35&&evidence.provider.lookup_method==='s3:HeadObject+GetObject'&&evidence.provider.lookup_count===7&&evidence.attestation.consumed_rows===1&&evidence.attestation.atomic_join_rows===1&&evidence.attestation.raw_handle_persisted===false&&evidence.attestation.negative_outcome_rows===0&&Object.keys(negatives).length===6&&evidence.database.rls.runtime_attestation_insert_sqlstate==='42501'&&evidence.cas.outcome_rows===1&&evidence.cas.canonical_promotions===1&&evidence.cas.journal_rows===3&&evidence.cas.journal.map(item=>item.decision).join('|')==='accepted|exact_replay|conflict'&&evidence.cas.journal[2].error_code==='OUTCOME_REPLAY_CONFLICT'&&chain&&previous===evidence.cas.chain_tip&&gates&&evidence.gate.status==='PASS'&&releaseBound&&capsuleBound&&transactionBound;
         document.getElementById('outcomes').textContent=evidence.cas.outcome_rows;
         document.getElementById('promotions').textContent=evidence.cas.canonical_promotions;
         document.getElementById('journal-count').textContent=evidence.cas.journal_rows;
@@ -93,8 +102,9 @@
         document.getElementById('workflow').href=ref.workflow_url;
         document.getElementById('artifact').href=ref.artifact_api_url;
         const status=document.getElementById('status');status.textContent=ok?'PASS · PROVIDER ORIGIN + ATOMIC PROMOTION BOUND':'FAIL CLOSED';status.className='status '+(ok?'pass':'fail');
+        window.__continuumOutcomeReplayVerification={ok,status:ok?'PASS':'FAIL',github_api_requests:0,same_origin_static_gets:5,release_tag:envelope.release?.tag,release_target:envelope.release?.commit_sha,evidence_sha256:ref.public_sha256,capsule_sha256:capsuleSha,envelope_sha256:envelopeSha};
       }
-      run().catch(error=>{const status=document.getElementById('status');status.textContent='FAIL CLOSED · '+error.message;status.className='status fail'});
+      run().catch(error=>{const status=document.getElementById('status');status.textContent='FAIL CLOSED · '+error.message;status.className='status fail';window.__continuumOutcomeReplayVerification={ok:false,status:'HOLD',github_api_requests:0,error:String(error)}});
     </script>
   </body>
 </html>

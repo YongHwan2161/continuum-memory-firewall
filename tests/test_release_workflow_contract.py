@@ -16,10 +16,10 @@ def test_upload_artifact_digest_is_normalized_before_pages_dispatch() -> None:
     assert '-f coordinator_artifact_digest="$COORDINATOR_ARTIFACT_DIGEST"' not in workflow
 
 
-def test_v26_downloads_and_reprojects_exact_transfer_and_offline_capsule() -> None:
+def test_v27_downloads_and_reprojects_exact_transfer_and_offline_capsule() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
 
-    assert "default: hackathon-v26" in workflow
+    assert "default: hackathon-v27" in workflow
     assert "for plane in source vector_scale" in workflow
     assert (
         "sequential_blind_campaign ci_recovery adaptive_diagnosis "
