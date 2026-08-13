@@ -1,27 +1,45 @@
 # Immutable competition release envelope
 
-`hackathon-v24` is the current proof unit for the receipt-compiled competition story,
+`hackathon-v27` is the current proof unit for the receipt-compiled competition story,
 closed-loop CI recovery, preregistered ambiguity-first diagnosis, and
 counterfactual cross-environment transfer plus online CockroachDB memory-lineage
-and proposal-scoped outcome replay CAS evidence. It also carries the
-quota-independent offline judge capsule. It is published only by
+and provider-origin, proposal-scoped outcome replay CAS evidence. It carries
+quota-independent main and outcome judge paths. It is published only by
 `.github/workflows/release-envelope.yml` after every fail-closed gate passes.
 
-The published v24 receipt is exact and terminal: coordinator run `31611395093`
-targeted `d2e3c1f80515c221ccca67a113cbaaf593baa391`; immutable envelope SHA-256
-is `a1c538d92351ad1159a95c674ee66604de4ff5fae156c9fd0606763f378b545f`;
-Pages run `31611493199` recorded `PAGES_MATERIALIZED`; and the public terminal
-receipt SHA-256 is
-`e9ee7ed14d8670c11712ca3e0dbdd3c418a54804cd5e9edb3177ed33749bdae6`.
-The receipt binds coordinator artifact `9147359843` with digest
-`sha256:c1ed86ae0edecd572cf273c8f5ccede6414ac761133ab060335abae6ef63bcb4`.
-Authenticated monitor run `31611785532` passed all 44 checks and retained
-artifact `9147494855`
-(`sha256:9c693617865cd2147327e7dacb34af6f8178d9f22acd468beb40a69e7df00c0e`).
+The published v27 receipt is exact and terminal: coordinator run `31653469203`
+targeted `dbb4942afd45f5bc06cbc08441d43ce155c75f05`; immutable envelope SHA-256
+is `b61aac892fdabf1310e6799aba1fecbe3b58555eb1a293bcf2b8e755385a9acd`;
+Pages run `31653536847` recorded `PAGES_MATERIALIZED`; and the canonical public
+terminal receipt SHA-256 is
+`1b313677df1029da3689291e06114556ccb12866bd682adbf343cb055a4ba714`
+(the complete published file hashes to
+`ad5dee71d8e93898d637e2499416f40519a48ea5152bad69ce8e8e3b44b4eb07`).
+The receipt binds coordinator artifact `9163463052` with digest
+`sha256:b2d2a54892b8c11135ac13d63f7517aa4067a0ca373430b280814ee1400fa074`.
+Monitor run `31653861653` passed all 44 checks and retained artifact
+`9163587639`
+(`sha256:39f6d5d7a63d42f3ec6fc2b8007a37f12467aae5e363ba8ead5b544befa2a016`).
 The capsule asset is byte-bound at
-`sha256:9dd2b05fb61732fd935c5db4eae917e7d83d3f84264f9381ec1401caf8a9487d`
+`sha256:881b12e833c471086b639733bcaf9693d3d8e18fecdd9fe93cfdd792b5afc983`
 with self receipt
-`8c943305434bbdca4da01d32b25d98bc4c91cba9b30542dfe79e3605327427f9`.
+`0e545518342eda3d15a763f2ced9e1b4c0436ee3eac4e0179d9a16c4c86cf8cf`.
+Strict verification found one author attestation and one GitHub platform
+countersignature; the author bundle is `sha256:ee2285e8…a87d` and the public
+two-attestation bundle is `sha256:0cbb15af…4037`.
+
+A real headed browser validated the main judge page with six same-origin GETs
+and the outcome page with five same-origin GETs. Both passed with zero GitHub
+API requests while the anonymous GitHub API quota was exhausted. The outcome
+page recomputed the live S3/CockroachDB closure: seven provider lookups, six of
+six blocked invalid-authority paths, one durable outcome, one canonical
+promotion, and one atomic attestation/outcome/memory join.
+
+`hackathon-v25` and `hackathon-v26` remain immutable intermediate history. v25
+first published the provider-origin proof; v26 froze it as the predecessor
+capsule; v27 made the dedicated outcome proof quota-independent. GitHub Pages
+is workflow-dispatch-only, so a source merge cannot publish a mixed
+source/evidence epoch before the coordinator explicitly advances it.
 
 `hackathon-v23` remains immutable failed browser-validation history. Its
 coordinator and Pages transactions closed, but the first headed-browser check
@@ -316,12 +334,14 @@ creates a draft, attaches the envelope and SHA sidecar, then publishes it and
 fails unless the GitHub API reports `immutable: true`, the release targets the
 exact workflow commit, and both uploaded asset digests equal the local bytes.
 
-The public verifier checks the release API's immutable flag, exact tag, uploaded
-asset state, and SHA-256 digest. A judge can independently download the envelope
-and validate its sidecar without trusting the public page:
+The independent network verifier checks the release API's immutable flag,
+exact tag, uploaded asset state, and SHA-256 digest. The primary judge click
+instead verifies the release-compiled same-origin capsule and therefore needs
+no GitHub API quota. An auditor can independently download the envelope and
+validate its sidecar without trusting the public page:
 
 ```bash
-gh release download hackathon-v24 --pattern 'continuum-release-envelope-v2.json*'
+gh release download hackathon-v27 --pattern 'continuum-release-envelope-v2.json*'
 sha256sum -c continuum-release-envelope-v2.json.sha256
 ```
 
@@ -332,7 +352,7 @@ attestation API and the in-toto subject digest. Full cryptographic policy
 verification is one repository command:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v24
+python scripts/verify_network_sign_once.py --release-tag hackathon-v27
 ```
 
 That command downloads the immutable envelope, detached author bundle, and both

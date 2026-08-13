@@ -225,7 +225,9 @@ receipt-mismatched handles produced typed failures and zero negative outcome
 rows. Exact replay remained idempotent, conflicting replay remained journaled,
 the raw handle was not persisted, and the NOBYPASSRLS scope role could read its
 one row but could not insert an attestation row (`SQLSTATE 42501`). See
-[the live receipt](evidence/2026-08-13-provider-outcome-attestation-live.md).
+[the live receipt](evidence/2026-08-13-provider-outcome-attestation-live.md)
+and its
+[immutable v27 publication](evidence/2026-08-13-provider-outcome-attestation-v27.md).
 
 ### Next fundamental P0 — durable verifier key custody and rotation continuity
 

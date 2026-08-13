@@ -229,7 +229,7 @@ receives a token or database credential. The executable database evidence is
 the integration suite and linked exact-head workflows in
 [Project Status](docs/PROJECT_STATUS.md).
 
-The current v24 release envelope receives exactly one author-controlled signature in
+The current v27 release envelope receives exactly one author-controlled signature in
 the same main-only workflow that publishes it. Its Fulcio/Rekor Sigstore bundle
 is an immutable release asset and a byte-identical Pages resource. GitHub also
 adds one distinguishable immutable-release countersignature; the verifier
@@ -238,21 +238,29 @@ a second author signing operation. Perform strict cryptographic policy
 verification of the author signature with:
 
 ```bash
-python scripts/verify_network_sign_once.py --release-tag hackathon-v24
+python scripts/verify_network_sign_once.py --release-tag hackathon-v27
 ```
 
-Version 24 makes the primary judge click quota-independent. The release
-coordinator runs the complete authenticated online verifier, freezes all 44
-PASS checks in a self-addressed capsule, and binds it to the signed envelope.
-The browser then validates 37 judge rows from six same-origin static GETs with
-zero GitHub API requests. It is published at
-<https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v24>.
-Coordinator run `31611395093`, Pages run `31611493199`, and authenticated
-freshness monitor run `31611785532` passed on exact target
-`d2e3c1f80515c221ccca67a113cbaaf593baa391`. Envelope SHA-256 is
-`a1c538d9…8b545f`; capsule SHA-256 is `9dd2b05f…a9487d`; and the public terminal
-receipt is `e9ee7ed1…9bdae6`. See
-[the exact v24 evidence](docs/evidence/2026-08-13-zero-api-judge-v24.md).
+Version 27 binds the provider-origin outcome proof and makes both public judge
+paths quota-independent. The release coordinator runs the complete
+authenticated online verifier, freezes all 44 PASS checks in a self-addressed
+capsule, and binds it to the signed envelope. A fresh headed browser then
+validated 37 judge rows from six same-origin static GETs and the outcome proof
+from five same-origin static GETs, with zero GitHub API requests on both pages
+while the anonymous API quota was exhausted. It is published at
+<https://github.com/YongHwan2161/continuum-memory-firewall/releases/tag/hackathon-v27>.
+Coordinator run `31653469203`, Pages run `31653536847`, and freshness monitor
+run `31653861653` passed on exact target
+`dbb4942afd45f5bc06cbc08441d43ce155c75f05`. Envelope SHA-256 is
+`b61aac89…a9acd`; capsule SHA-256 is `881b12e8…fc983`; public terminal receipt
+is `1b313677…a714`; and the network bundle is `0cbb15af…4037`. See
+[the exact v27 evidence](docs/evidence/2026-08-13-provider-outcome-attestation-v27.md).
+
+Versions 25 and 26 are preserved as immutable intermediate successors. Version
+25 first published the provider-origin bytes; version 26 froze those checks in
+the predecessor capsule. Version 27 additionally removes GitHub API dependence
+from the dedicated outcome page. No consumed release epoch was edited or
+backfilled.
 
 Version 23 is preserved as immutable failed browser-validation history. Its
 release transaction succeeded, but the first real headed-browser check found
