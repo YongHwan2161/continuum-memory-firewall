@@ -1,13 +1,19 @@
 # Immutable competition release envelope
 
-`hackathon-v27` is the current proof unit for the receipt-compiled competition story,
+`hackathon-v28` is the current successor proof unit for the receipt-compiled competition story,
 closed-loop CI recovery, preregistered ambiguity-first diagnosis, and
 counterfactual cross-environment transfer plus online CockroachDB memory-lineage
-and provider-origin, proposal-scoped outcome replay CAS evidence. It carries
-quota-independent main and outcome judge paths. It is published only by
+and provider-origin, proposal-scoped outcome replay CAS evidence. Schema 17 also
+binds the current burned-in-caption video and Devpost delivery receipt to the
+provider-origin story as an immutable release asset. It carries quota-independent
+main and outcome judge paths. It is published only by
 `.github/workflows/release-envelope.yml` after every fail-closed gate passes.
+The main zero-API path uses seven same-origin GETs: the immutable v27 capsule
+preserves 44 online checks, while the signed v28 envelope and provider-story
+bytes supply the current delivery check. Together they render 38 judge rows;
+the ordinary online verifier independently evaluates all 45 checks.
 
-The published v27 receipt is exact and terminal: coordinator run `31653469203`
+The published v27 predecessor receipt remains exact and terminal: coordinator run `31653469203`
 targeted `dbb4942afd45f5bc06cbc08441d43ce155c75f05`; immutable envelope SHA-256
 is `b61aac892fdabf1310e6799aba1fecbe3b58555eb1a293bcf2b8e755385a9acd`;
 Pages run `31653536847` recorded `PAGES_MATERIALIZED`; and the canonical public

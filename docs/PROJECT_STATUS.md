@@ -32,6 +32,19 @@ The Devpost entry is submitted to the CockroachDB x AWS hackathon as submission
 `1121568`. The submission remains editable while submissions are open; the
 current deadline is 2026-08-19 06:00 KST.
 
+The current judge-closure P0 uses schema 17. It preserves the sequential v14
+story as historical evidence and separately binds the current provider-origin
+story to a 99.93-second public video with deterministic burned-in English
+captions, Devpost project version 25, and the retained submission receipt. The
+landing-page first screen derives 48 versus 0 false promotions, 114/144 versus
+102/144 future successes, and 6/6 blocked authority attacks from signed public
+evidence. `hackathon-v28` must publish the provider story plus sidecar and make
+the release envelope, online verifier, predecessor capsule, and terminal Pages
+receipt agree before the public gate can pass. The zero-API browser preserves
+44 predecessor online checks and derives the signed v28 delivery binding as a
+45th check, yielding 38 visible PASS rows without a circular release. See
+[the v28 judge-closure contract](evidence/2026-08-13-judge-closure-v28.md).
+
 The real GitHub Actions closed-loop recovery run is also complete. Across six
 fault families, 18 calibration and 36 paired evaluation children produced 54
 unique run/artifact receipts with zero repository mutation and zero cleanup

@@ -110,6 +110,22 @@ function renderOutcomeReplayCas(evidence) {
   byId('cas-lookups').textContent = evidence.schema_version >= 2 ? String(evidence.provider.lookup_count) : 'legacy';
 }
 
+function renderJudgeClosure(sequential, outcomeReplayCas) {
+  const continuum = sequential.arms.continuum;
+  const raw = sequential.arms.raw_rag;
+  const blocked = Object.keys(outcomeReplayCas.attestation.negative_codes).length;
+  if (
+    sequential.gate.status !== 'PASS'
+    || outcomeReplayCas.gate.status !== 'PASS'
+    || continuum.false_canonical_promotions !== 0
+    || outcomeReplayCas.attestation.negative_outcome_rows !== 0
+  ) throw new Error('judge closure evidence gate failed');
+  byId('closure-raw-promotions').textContent = String(raw.false_canonical_promotions);
+  byId('closure-continuum-promotions').textContent = String(continuum.false_canonical_promotions);
+  byId('closure-future-success').textContent = `${continuum.target_provider_successes}/${continuum.target_episodes} vs ${raw.target_provider_successes}/${raw.target_episodes}`;
+  byId('closure-authority-attacks').textContent = `${blocked}/${blocked}`;
+}
+
 async function runStory() {
   const button = byId('run-story');
   const state = byId('story-state');
@@ -199,9 +215,11 @@ async function quickCheck() {
       fetch('./', {cache: 'no-store'}).then(response => response.text()),
       json(judge.release_envelope.release_api_url),
     ]);
+    const providerOriginStory = await json(judge.provider_origin_story.public_url);
     const releaseAsset = release.assets?.find(asset => asset.name === judge.release_envelope.asset_name);
     const onlineReleaseAsset = release.assets?.find(asset => asset.name === judge.release_envelope.online_memory_lineage_asset_name);
     const outcomeCasReleaseAsset = release.assets?.find(asset => asset.name === judge.release_envelope.outcome_replay_cas_asset_name);
+    const providerOriginStoryReleaseAsset = release.assets?.find(asset => asset.name === judge.release_envelope.provider_origin_story_asset_name);
     const passed = judge.submission.status === 'Submitted'
       && judge.evaluation.cross_scope_leaked_documents === 0
       && scale.gate.status === 'PASS'
@@ -287,7 +305,17 @@ async function quickCheck() {
         && outcomeCas.database.rls.runtime_attestation_insert_sqlstate === '42501'
       ))
       && outcomeCasReleaseAsset?.digest === `sha256:${judge.outcome_replay_cas.public_sha256}`;
-    const allPassed = passed && guardianPassed && blindPassed && sequentialPassed && ciRecoveryPassed && adaptivePassed && transferPassed && onlinePassed && outcomeCasPassed;
+    const providerOriginPassed = providerOriginStory.gate.status === 'PASS'
+      && providerOriginStory.receipt_sha256 === judge.provider_origin_story.story_receipt_sha256
+      && providerOriginStory.source_release.tag === judge.provider_origin_story.source_release_tag
+      && providerOriginStory.source_release.target === judge.provider_origin_story.source_release_target
+      && judge.provider_origin_story.video_url === judge.submission.video_url
+      && judge.provider_origin_story.video_sha256 === judge.submission.video_sha256
+      && judge.provider_origin_story.caption_delivery.mode === 'burned-in'
+      && judge.provider_origin_story.caption_delivery.publicly_verifiable === true
+      && judge.provider_origin_story.devpost.project_version === judge.submission.project_version
+      && providerOriginStoryReleaseAsset?.digest === `sha256:${judge.provider_origin_story.public_sha256}`;
+    const allPassed = passed && guardianPassed && blindPassed && sequentialPassed && ciRecoveryPassed && adaptivePassed && transferPassed && onlinePassed && outcomeCasPassed && providerOriginPassed;
     result.textContent = allPassed ? 'PASS · public evidence, online CockroachDB lineage, and live health agree.' : 'HOLD · open the full verifier for details.';
     byId('proof-status').textContent = allPassed ? 'ALL PUBLIC GATES PASS' : 'HOLD';
   } catch (error) {
@@ -312,6 +340,7 @@ Promise.all([json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl
     renderTransferFirewall(transfer);
     renderOnlineMemoryLineage(online);
     renderOutcomeReplayCas(outcomeCas);
+    renderJudgeClosure(sequential, outcomeCas);
   })
   .catch(error => { byId('proof-status').textContent = 'EVIDENCE HOLD'; console.error(error); });
 byId('quick-check').addEventListener('click', quickCheck);

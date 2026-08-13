@@ -6,7 +6,7 @@ on:
       release_tag:
         description: New or resumable immutable GitHub Release tag
         required: true
-        default: hackathon-v27
+        default: hackathon-v28
       release_target:
         description: Exact existing release target to reconcile; blank uses the workflow SHA
         required: false
@@ -243,6 +243,8 @@ jobs:
             "$(jq -r '.outcome_replay_cas.public_sha256' "$judge")"
           cmp build/evidence/outcome-replay-cas/outcome-replay-cas-v1.json \
             public-demo/evidence/outcome-replay-cas-v1.json
+          test "$(sha256sum public-demo/evidence/provider-origin-story-v1.json | cut -d' ' -f1)" = \
+            "$(jq -r '.provider_origin_story.public_sha256' "$judge")"
           PYTHONPATH=src python - <<'PY'
           import json
           from pathlib import Path
@@ -254,6 +256,7 @@ jobs:
           from continuum.adaptive_diagnosis import build_public_adaptive_diagnosis
           from continuum.online_memory_lineage import build_public_online_memory_lineage
           from continuum.outcome_replay_proof import build_public_outcome_replay_proof
+          from continuum.provider_origin_story import verify_provider_origin_story
           from continuum.transfer_firewall import build_public_transfer_firewall
           from scripts.promote_online_memory_lineage_evidence import _validate_reconciliation_inputs
           raw = json.loads(Path("build/evidence/guardian/release-guardian-v1.json").read_text())
@@ -292,6 +295,8 @@ jobs:
           outcome_public = json.loads(Path("public-demo/evidence/outcome-replay-cas-v1.json").read_text())
           if outcome_public != build_public_outcome_replay_proof(outcome_raw):
               raise SystemExit("public outcome replay CAS projection does not match raw report")
+          provider_story = json.loads(Path("public-demo/evidence/provider-origin-story-v1.json").read_text())
+          verify_provider_origin_story(provider_story)
           input_path = Path("build/evidence/online-lineage/reconciliation-input-v1.json")
           proposals_path = Path("build/evidence/online-lineage/predecessor/proposals-v1.json")
           outcomes_path = Path("build/evidence/online-lineage/predecessor/provider-outcomes-v1.json")
@@ -346,6 +351,7 @@ jobs:
             --blind-holdout-public public-demo/evidence/blind-holdout-v1.json \
             --sequential-blind-public public-demo/evidence/sequential-blind-v1.json \
             --evidence-story public-demo/evidence/evidence-story-v1.json \
+            --provider-origin-story public-demo/evidence/provider-origin-story-v1.json \
             --ci-recovery-public public-demo/evidence/ci-recovery-v1.json \
             --adaptive-diagnosis-public public-demo/evidence/adaptive-diagnosis-v1.json \
             --transfer-firewall-public public-demo/evidence/transfer-firewall-v1.json \
@@ -375,6 +381,8 @@ jobs:
             build/release/sequential-blind-v1.json
           cp public-demo/evidence/evidence-story-v1.json \
             build/release/evidence-story-v1.json
+          cp public-demo/evidence/provider-origin-story-v1.json \
+            build/release/provider-origin-story-v1.json
           cp public-demo/evidence/ci-recovery-v1.json \
             build/release/ci-recovery-v1.json
           cp public-demo/evidence/adaptive-diagnosis-v1.json \
@@ -395,6 +403,7 @@ jobs:
             sha256sum blind-holdout-v1.json >blind-holdout-v1.json.sha256
             sha256sum sequential-blind-v1.json >sequential-blind-v1.json.sha256
             sha256sum evidence-story-v1.json >evidence-story-v1.json.sha256
+            sha256sum provider-origin-story-v1.json >provider-origin-story-v1.json.sha256
             sha256sum ci-recovery-v1.json >ci-recovery-v1.json.sha256
             sha256sum adaptive-diagnosis-v1.json >adaptive-diagnosis-v1.json.sha256
             sha256sum transfer-firewall-v1.json >transfer-firewall-v1.json.sha256
@@ -429,6 +438,8 @@ jobs:
             build/release/sequential-blind-v1.json.sha256 \
             build/release/evidence-story-v1.json \
             build/release/evidence-story-v1.json.sha256 \
+            build/release/provider-origin-story-v1.json \
+            build/release/provider-origin-story-v1.json.sha256 \
             build/release/ci-recovery-v1.json \
             build/release/ci-recovery-v1.json.sha256 \
             build/release/adaptive-diagnosis-v1.json \
@@ -520,6 +531,8 @@ jobs:
               "sequential-blind-v1.json.sha256",
               "evidence-story-v1.json",
               "evidence-story-v1.json.sha256",
+              "provider-origin-story-v1.json",
+              "provider-origin-story-v1.json.sha256",
               "ci-recovery-v1.json",
               "ci-recovery-v1.json.sha256",
               "adaptive-diagnosis-v1.json",
@@ -729,6 +742,8 @@ jobs:
               "sequential-blind-v1.json.sha256",
               "evidence-story-v1.json",
               "evidence-story-v1.json.sha256",
+              "provider-origin-story-v1.json",
+              "provider-origin-story-v1.json.sha256",
               "ci-recovery-v1.json",
               "ci-recovery-v1.json.sha256",
               "adaptive-diagnosis-v1.json",

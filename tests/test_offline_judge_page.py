@@ -34,8 +34,8 @@ class OfflineJudgePageTests(unittest.TestCase):
         self.assertIn("credentials: 'omit'", self.javascript)
         self.assertIn("github_api_requests: 0", self.javascript)
 
-    def test_schema_sixteen_advertises_release_bound_capsule(self) -> None:
-        self.assertEqual(self.judge["schema_version"], 16)
+    def test_schema_seventeen_advertises_release_bound_capsule(self) -> None:
+        self.assertEqual(self.judge["schema_version"], 17)
         reference = self.judge["offline_judge_capsule"]
         self.assertEqual(reference["schema_version"], 1)
         self.assertEqual(reference["github_api_requests_per_judge_click"], 0)
@@ -44,6 +44,9 @@ class OfflineJudgePageTests(unittest.TestCase):
             reference["asset_name"],
         )
         self.assertEqual(len(UI_CHECK_SOURCES), 37)
+        self.assertIn("values.providerOriginStory = providerStoryBound", self.javascript)
+        self.assertIn("effective_check_count", self.javascript)
+        self.assertIn("same_origin_static_gets: 7", self.javascript)
 
 
 if __name__ == "__main__":

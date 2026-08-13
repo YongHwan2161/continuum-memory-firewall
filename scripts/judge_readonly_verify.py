@@ -27,6 +27,7 @@ from continuum.outcome_replay_proof import (
     PUBLIC_KIND as OUTCOME_REPLAY_PUBLIC_KIND,
     validate_outcome_replay_proof,
 )
+from continuum.provider_origin_story import verify_provider_origin_story
 from continuum.sequential_blind import build_public_sequential_blind
 from continuum.transfer_firewall import build_public_transfer_firewall
 
@@ -966,12 +967,72 @@ def verify_evidence_story(
         and boundary.get("continuum_vs_stateless")
         == "directional_not_confirmatory"
         and boundary.get("latency") == "measured_not_claimed_as_superior"
+        and (
+            evidence.get("schema_version", 0) >= 17
+            or (
+                reference.get("video_url") == submission.get("video_url")
+                and reference.get("video_sha256")
+                == submission.get("video_sha256")
+                and reference.get("video_duration_seconds")
+                == submission.get("video_duration_seconds")
+                and reference.get("subtitles_sha256")
+                == submission.get("video_subtitles_sha256")
+            )
+        )
+    )
+
+
+def verify_provider_origin_story_delivery(
+    evidence: dict[str, Any],
+    *,
+    fetch_bytes: Callable[[str], bytes],
+) -> bool:
+    """Bind the current judge video and Devpost receipt to provider-origin proof."""
+
+    reference = evidence.get("provider_origin_story")
+    if reference is None:
+        return evidence.get("schema_version", 0) < 17
+    try:
+        story_bytes = fetch_bytes(reference["public_url"])
+        story_sha = hashlib.sha256(
+            story_bytes.replace(b"\r\n", b"\n")
+        ).hexdigest()
+        story = json.loads(story_bytes.decode("utf-8"))
+        if not isinstance(story, dict):
+            return False
+        verify_provider_origin_story(story)
+        source_release = story["source_release"]
+        submission = evidence["submission"]
+        devpost = reference["devpost"]
+        caption = reference["caption_delivery"]
+    except (KeyError, RuntimeError, TypeError, ValueError, json.JSONDecodeError):
+        return False
+    return (
+        story_sha == reference.get("public_sha256")
+        and story.get("receipt_sha256")
+        == reference.get("story_receipt_sha256")
+        and story.get("gate", {}).get("status") == "PASS"
+        and all(story.get("gate", {}).get("checks", {}).values())
+        and len(story.get("story", {}).get("scenes", [])) == 9
+        and source_release.get("tag") == reference.get("source_release_tag")
+        and source_release.get("target")
+        == reference.get("source_release_target")
+        and source_release.get("envelope_sha256")
+        == reference.get("source_release_envelope_sha256")
         and reference.get("video_url") == submission.get("video_url")
         and reference.get("video_sha256") == submission.get("video_sha256")
         and reference.get("video_duration_seconds")
         == submission.get("video_duration_seconds")
         and reference.get("subtitles_sha256")
         == submission.get("video_subtitles_sha256")
+        and caption.get("mode") in {"youtube-cc", "burned-in"}
+        and caption.get("language") == "en-US"
+        and caption.get("publicly_verifiable") is True
+        and devpost.get("project_version") == submission.get("project_version")
+        and devpost.get("project_updated_at")
+        == submission.get("project_updated_at")
+        and devpost.get("submission_id") == submission.get("id")
+        and devpost.get("submitted_at") == submission.get("submitted_at")
     )
 
 
@@ -1135,7 +1196,8 @@ def verify_evidence(
             and runtime["control_plane_and_migrator_role_options_empty"] is True
         ),
         "representative_scale_gate": (
-            schema_version in {4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+            schema_version
+            in {4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17}
             and scale_report.get("gate", {}).get("status") == "PASS"
             and [scale.get("row_count") for scale in scales] == [10_000, 50_000]
         ),
@@ -1238,6 +1300,13 @@ def verify_evidence(
             evidence,
             fetch_bytes=fetch_bytes,
         )
+    if schema_version >= 17:
+        checks["provider_origin_story_delivery"] = (
+            verify_provider_origin_story_delivery(
+                evidence,
+                fetch_bytes=fetch_bytes,
+            )
+        )
     if schema_version >= 5:
         lineage = evidence["lineage"]
         sandbox_reference = evidence["sandbox_provider"]
@@ -1296,6 +1365,7 @@ def verify_evidence(
         blind_asset: dict[str, Any] = {}
         sequential_asset: dict[str, Any] = {}
         evidence_story_asset: dict[str, Any] = {}
+        provider_origin_story_asset: dict[str, Any] = {}
         ci_recovery_asset: dict[str, Any] = {}
         adaptive_diagnosis_asset: dict[str, Any] = {}
         transfer_firewall_asset: dict[str, Any] = {}
@@ -1352,6 +1422,11 @@ def verify_evidence(
             if "evidence_story" in evidence:
                 evidence_story_asset = release_assets.get(
                     release_reference["evidence_story_asset_name"],
+                    {},
+                )
+            if "provider_origin_story" in evidence:
+                provider_origin_story_asset = release_assets.get(
+                    release_reference["provider_origin_story_asset_name"],
                     {},
                 )
             if "ci_recovery" in evidence:
@@ -1735,6 +1810,12 @@ def verify_evidence(
                         + evidence["evidence_story"]["public_sha256"]
                     )
                     and (
+                        "provider_origin_story" not in evidence
+                        or provider_origin_story_asset.get("digest")
+                        == "sha256:"
+                        + evidence["provider_origin_story"]["public_sha256"]
+                    )
+                    and (
                         "ci_recovery" not in evidence
                         or ci_recovery_asset.get("digest")
                         == "sha256:" + evidence["ci_recovery"]["public_sha256"]
@@ -1848,10 +1929,43 @@ def verify_evidence(
                             == evidence["evidence_story"].get(
                                 "story_receipt_sha256"
                             )
-                            and envelope.get("evidence_story", {})
+                            and (
+                                schema_version >= 17
+                                or envelope.get("evidence_story", {})
+                                .get("video", {})
+                                .get("sha256")
+                                == evidence["submission"].get("video_sha256")
+                            )
+                        )
+                    )
+                    and (
+                        "provider_origin_story" not in evidence
+                        or (
+                            envelope.get("provider_origin_story", {}).get(
+                                "public_sha256"
+                            )
+                            == evidence["provider_origin_story"].get(
+                                "public_sha256"
+                            )
+                            and envelope.get("provider_origin_story", {}).get(
+                                "receipt_sha256"
+                            )
+                            == evidence["provider_origin_story"].get(
+                                "story_receipt_sha256"
+                            )
+                            and envelope.get("provider_origin_story", {})
                             .get("video", {})
                             .get("sha256")
                             == evidence["submission"].get("video_sha256")
+                            and envelope.get("provider_origin_story", {})
+                            .get("video", {})
+                            .get("caption_delivery", {})
+                            .get("publicly_verifiable")
+                            is True
+                            and envelope.get("provider_origin_story", {})
+                            .get("devpost", {})
+                            .get("project_version")
+                            == evidence["submission"].get("project_version")
                         )
                     )
                     and (
