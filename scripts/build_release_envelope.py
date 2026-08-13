@@ -16,6 +16,7 @@ from continuum.blind_holdout import build_public_blind_holdout
 from continuum.ci_recovery import build_public_ci_recovery
 from continuum.drilldown import build_public_episode_drilldown
 from continuum.evidence_story import verify_evidence_story_receipt
+from continuum.provider_origin_story import verify_provider_origin_story
 from continuum.release_guardian import build_public_release_guardian
 from continuum.release_guardian_replication import (
     build_public_release_guardian_replication,
@@ -57,6 +58,7 @@ RELEASE_GUARDIAN_REPLICATION_ASSET = "release-guardian-replication-v1.json"
 BLIND_HOLDOUT_ASSET = "blind-holdout-v1.json"
 SEQUENTIAL_BLIND_ASSET = "sequential-blind-v1.json"
 EVIDENCE_STORY_ASSET = "evidence-story-v1.json"
+PROVIDER_ORIGIN_STORY_ASSET = "provider-origin-story-v1.json"
 CI_RECOVERY_ASSET = "ci-recovery-v1.json"
 ADAPTIVE_DIAGNOSIS_ASSET = "adaptive-diagnosis-v1.json"
 TRANSFER_FIREWALL_ASSET = "transfer-firewall-v1.json"
@@ -160,6 +162,7 @@ def build_envelope(
     online_memory_lineage_public: dict[str, Any] | None = None,
     outcome_replay_cas_public: dict[str, Any] | None = None,
     offline_judge_capsule: dict[str, Any] | None = None,
+    provider_origin_story: dict[str, Any] | None = None,
     *,
     judge_bytes: bytes,
     scale_bytes: bytes,
@@ -180,6 +183,7 @@ def build_envelope(
     online_memory_lineage_public_bytes: bytes = b"",
     outcome_replay_cas_public_bytes: bytes = b"",
     offline_judge_capsule_bytes: bytes = b"",
+    provider_origin_story_bytes: bytes = b"",
     repo_root: Path,
     repository: str,
     commit_sha: str,
@@ -188,8 +192,8 @@ def build_envelope(
     release_tag: str,
     generated_at: str | None = None,
 ) -> dict[str, Any]:
-    if judge.get("schema_version") not in {8, 9, 10, 11, 12, 13, 14, 15, 16}:
-        raise RuntimeError("judge evidence schema 8 through 16 is required")
+    if judge.get("schema_version") not in {8, 9, 10, 11, 12, 13, 14, 15, 16, 17}:
+        raise RuntimeError("judge evidence schema 8 through 17 is required")
     if not SHA_PATTERN.fullmatch(commit_sha):
         raise RuntimeError("release commit must be a full lowercase SHA")
     if workflow_run_id < 1 or not workflow_url.startswith("https://github.com/"):
@@ -212,6 +216,7 @@ def build_envelope(
     blind_reference = judge.get("blind_holdout")
     sequential_reference = judge.get("sequential_blind_campaign")
     story_reference = judge.get("evidence_story")
+    provider_origin_story_reference = judge.get("provider_origin_story")
     ci_recovery_reference = judge.get("ci_recovery")
     adaptive_diagnosis_reference = judge.get("adaptive_diagnosis")
     transfer_firewall_reference = judge.get("transfer_firewall")
@@ -265,6 +270,18 @@ def build_envelope(
         if evidence_story is not None
         else ""
     )
+    provider_origin_story_sha = (
+        sha256_bytes(repository_text_bytes(provider_origin_story_bytes))
+        if provider_origin_story is not None
+        else ""
+    )
+    provider_origin_story_valid = False
+    if provider_origin_story is not None:
+        try:
+            verify_provider_origin_story(provider_origin_story)
+            provider_origin_story_valid = True
+        except RuntimeError:
+            provider_origin_story_valid = False
     ci_recovery_public_sha = (
         sha256_bytes(repository_text_bytes(ci_recovery_public_bytes))
         if ci_recovery_public is not None
@@ -913,14 +930,19 @@ def build_envelope(
                 == story_reference.get("source_release_envelope_sha256")
                 and evidence_story.get("receipt_sha256")
                 == story_reference.get("story_receipt_sha256")
-                and story_reference.get("video_url")
-                == submission.get("video_url")
-                and story_reference.get("video_sha256")
-                == submission.get("video_sha256")
-                and story_reference.get("video_duration_seconds")
-                == submission.get("video_duration_seconds")
-                and story_reference.get("subtitles_sha256")
-                == submission.get("video_subtitles_sha256")
+                and (
+                    judge.get("schema_version") >= 17
+                    or (
+                        story_reference.get("video_url")
+                        == submission.get("video_url")
+                        and story_reference.get("video_sha256")
+                        == submission.get("video_sha256")
+                        and story_reference.get("video_duration_seconds")
+                        == submission.get("video_duration_seconds")
+                        and story_reference.get("subtitles_sha256")
+                        == submission.get("video_subtitles_sha256")
+                    )
+                )
                 and evidence_story.get("claim_boundary", {}).get(
                     "continuum_vs_raw_rag"
                 )
@@ -932,6 +954,70 @@ def build_envelope(
                 and evidence_story.get("claim_boundary", {}).get("latency")
                 == "measured_not_claimed_as_superior"
                 and len(evidence_story.get("story", {}).get("scenes", [])) == 9
+            )
+        ),
+        "provider_origin_story_delivery_bound": (
+            judge.get("schema_version") < 17
+            or (
+                provider_origin_story_reference is not None
+                and provider_origin_story is not None
+                and provider_origin_story_valid
+                and provider_origin_story_sha
+                == provider_origin_story_reference.get("public_sha256")
+                and provider_origin_story.get("receipt_sha256")
+                == provider_origin_story_reference.get("story_receipt_sha256")
+                and provider_origin_story.get("source_release", {}).get("tag")
+                == provider_origin_story_reference.get("source_release_tag")
+                and provider_origin_story.get("source_release", {}).get("target")
+                == provider_origin_story_reference.get("source_release_target")
+                and provider_origin_story.get("source_release", {}).get(
+                    "envelope_sha256"
+                )
+                == provider_origin_story_reference.get(
+                    "source_release_envelope_sha256"
+                )
+                and provider_origin_story.get("gate", {}).get("status") == "PASS"
+                and all(
+                    provider_origin_story.get("gate", {})
+                    .get("checks", {})
+                    .values()
+                )
+                and provider_origin_story_reference.get("video_url")
+                == submission.get("video_url")
+                and provider_origin_story_reference.get("video_sha256")
+                == submission.get("video_sha256")
+                and provider_origin_story_reference.get("video_duration_seconds")
+                == submission.get("video_duration_seconds")
+                and provider_origin_story_reference.get("subtitles_sha256")
+                == submission.get("video_subtitles_sha256")
+                and provider_origin_story_reference.get("devpost", {}).get(
+                    "project_version"
+                )
+                == submission.get("project_version")
+                and provider_origin_story_reference.get("devpost", {}).get(
+                    "project_updated_at"
+                )
+                == submission.get("project_updated_at")
+                and provider_origin_story_reference.get("devpost", {}).get(
+                    "submission_id"
+                )
+                == submission.get("id")
+                and provider_origin_story_reference.get("devpost", {}).get(
+                    "submitted_at"
+                )
+                == submission.get("submitted_at")
+                and provider_origin_story_reference.get("caption_delivery", {}).get(
+                    "mode"
+                )
+                in {"youtube-cc", "burned-in"}
+                and provider_origin_story_reference.get("caption_delivery", {}).get(
+                    "language"
+                )
+                == "en-US"
+                and provider_origin_story_reference.get("caption_delivery", {}).get(
+                    "publicly_verifiable"
+                )
+                is True
             )
         ),
         "ci_recovery_artifact_bound": (
@@ -1617,6 +1703,18 @@ def build_envelope(
                 )
             )
             and (
+                provider_origin_story_reference is None
+                or (
+                    release_reference.get("provider_origin_story_asset_name")
+                    == PROVIDER_ORIGIN_STORY_ASSET
+                    and release_reference.get("provider_origin_story_asset_url")
+                    == (
+                        f"https://github.com/{repository}/releases/download/"
+                        f"{release_tag}/{PROVIDER_ORIGIN_STORY_ASSET}"
+                    )
+                )
+            )
+            and (
                 ci_recovery_reference is None
                 or (
                     release_reference.get("ci_recovery_asset_name")
@@ -1857,6 +1955,15 @@ def build_envelope(
                         ]
                     }
                     if story_reference is not None
+                    else {}
+                ),
+                **(
+                    {
+                        "provider_origin_story": release_reference[
+                            "provider_origin_story_asset_url"
+                        ]
+                    }
+                    if provider_origin_story_reference is not None
                     else {}
                 ),
                 **(
@@ -2226,6 +2333,45 @@ def build_envelope(
         ),
         **(
             {
+                "provider_origin_story": {
+                    "schema_version": provider_origin_story["schema_version"],
+                    "public_sha256": provider_origin_story_sha,
+                    "receipt_sha256": provider_origin_story["receipt_sha256"],
+                    "public_url": provider_origin_story_reference["public_url"],
+                    "page_url": provider_origin_story_reference["page_url"],
+                    "immutable_release_asset_url": release_reference[
+                        "provider_origin_story_asset_url"
+                    ],
+                    "source_release": provider_origin_story["source_release"],
+                    "live_proof": provider_origin_story["live_proof"],
+                    "release_proof": provider_origin_story["release_proof"],
+                    "architecture": provider_origin_story["architecture"],
+                    "claim_boundary": provider_origin_story["claim_boundary"],
+                    "video": {
+                        "url": provider_origin_story_reference["video_url"],
+                        "id": provider_origin_story_reference["video_id"],
+                        "title": provider_origin_story_reference["video_title"],
+                        "duration_seconds": provider_origin_story_reference[
+                            "video_duration_seconds"
+                        ],
+                        "sha256": provider_origin_story_reference["video_sha256"],
+                        "subtitles_sha256": provider_origin_story_reference[
+                            "subtitles_sha256"
+                        ],
+                        "caption_delivery": provider_origin_story_reference[
+                            "caption_delivery"
+                        ],
+                    },
+                    "devpost": provider_origin_story_reference["devpost"],
+                    "gate": provider_origin_story["gate"],
+                }
+            }
+            if provider_origin_story_reference is not None
+            and provider_origin_story is not None
+            else {}
+        ),
+        **(
+            {
                 "ci_recovery": {
                     "schema_version": ci_recovery_public["schema_version"],
                     "head_sha": ci_recovery_reference["head_sha"],
@@ -2561,6 +2707,7 @@ def main() -> None:
     parser.add_argument("--blind-holdout-public", type=Path)
     parser.add_argument("--sequential-blind-public", type=Path)
     parser.add_argument("--evidence-story", type=Path)
+    parser.add_argument("--provider-origin-story", type=Path)
     parser.add_argument("--ci-recovery-public", type=Path)
     parser.add_argument("--adaptive-diagnosis-public", type=Path)
     parser.add_argument("--transfer-firewall-public", type=Path)
@@ -2602,6 +2749,11 @@ def main() -> None:
     evidence_story_bytes = (
         args.evidence_story.read_bytes()
         if args.evidence_story is not None
+        else b""
+    )
+    provider_origin_story_bytes = (
+        args.provider_origin_story.read_bytes()
+        if args.provider_origin_story is not None
         else b""
     )
     ci_recovery_public_bytes = (
@@ -2694,6 +2846,11 @@ def main() -> None:
             if offline_judge_capsule_bytes
             else None
         ),
+        (
+            json.loads(provider_origin_story_bytes)
+            if provider_origin_story_bytes
+            else None
+        ),
         judge_bytes=judge_bytes,
         scale_bytes=scale_bytes,
         pressure_bytes=pressure_bytes,
@@ -2713,6 +2870,7 @@ def main() -> None:
         online_memory_lineage_public_bytes=online_memory_lineage_public_bytes,
         outcome_replay_cas_public_bytes=outcome_replay_cas_public_bytes,
         offline_judge_capsule_bytes=offline_judge_capsule_bytes,
+        provider_origin_story_bytes=provider_origin_story_bytes,
         repo_root=args.repo_root.resolve(),
         repository=args.repository,
         commit_sha=args.commit_sha,

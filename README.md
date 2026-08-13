@@ -213,23 +213,26 @@ SQL identity could read its one attestation row but could not insert one
 population estimate.
 
 The current receipt-compiled 99.93-second provider-origin judge demo is public
-at <https://youtu.be/cENOZu3prgs>. Its nine scenes are generated from the
+at <https://youtu.be/9mxeQBt20WI>. Its nine scenes are generated from the
 immutable v27 outcome asset, judge capsule, terminal transaction, and two
 network-visible attestations rather than copied from hand-edited metric text.
 It shows seven fresh S3 lookups, the five-minute proposal-bound promotion
 handle, one atomic CockroachDB attestation/outcome/canonical-memory join, six
 blocked authority attacks, `SQLSTATE 42501`, replay conflict journaling, and the
-44-check zero-API public proof. The exact MP4 SHA-256 is
-`af5a689017cc2c39deae2a6368ff0616d580dfabf909bf2918fafa7223cdace7`,
-the English SRT SHA-256 is
+44-check zero-API public proof. English narration is burned into the frames so
+caption delivery does not depend on YouTube's optional caption-track surface.
+The exact MP4 SHA-256 is
+`a9b3312f51cb9775c02cdf53d570130b65099c83d86885bf33433c47cc383f91`,
+and the source English SRT SHA-256 is
 `4611757b3f074b4c6014f9c9085444c444ebbd6ea2c298a38ba0ac938f9262c7`,
 and the self-addressed story receipt is
 `f3cafd7db4ba6c4657f2751c022ab609612e84776fc39d3c656e17f6c57676e8`.
 The [focused public proof](https://yonghwan2161.github.io/continuum-memory-firewall/outcome-replay-cas.html)
-and [delivery receipt](docs/evidence/2026-08-13-provider-origin-video-devpost-v8.md)
-preserve the one-proposal claim boundary. The uploaded video and Devpost
-version 23 are post-v27 mutable delivery records, not retroactive members of the
-immutable v27 envelope.
+and [v28 delivery contract](docs/evidence/2026-08-13-judge-closure-v28.md)
+preserve the one-proposal claim boundary. Devpost version 25 retains the
+original Submitted timestamp while pointing to these exact public video bytes.
+The v28 judge-closure contract makes both delivery receipts first-class release
+inputs instead of retroactively changing v27.
 
 The policy-replay interactions are simulations, while the live metric cards and
 read-only verifier load exact public receipts for the participant deployment,
@@ -238,7 +241,16 @@ receives a token or database credential. The executable database evidence is
 the integration suite and linked exact-head workflows in
 [Project Status](docs/PROJECT_STATUS.md).
 
-The current v27 release envelope receives exactly one author-controlled signature in
+The v28 judge-closure successor adds the provider-origin story as an immutable
+asset, binds the burned-in video and Devpost version 25 to it, and exposes four
+receipt-derived first-screen facts: 48 versus 0 false promotions, 114/144 versus
+102/144 future successes, and 6/6 blocked authority attacks. The zero-API path
+preserves 44 predecessor online checks in the immutable capsule and derives the
+current delivery binding from the signed v28 envelope as check 45, producing 38
+judge rows without a circular successor release. See the
+[v28 contract](docs/evidence/2026-08-13-judge-closure-v28.md).
+
+The v27 predecessor release envelope receives exactly one author-controlled signature in
 the same main-only workflow that publishes it. Its Fulcio/Rekor Sigstore bundle
 is an immutable release asset and a byte-identical Pages resource. GitHub also
 adds one distinguishable immutable-release countersignature; the verifier
