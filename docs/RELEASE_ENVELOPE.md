@@ -1,6 +1,6 @@
 # Immutable competition release envelope
 
-`hackathon-v28` is the current successor proof unit for the receipt-compiled competition story,
+`hackathon-v29` is the current successor proof unit for the receipt-compiled competition story,
 closed-loop CI recovery, preregistered ambiguity-first diagnosis, and
 counterfactual cross-environment transfer plus online CockroachDB memory-lineage
 and provider-origin, proposal-scoped outcome replay CAS evidence. Schema 17 also
@@ -8,10 +8,21 @@ binds the current burned-in-caption video and Devpost delivery receipt to the
 provider-origin story as an immutable release asset. It carries quota-independent
 main and outcome judge paths. It is published only by
 `.github/workflows/release-envelope.yml` after every fail-closed gate passes.
-The main zero-API path uses seven same-origin GETs: the immutable v27 capsule
-preserves 44 online checks, while the signed v28 envelope and provider-story
-bytes supply the current delivery check. Together they render 38 judge rows;
-the ordinary online verifier independently evaluates all 45 checks.
+The main zero-API path uses seven same-origin GETs. Its predecessor capsule
+freezes all 45 v28 online checks, while the signed v29 envelope and exact
+provider-story bytes independently revalidate the current delivery row. The
+browser renders 38 rows; the ordinary online verifier evaluates the same 45
+checks directly.
+
+Immutable v28 remains a preserved failed browser-validation epoch. Coordinator
+run `31706946192` targeted
+`73ba099bd19c58caab5dd84c303ae22061548d39`; envelope SHA-256 is
+`2b3a1d7b882c51e96850c5e7a63ffd5715680bf9e550f86841acbbc93f678192`;
+Pages run `31707063340` materialized capsule
+`c387b086a81fee4629e2adcb562aaac0026c0eae3d7be2844d02701e863cfae7`.
+The online verifier passed all 45 checks, but the headed browser rendered 37/38
+because its provider-story self-hash omitted the canonical trailing LF. v28 was
+not retried, backfilled, or mutated; v29 is the fresh successor.
 
 The published v27 predecessor receipt remains exact and terminal: coordinator run `31653469203`
 targeted `dbb4942afd45f5bc06cbc08441d43ce155c75f05`; immutable envelope SHA-256

@@ -228,7 +228,7 @@ and the source English SRT SHA-256 is
 and the self-addressed story receipt is
 `f3cafd7db4ba6c4657f2751c022ab609612e84776fc39d3c656e17f6c57676e8`.
 The [focused public proof](https://yonghwan2161.github.io/continuum-memory-firewall/outcome-replay-cas.html)
-and [v28 delivery contract](docs/evidence/2026-08-13-judge-closure-v28.md)
+and [v29 delivery contract](docs/evidence/2026-08-13-offline-receipt-v29.md)
 preserve the one-proposal claim boundary. Devpost version 25 retains the
 original Submitted timestamp while pointing to these exact public video bytes.
 The v28 judge-closure contract makes both delivery receipts first-class release
@@ -241,14 +241,16 @@ receives a token or database credential. The executable database evidence is
 the integration suite and linked exact-head workflows in
 [Project Status](docs/PROJECT_STATUS.md).
 
-The v28 judge-closure successor adds the provider-origin story as an immutable
-asset, binds the burned-in video and Devpost version 25 to it, and exposes four
+The v29 judge-closure successor preserves immutable v28, corrects the browser's
+canonical provider-story self-receipt calculation, binds the burned-in video
+and Devpost version 25 to the provider-origin story, and exposes four
 receipt-derived first-screen facts: 48 versus 0 false promotions, 114/144 versus
-102/144 future successes, and 6/6 blocked authority attacks. The zero-API path
-preserves 44 predecessor online checks in the immutable capsule and derives the
-current delivery binding from the signed v28 envelope as check 45, producing 38
-judge rows without a circular successor release. See the
-[v28 contract](docs/evidence/2026-08-13-judge-closure-v28.md).
+102/144 future successes, and 6/6 blocked authority attacks. The v29 zero-API
+path freezes all 45 v28 online checks in its predecessor capsule and revalidates
+the current delivery tuple against the signed v29 envelope, producing 38 judge
+rows. The exact production JavaScript receipt function is now executed against
+the retained story in CI. See the
+[v29 browser-closure contract](docs/evidence/2026-08-13-offline-receipt-v29.md).
 
 The v27 predecessor release envelope receives exactly one author-controlled signature in
 the same main-only workflow that publishes it. Its Fulcio/Rekor Sigstore bundle

@@ -51,6 +51,13 @@
     return sha256Json(body);
   }
 
+  async function providerStoryReceiptHash(value) {
+    const body = {...value};
+    delete body.receipt_sha256;
+    const canonicalWithLf = JSON.stringify(canonical(body)) + '\n';
+    return sha256Hex(new TextEncoder().encode(canonicalWithLf).buffer);
+  }
+
   async function runOffline() {
     button.disabled = true;
     button.textContent = 'Verifying static capsule…';
@@ -74,7 +81,7 @@
       const providerStorySha = await rawSha(normalizedTextBytes(providerStoryBytes));
       const capsuleReceiptValid = capsule.receipt_sha256 === await selfHash(capsule);
       const transactionReceiptValid = transaction.receipt_sha256 === await selfHash(transaction);
-      const providerStoryReceiptValid = providerStory.receipt_sha256 === await selfHash(providerStory);
+      const providerStoryReceiptValid = providerStory.receipt_sha256 === await providerStoryReceiptHash(providerStory);
       const capsuleChecks = capsule.online_verification?.checks || {};
       const uiChecks = capsule.ui_checks || {};
       const allOnlineChecks = Object.keys(capsuleChecks).length === capsule.online_verification?.check_count && Object.values(capsuleChecks).every(value => value === true);
@@ -126,8 +133,8 @@
         release_target: envelope.release?.commit_sha,
         predecessor_release_tag: capsule.predecessor?.release_tag,
         predecessor_online_check_count: capsule.online_verification?.check_count,
-        current_delivery_check_count: 1,
-        effective_check_count: Number(capsule.online_verification?.check_count || 0) + 1,
+        current_delivery_check_count: capsuleChecks.provider_origin_story_delivery === true ? 0 : 1,
+        effective_check_count: Number(capsule.online_verification?.check_count || 0) + (capsuleChecks.provider_origin_story_delivery === true ? 0 : 1),
         ui_check_count: Object.keys(values).length
       };
       if (!passed) console.error('one or more offline judge gates failed');
@@ -141,6 +148,7 @@
     }
   }
 
+  window.__continuumOfflineVerificationInternals = Object.freeze({providerStoryReceiptHash});
   button.addEventListener('click', runOffline);
   window.runContinuumOfflineVerification = runOffline;
 })();

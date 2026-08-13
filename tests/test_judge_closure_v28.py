@@ -15,7 +15,7 @@ JUDGE_PATH = ROOT / "public-demo" / "evidence" / "judge-verification.json"
 STORY_PATH = ROOT / "public-demo" / "evidence" / "provider-origin-story-v1.json"
 
 
-class JudgeClosureV28Tests(unittest.TestCase):
+class JudgeClosureV29Tests(unittest.TestCase):
     def setUp(self) -> None:
         self.judge = json.loads(JUDGE_PATH.read_text(encoding="utf-8"))
         self.story_bytes = STORY_PATH.read_bytes()
@@ -70,7 +70,7 @@ class JudgeClosureV28Tests(unittest.TestCase):
         self.assertIn("raw.false_canonical_promotions", script)
         self.assertIn("continuum.target_provider_successes", script)
         self.assertIn("outcomeReplayCas.attestation.negative_codes", script)
-        self.assertEqual(release["tag"], "hackathon-v28")
+        self.assertEqual(release["tag"], "hackathon-v29")
         self.assertEqual(
             release["provider_origin_story_asset_name"],
             "provider-origin-story-v1.json",
