@@ -1,5 +1,11 @@
 # Judge closure v28
 
+> Historical immutable epoch: coordinator and Pages publication succeeded and
+> the online verifier passed all 45 checks. A required headed-browser audit then
+> found 37/38 visible PASS rows because the JavaScript provider-story self-hash
+> omitted the canonical trailing LF. The v28 release bytes remain untouched;
+> `hackathon-v29` is the successor correction.
+
 ## Outcome
 
 `hackathon-v28` closes the gap between the strongest provider-origin proof and
