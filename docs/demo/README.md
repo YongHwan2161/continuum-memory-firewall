@@ -33,6 +33,9 @@ identifier, or private participant information.
 - `DEMO_NARRATION_V7.md` — compiler-generated narration from the immutable v14
   sequential receipt: 144 future targets per arm, false-promotion mechanism,
   exact-artifact reconciliation, architecture, and public proof.
+- `DEMO_NARRATION_V8.md` — compiler-generated narration from immutable v27:
+  fresh S3 provider lookup, proposal-bound five-minute authority, atomic
+  CockroachDB promotion, six negative controls, RLS/replay, and zero-API proof.
 - `continuum-memory-firewall-v4.en.srt` — exact English captions for the
   public 100.918-second outcome demo.
 - `continuum-memory-firewall-v5.en.srt` — exact English caption source for the
@@ -208,3 +211,37 @@ The compiler rejects mutable or mismatched release inputs and overclaims. The
 video builder accepts only a valid self-addressed story receipt and enforces the
 90–120 second duration. WAV files, the MP4, and the upload SRT remain local build
 artifacts; the source, story JSON, narration, and rebuild scripts are reviewed.
+
+For the provider-origin v8 entry, download the exact immutable v27 envelope,
+capsule, outcome proof, public terminal receipt, and public network bundle.
+Compile their cross-bindings before generating any narration:
+
+```powershell
+python scripts/compile_provider_origin_story_v8.py `
+  --outcome build/demo-v8/inputs/outcome-replay-cas-v1.json `
+  --envelope build/demo-v8/inputs/continuum-release-envelope-v2.json `
+  --capsule build/demo-v8/inputs/judge-offline-capsule-v1.json `
+  --transaction build/demo-v8/inputs/release-transaction-receipt.public.json `
+  --network-bundle build/demo-v8/inputs/continuum-release-envelope-v2.network-attestations.jsonl `
+  --compiled-at 2026-08-13T00:35:00Z `
+  --output public-demo/evidence/provider-origin-story-v1.json `
+  --narration-output docs/demo/DEMO_NARRATION_V8.md
+
+powershell -File scripts/synthesize_demo_narration_v4.ps1 `
+  -Narration docs/demo/DEMO_NARRATION_V8.md `
+  -OutputDirectory build/demo-v8/narration `
+  -Rate 4
+
+python scripts/build_demo_video_v8.py `
+  --story public-demo/evidence/provider-origin-story-v1.json `
+  --narration-text docs/demo/DEMO_NARRATION_V8.md `
+  --narration-dir build/demo-v8/narration `
+  --subtitles build/demo-v8/continuum-memory-firewall-demo-v8.en.srt `
+  --output build/demo-v8/continuum-memory-firewall-demo-v8.mp4
+```
+
+The v8 compiler reuses the production outcome-proof, release-transaction, and
+offline-capsule validators. It additionally decodes the public Sigstore JSONL
+and requires exactly one author attestation plus one GitHub release
+countersignature. The builder accepts only the resulting self-addressed PASS
+story and refuses narration outside 90–120 seconds.
