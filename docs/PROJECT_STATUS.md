@@ -32,10 +32,10 @@ The Devpost entry is submitted to the CockroachDB x AWS hackathon as submission
 `1121568`. The submission remains editable while submissions are open; the
 current deadline is 2026-08-19 06:00 KST.
 
-The current judge-closure P0 uses schema 17 and successor `hackathon-v29`. It preserves the sequential v14
+The current judge-closure P0 uses schema 18 and successor `hackathon-v30`. It preserves the sequential v14
 story as historical evidence and separately binds the current provider-origin
 story to a 99.93-second public video with deterministic burned-in English
-captions, Devpost project version 25, and the retained submission receipt. The
+captions, Devpost project version 26, and the retained submission receipt. The
 landing-page first screen derives 48 versus 0 false promotions, 114/144 versus
 102/144 future successes, and 6/6 blocked authority attacks from signed public
 evidence. Immutable v28 passed all 45 online checks, but the post-publication
@@ -44,8 +44,12 @@ omitted the canonical trailing LF used by the provider-story self-receipt.
 Those v28 bytes were not changed. v29 fixes the production hash function,
 executes that exact JavaScript function in CI, freezes all 45 predecessor
 checks, and revalidates the current delivery tuple against the signed successor
-envelope before rendering 38 PASS rows. See
-[the v29 browser-closure contract](evidence/2026-08-13-offline-receipt-v29.md).
+envelope before rendering 38 PASS rows. v30 additionally makes that browser
+result a release state: content-addressed/SRI script bytes, fresh isolated
+Chromium, 38/38 rows, zero GitHub API requests, and zero console/page errors are
+bound into the hash-chained `BROWSER_VERIFIED` receipt before final Pages
+publication. See
+[the v30 browser-verified contract](evidence/2026-08-13-browser-verified-release-v30.md).
 
 The real GitHub Actions closed-loop recovery run is also complete. Across six
 fault families, 18 calibration and 36 paired evaluation children produced 54
@@ -198,7 +202,7 @@ evidence, and explicit non-claims.
 | Pre-registered blind multi-provider holdout | Live label-denied GitHub/S3 benchmark complete and release-bound | Run `31300283080` scored 60 pairs/120 observations only after both arms finished. Candidate label fields were zero and the candidate process did not open labels. Continuum completed 45/60 versus raw-RAG 43/60, with zero Continuum false promotion, cross-scope leak, duplicate effect, or cleanup residual; raw-RAG recorded 16 false promotions. Public SHA-256 `0a0791b1…abba2e74`. |
 | Per-episode paired drill-down | Implemented, live-generated, and checksum-bound | The exact-head `2ef2247` rerun projects 540 observations into 180 three-arm incidents. Each arm exposes scoped search results, SHA-256 citation-handle fingerprints, typed proposal, provider outcome evidence, and promotion decision. Projection gates: exact pairing PASS, issued handles only PASS, Continuum unsafe proposals 0, cross-scope rows 0, private identifier keys 0 |
 | Network-visible sign-once | Implemented and publicly verifiable | `hackathon-v10` is durable-draft-first, author-signed, and published in one main-only workflow. It emits exactly one Fulcio/Rekor author bundle, verifies exact workflow/ref/source/runner policy, includes the bundle before immutability, and serves the two-authority network bundle through Pages. The gate separately requires GitHub's one immutable-release countersignature, so platform signing is not misreported as an author replay. |
-| Release transaction coordinator | Implemented, fault-injection tested, and publicly gated | A hash-chained receipt advances through `PREPARED`, `AUTHOR_ATTESTED`, `ASSETS_UPLOADED`, `IMMUTABLE`, and `PAGES_MATERIALIZED`. Reruns adopt the exact draft and existing author attestation; changed target/digest or duplicate signatures become fail-closed `AMBIGUOUS`. The judge path binds the terminal receipt, Pages run, release target, and public attestation-bundle digest. |
+| Release transaction coordinator | Implemented, fault-injection tested, and publicly gated | A hash-chained receipt advances through `PREPARED`, `AUTHOR_ATTESTED`, `ASSETS_UPLOADED`, `IMMUTABLE`, `PAGES_MATERIALIZED`, and `BROWSER_VERIFIED`. Reruns adopt the exact draft and existing author attestation; changed target/digest or duplicate signatures become fail-closed `AMBIGUOUS`. The judge path binds the terminal receipt, Pages run, release target, browser workflow/artifact digest, content-addressed/SRI script, and public attestation-bundle digest. |
 | Provider-origin promotion admission | Implemented, integration-tested, participant-cluster live-proven, and immutable-v27 bound | A verifier performs a fresh provider lookup before issuing a five-minute signed handle. CockroachDB atomically consumes its digest and nonce with the outcome and promotion. Six negative classes produced typed rejection and zero outcome rows; the runtime scope role cannot mint database attestation rows. Live run `31650943912`, artifact `9162583114`, public SHA-256 `47934505…8673b`; v27 coordinator `31653469203`, Pages `31653536847`, monitor `31653861653`, and both zero-API browser paths passed. |
 | Transactional outbox | Implemented, integration-tested, and participant-cluster fault-smoked | Before-send, idempotent after-send, and before-ack crashes converged to one logical effect and zero duplicates; a non-idempotent after-send crash became `ambiguous`, was not resent, and did not promote memory |
 | Tenant and incident integrity | Implemented | Composite foreign keys and query predicates bind candidates, canonical memory, actions, and retrieval audit to the same scope |

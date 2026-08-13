@@ -9,6 +9,7 @@ release envelope, while contradictory provider state becomes AMBIGUOUS.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 from pathlib import Path
@@ -24,6 +25,7 @@ STATES = (
     "ASSETS_UPLOADED",
     "IMMUTABLE",
     "PAGES_MATERIALIZED",
+    "BROWSER_VERIFIED",
 )
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
@@ -207,6 +209,75 @@ def _validate_evidence(
         _require_sha256(
             evidence.get("public_bundle_sha256"), "public_bundle_sha256"
         )
+    elif state == "BROWSER_VERIFIED":
+        if evidence.get("status") != "success":
+            raise RuntimeError("BROWSER_VERIFIED requires status=success")
+        browser_run_id = int(evidence.get("browser_workflow_run_id", 0))
+        browser_artifact_id = int(evidence.get("browser_artifact_id", 0))
+        if browser_run_id < 1 or browser_artifact_id < 1:
+            raise RuntimeError("BROWSER_VERIFIED browser identity is invalid")
+        if evidence.get("browser_workflow_url") != (
+            f"https://github.com/{receipt['repository']}/actions/runs/{browser_run_id}"
+        ):
+            raise RuntimeError("BROWSER_VERIFIED workflow URL is invalid")
+        if evidence.get("browser_source_digest") != source_digest:
+            raise RuntimeError("BROWSER_VERIFIED source differs from the intent")
+        expected_artifact_name = f"browser-verification-candidate-{browser_run_id}"
+        if evidence.get("browser_artifact_name") != expected_artifact_name:
+            raise RuntimeError("BROWSER_VERIFIED artifact name is invalid")
+        artifact_digest = str(evidence.get("browser_artifact_digest", ""))
+        if not artifact_digest.startswith("sha256:") or not SHA256_PATTERN.fullmatch(
+            artifact_digest[7:]
+        ):
+            raise RuntimeError("BROWSER_VERIFIED artifact digest is invalid")
+        for key in (
+            "browser_receipt_sha256",
+            "screenshot_sha256",
+            "network_receipt_sha256",
+            "console_receipt_sha256",
+            "script_sha256",
+            "pages_receipt_sha256",
+        ):
+            _require_sha256(evidence.get(key), key)
+        expected_pages_receipt = (
+            receipt.get("previous_receipt_sha256")
+            if receipt.get("state") == "BROWSER_VERIFIED"
+            else receipt.get("receipt_sha256")
+        )
+        if evidence.get("pages_receipt_sha256") != expected_pages_receipt:
+            raise RuntimeError("BROWSER_VERIFIED does not extend the Pages receipt")
+        script_sha = str(evidence.get("script_sha256", ""))
+        if evidence.get("script_asset_name") != (
+            f"assets/offline-judge.{script_sha}.js"
+        ):
+            raise RuntimeError("BROWSER_VERIFIED script asset is not content-addressed")
+        expected_integrity = "sha256-" + base64.b64encode(
+            bytes.fromhex(script_sha)
+        ).decode("ascii")
+        if evidence.get("script_integrity") != expected_integrity:
+            raise RuntimeError("BROWSER_VERIFIED script integrity is invalid")
+        if evidence.get("browser_context_fresh") is not True:
+            raise RuntimeError("BROWSER_VERIFIED requires a fresh browser context")
+        if evidence.get("browser_engine") != "chromium":
+            raise RuntimeError("BROWSER_VERIFIED requires Chromium")
+        if evidence.get("headless") is not True:
+            raise RuntimeError("BROWSER_VERIFIED requires a reproducible headless run")
+        if evidence.get("candidate_status") != "CANDIDATE_PASS":
+            raise RuntimeError("BROWSER_VERIFIED candidate did not pass")
+        if evidence.get("candidate_transaction_state") != "PAGES_MATERIALIZED":
+            raise RuntimeError("BROWSER_VERIFIED candidate state is invalid")
+        if int(evidence.get("ui_check_count", 0)) != 38:
+            raise RuntimeError("BROWSER_VERIFIED requires exactly 38 UI checks")
+        if int(evidence.get("github_api_requests", -1)) != 0:
+            raise RuntimeError("BROWSER_VERIFIED made a GitHub API request")
+        if int(evidence.get("console_error_count", -1)) != 0:
+            raise RuntimeError("BROWSER_VERIFIED emitted a console error")
+        if evidence.get("release_tag") != release_tag:
+            raise RuntimeError("BROWSER_VERIFIED release tag differs from the intent")
+        if evidence.get("release_target") != source_digest:
+            raise RuntimeError("BROWSER_VERIFIED target differs from the intent")
+        if not str(evidence.get("public_verifier_url", "")).startswith("https://"):
+            raise RuntimeError("BROWSER_VERIFIED public verifier URL is invalid")
     else:
         raise RuntimeError(f"unsupported release transaction state: {state}")
 
@@ -387,6 +458,16 @@ def reconcile_receipt(
             and pages.get("release_tag") == receipt["release_tag"]
             and pages.get("release_target") == receipt["source_digest"]
             else "DISPATCH_PAGES"
+        )
+    elif state == "PAGES_MATERIALIZED":
+        browser = snapshot.get("browser", {})
+        action = (
+            "RECORD_BROWSER_VERIFIED"
+            if isinstance(browser, dict)
+            and browser.get("status") == "success"
+            and browser.get("release_tag") == receipt["release_tag"]
+            and browser.get("release_target") == receipt["source_digest"]
+            else "RUN_BROWSER_VERIFICATION"
         )
     else:
         action = "COMPLETE"

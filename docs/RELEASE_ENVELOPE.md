@@ -1,18 +1,21 @@
 # Immutable competition release envelope
 
-`hackathon-v29` is the current successor proof unit for the receipt-compiled competition story,
+`hackathon-v30` is the current successor proof unit for the receipt-compiled competition story,
 closed-loop CI recovery, preregistered ambiguity-first diagnosis, and
 counterfactual cross-environment transfer plus online CockroachDB memory-lineage
-and provider-origin, proposal-scoped outcome replay CAS evidence. Schema 17 also
+and provider-origin, proposal-scoped outcome replay CAS evidence. Schema 18 also
 binds the current burned-in-caption video and Devpost delivery receipt to the
 provider-origin story as an immutable release asset. It carries quota-independent
 main and outcome judge paths. It is published only by
 `.github/workflows/release-envelope.yml` after every fail-closed gate passes.
 The main zero-API path uses seven same-origin GETs. Its predecessor capsule
-freezes all 45 v28 online checks, while the signed v29 envelope and exact
+freezes all 45 predecessor online checks, while the signed v30 envelope and exact
 provider-story bytes independently revalidate the current delivery row. The
 browser renders 38 rows; the ordinary online verifier evaluates the same 45
-checks directly.
+checks directly. The content-addressed judge script is SRI-pinned. A fresh
+isolated Chromium run first verifies a non-terminal candidate publication; its
+workflow/artifact ID and digest are then appended to the release receipt as
+`BROWSER_VERIFIED`. The final Pages publication is browser-verified again.
 
 Immutable v28 remains a preserved failed browser-validation epoch. Coordinator
 run `31706946192` targeted
@@ -22,7 +25,8 @@ Pages run `31707063340` materialized capsule
 `c387b086a81fee4629e2adcb562aaac0026c0eae3d7be2844d02701e863cfae7`.
 The online verifier passed all 45 checks, but the headed browser rendered 37/38
 because its provider-story self-hash omitted the canonical trailing LF. v28 was
-not retried, backfilled, or mutated; v29 is the fresh successor.
+not retried, backfilled, or mutated; v29 is its preserved correction and v30 is
+the fresh browser-gated successor.
 
 The published v27 predecessor receipt remains exact and terminal: coordinator run `31653469203`
 targeted `dbb4942afd45f5bc06cbc08441d43ce155c75f05`; immutable envelope SHA-256
@@ -205,15 +209,19 @@ Version 10 closes the release crash gap. The workflow creates a durable draft
 and uploads the exact envelope before invoking the author signer. Its
 hash-chained `release-transaction-receipt.json` advances only in this order:
 
-`PREPARED -> AUTHOR_ATTESTED -> ASSETS_UPLOADED -> IMMUTABLE -> PAGES_MATERIALIZED`
+`PREPARED -> AUTHOR_ATTESTED -> ASSETS_UPLOADED -> IMMUTABLE -> PAGES_MATERIALIZED -> BROWSER_VERIFIED`
 
 On retry, the coordinator downloads the draft assets and inspects the public
 attestation index. Zero author attestations produces `SIGN_AUTHOR`; one produces
 `RECORD_AUTHOR_ATTESTED`; more than one, a changed target, or a changed envelope
 digest produces `AMBIGUOUS` and stops. A crash after immutable publication is
 reconciled from the immutable provider receipt without changing release assets.
-Pages publishes the terminal receipt and verifies the public bytes before its
-workflow succeeds. Sensitive evidence keys are rejected by the coordinator.
+Pages publishes a non-terminal candidate and verifies the public bytes. A fresh
+isolated Chromium gate must render 38/38 with zero GitHub API requests and zero
+console/page errors. The coordinator then binds that workflow/artifact receipt,
+advances to `BROWSER_VERIFIED`, republishes the final bytes, and repeats the
+browser gate before its workflow succeeds. Sensitive evidence keys are rejected
+by the coordinator.
 
 Version 11 closes the external-effect evidence gap. The release workflow
 revalidates the real-provider guardian workflow and artifact receipts, downloads

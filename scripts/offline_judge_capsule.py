@@ -192,8 +192,18 @@ def build_capsule(
         raise RuntimeError("predecessor author bundle is not release-bound")
 
     verify_receipt(transaction_receipt)
-    terminal = transaction_receipt.get("events", [])[-1].get("evidence", {})
-    if transaction_receipt.get("state") != "PAGES_MATERIALIZED":
+    pages_evidence = next(
+        (
+            event.get("evidence", {})
+            for event in transaction_receipt.get("events", [])
+            if event.get("state") == "PAGES_MATERIALIZED"
+        ),
+        {},
+    )
+    if transaction_receipt.get("state") not in {
+        "PAGES_MATERIALIZED",
+        "BROWSER_VERIFIED",
+    }:
         raise RuntimeError("predecessor transaction is not terminal")
     if transaction_receipt.get("release_tag") != release_tag:
         raise RuntimeError("predecessor transaction tag mismatch")
@@ -201,7 +211,7 @@ def build_capsule(
         raise RuntimeError("predecessor transaction target mismatch")
     if transaction_receipt.get("envelope_sha256") != envelope_sha:
         raise RuntimeError("predecessor transaction envelope mismatch")
-    if terminal.get("public_bundle_sha256") != network_sha:
+    if pages_evidence.get("public_bundle_sha256") != network_sha:
         raise RuntimeError("predecessor network bundle is not terminal-bound")
 
     author_event = next(
@@ -226,10 +236,10 @@ def build_capsule(
             "author_bundle_sha256"
         )
         == author_sha,
-        "predecessor_network_bundle_bound": terminal.get("public_bundle_sha256")
+        "predecessor_network_bundle_bound": pages_evidence.get("public_bundle_sha256")
         == network_sha,
         "predecessor_transaction_terminal": transaction_receipt.get("state")
-        == "PAGES_MATERIALIZED",
+        in {"PAGES_MATERIALIZED", "BROWSER_VERIFIED"},
         "browser_github_api_requests_zero": True,
     }
     if not all(gate_checks.values()):

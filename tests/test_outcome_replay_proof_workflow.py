@@ -39,6 +39,7 @@ class OutcomeReplayProofWorkflowTests(unittest.TestCase):
         )
 
         self.assertIn("outcome-replay-cas-v1.json", page)
+        self.assertIn("transaction.state==='BROWSER_VERIFIED'", page)
         self.assertIn("item.entry_hash===computed", page)
         self.assertNotIn("connect-src 'self' https://api.github.com", page)
         self.assertIn("credentials:'omit'", page)

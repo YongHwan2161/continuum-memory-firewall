@@ -5,7 +5,7 @@ from hypothesis import given, settings, strategies as st
 from tests.test_release_transaction_coordinator import (
     ReleaseTransactionCoordinatorTests,
 )
-from scripts.release_transaction_coordinator import advance_receipt, reconcile_receipt
+from scripts.release_transaction_coordinator import reconcile_receipt
 
 
 class ReleaseTransactionProperties(unittest.TestCase):
@@ -15,34 +15,7 @@ class ReleaseTransactionProperties(unittest.TestCase):
 
     def cases(self):
         f = self.fixture
-        complete = advance_receipt(
-            f._immutable(),
-            to_state="PAGES_MATERIALIZED",
-            evidence={
-                "status": "success",
-                "pages_workflow_run_id": 99,
-                "pages_workflow_url": (
-                    "https://github.com/owner/repository/actions/runs/99"
-                ),
-                "pages_source_digest": f.source,
-                "coordinator_workflow_run_id": 98,
-                "coordinator_workflow_url": (
-                    "https://github.com/owner/repository/actions/runs/98"
-                ),
-                "coordinator_source_digest": "f" * 40,
-                "coordinator_artifact_id": 97,
-                "coordinator_artifact_name": (
-                    "release-transaction-hackathon-v10-" + "f" * 40
-                ),
-                "coordinator_artifact_digest": "sha256:" + "9" * 64,
-                "coordinator_receipt_sha256": "8" * 64,
-                "public_receipt_url": "https://example.test/receipt.json",
-                "release_tag": f.tag,
-                "release_target": f.source,
-                "public_bundle_sha256": "e" * 64,
-            },
-            observed_at="2026-08-08T00:04:00Z",
-        )
+        complete = f._browser()
         return (
             ("after_prepare_before_sign", f.prepared, f._snapshot(), "SIGN_AUTHOR"),
             (
@@ -123,6 +96,31 @@ class ReleaseTransactionProperties(unittest.TestCase):
                     },
                 ),
                 "RECORD_PAGES_MATERIALIZED",
+            ),
+            (
+                "after_pages_ack_before_browser",
+                f._pages(),
+                f._snapshot(
+                    author_attestation_count=1,
+                    platform_attestation_count=1,
+                    immutable=True,
+                ),
+                "RUN_BROWSER_VERIFICATION",
+            ),
+            (
+                "after_browser_before_ack",
+                f._pages(),
+                f._snapshot(
+                    author_attestation_count=1,
+                    platform_attestation_count=1,
+                    immutable=True,
+                    browser={
+                        "status": "success",
+                        "release_tag": f.tag,
+                        "release_target": f.source,
+                    },
+                ),
+                "RECORD_BROWSER_VERIFIED",
             ),
             (
                 "after_terminal_ack",
