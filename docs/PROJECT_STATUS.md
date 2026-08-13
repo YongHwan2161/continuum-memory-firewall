@@ -235,18 +235,25 @@ evidence, and explicit non-claims.
 - Submitted Devpost project page; submission `1121568` returned `Submitted` at
   2026-08-02 00:22 KST:
   <https://devpost.com/software/continuum-memory-firewall>
-- Public 97.02-second receipt-compiled judge video embedded by Devpost:
-  <https://youtu.be/QQxfQaDVz9c> (local render SHA-256
-  `30518452bf16d46ad33d3500d98731f89273789d4b3b7b75bddd032194a7bed4`;
+- Public 99.93-second provider-origin judge video embedded by Devpost:
+  <https://youtu.be/cENOZu3prgs> (local render SHA-256
+  `af5a689017cc2c39deae2a6368ff0616d580dfabf909bf2918fafa7223cdace7`;
   English subtitle SHA-256
-  `f95c60536851fd6cfa8f05441e15ed069da35457aba779977e91024835bbd98b`)
+  `4611757b3f074b4c6014f9c9085444c444ebbd6ea2c298a38ba0ac938f9262c7`;
+  self-addressed story receipt
+  `f3cafd7db4ba6c4657f2751c022ab609612e84776fc39d3c656e17f6c57676e8`)
 - Public evidence-story receipt and nine-scene judge page:
   <https://yonghwan2161.github.io/continuum-memory-firewall/evidence-story.html>
   The v16 browser gate hashes the original canonical bytes, preserving numeric
   lexemes across Python and JavaScript.
-- Devpost authenticated update receipt: project version `20`, updated at
-  `2026-08-09T10:54:00.418-04:00`, state `published`, with submission
-  `1121568` retaining its original non-null `submitted_at` receipt.
+- Devpost authenticated update receipt: project version `23`, updated at
+  `2026-08-13T08:10:05.381-04:00`, state `published`, video URL
+  <https://youtu.be/cENOZu3prgs>, with submission `1121568` retaining its
+  original non-null `submitted_at` receipt. The authenticated hackathon read
+  returned both `registered` and `submitted` while submissions remained open.
+- Provider-origin video and Devpost delivery receipt, including the explicit
+  post-v27 boundary:
+  [2026-08-13-provider-origin-video-devpost-v8.md](evidence/2026-08-13-provider-origin-video-devpost-v8.md)
 - Redacted live AWS and CockroachDB evidence:
   [2026-07-31-cloud-live-smoke.md](evidence/2026-07-31-cloud-live-smoke.md)
 - Redacted live SQL migration and vector evidence:

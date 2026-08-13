@@ -168,24 +168,28 @@ complete attestations and organizer agreements.
       incident, verifier, 10k/50k ANN, and 10/25/50-agent pressure evidence
 - [x] Secret-free screenshots captured for the live overview, policy rejection,
       and one-owner failover in [docs/demo/](demo/)
-- [x] Receipt-compiled judge demo uploaded publicly to YouTube and embedded on
-      Devpost: <https://youtu.be/QQxfQaDVz9c>; 97.02 seconds; local-render
-      SHA-256
-      `30518452bf16d46ad33d3500d98731f89273789d4b3b7b75bddd032194a7bed4`.
-      It leads with the failed-outcome memory problem, compares the same 144
-      future target episodes per arm, shows 48 raw-RAG false promotions versus
-      zero for Continuum, proves exact-artifact evaluator reconciliation, and
-      ends at public PASS. English (US) SRT SHA-256
-      `f95c60536851fd6cfa8f05441e15ed069da35457aba779977e91024835bbd98b`,
-      public visibility, and a no-issues copyright check were confirmed on
-      2026-08-09.
-- [x] Devpost description reflects the sealed 540-observation sequential blind
-      result, its raw-RAG and stateless comparison boundaries, exact evaluator
-      recovery, real-provider paired guardian, immutable release transaction,
-      and current public judge path. The authenticated update returned project
-      version `20`; the post-submit re-read stabilized at
-      `2026-08-09T10:54:00.418-04:00`. Submission `1121568` retained its
-      original `submitted_at` receipt and the project remained `published`.
+- [x] Receipt-compiled provider-origin judge demo uploaded publicly to YouTube
+      and embedded on Devpost: <https://youtu.be/cENOZu3prgs>; 99.93 seconds;
+      local-render SHA-256
+      `af5a689017cc2c39deae2a6368ff0616d580dfabf909bf2918fafa7223cdace7`.
+      It leads with the self-certification failure, then shows seven fresh S3
+      lookups, a five-minute bound handle, atomic CockroachDB promotion, six
+      blocked authority attacks, RLS/replay, and the 44-check public PASS.
+      English SRT SHA-256
+      `4611757b3f074b4c6014f9c9085444c444ebbd6ea2c298a38ba0ac938f9262c7`,
+      story receipt
+      `f3cafd7db4ba6c4657f2751c022ab609612e84776fc39d3c656e17f6c57676e8`,
+      public oEmbed visibility, published English captions, and a no-issues
+      copyright check were confirmed on 2026-08-13.
+- [x] Devpost description reflects provider-origin authority and the bounded
+      one-proposal claim, while retaining the sealed sequential, blind,
+      real-provider, and immutable release evidence. The authenticated update
+      returned project version `23`; the post-submit re-read stabilized at
+      `2026-08-13T08:10:05.381-04:00`. Submission `1121568` retained its
+      original `submitted_at` receipt, the project remained `published`, and
+      the hackathon relationship remained `submitted`. The description states
+      that the video/current edit are post-v27 delivery records, not
+      retroactive members of v27.
 - [x] Measured 60-query, 10k/50k, and 10/25/50-agent results recorded;
       production-quality generalization remains an explicit non-claim
 - [x] Final technology inventory limited to deployed/tested components in

@@ -212,15 +212,24 @@ SQL identity could read its one attestation row but could not insert one
 (`SQLSTATE 42501`). This is one retained-proposal architectural closure, not a
 population estimate.
 
-The current receipt-compiled 97.02-second judge demo is public at
-<https://youtu.be/QQxfQaDVz9c>. Its nine scenes are generated from the immutable
-v14 sequential receipt rather than copied from hand-edited metric text. It shows
-the failed-outcome memory problem, the same 144 future target episodes per arm,
-48 raw-RAG false promotions versus zero for Continuum, exact-artifact evaluator
-reconciliation, the CockroachDB/AWS architecture, and the public PASS. The
-[evidence-story page](https://yonghwan2161.github.io/continuum-memory-firewall/evidence-story.html)
-exposes the story receipt and claim boundaries used by both the video and the
-one-click verifier.
+The current receipt-compiled 99.93-second provider-origin judge demo is public
+at <https://youtu.be/cENOZu3prgs>. Its nine scenes are generated from the
+immutable v27 outcome asset, judge capsule, terminal transaction, and two
+network-visible attestations rather than copied from hand-edited metric text.
+It shows seven fresh S3 lookups, the five-minute proposal-bound promotion
+handle, one atomic CockroachDB attestation/outcome/canonical-memory join, six
+blocked authority attacks, `SQLSTATE 42501`, replay conflict journaling, and the
+44-check zero-API public proof. The exact MP4 SHA-256 is
+`af5a689017cc2c39deae2a6368ff0616d580dfabf909bf2918fafa7223cdace7`,
+the English SRT SHA-256 is
+`4611757b3f074b4c6014f9c9085444c444ebbd6ea2c298a38ba0ac938f9262c7`,
+and the self-addressed story receipt is
+`f3cafd7db4ba6c4657f2751c022ab609612e84776fc39d3c656e17f6c57676e8`.
+The [focused public proof](https://yonghwan2161.github.io/continuum-memory-firewall/outcome-replay-cas.html)
+and [delivery receipt](docs/evidence/2026-08-13-provider-origin-video-devpost-v8.md)
+preserve the one-proposal claim boundary. The uploaded video and Devpost
+version 23 are post-v27 mutable delivery records, not retroactive members of the
+immutable v27 envelope.
 
 The policy-replay interactions are simulations, while the live metric cards and
 read-only verifier load exact public receipts for the participant deployment,
