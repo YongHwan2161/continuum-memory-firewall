@@ -125,7 +125,10 @@ complete attestations and organizer agreements.
 - [x] Release transaction coordinator creates the durable draft before signing,
       reuses an existing author attestation after a crash, verifies every asset
       digest, fails closed on `AMBIGUOUS`, and publishes a hash-chained terminal
-      `PAGES_MATERIALIZED` receipt through the one-click judge page.
+      `BROWSER_VERIFIED` receipt through the one-click judge page. The release
+      state binds a fresh isolated Chromium 38/38 result, zero GitHub API and
+      console/page errors, the browser artifact digest, and content-addressed,
+      SRI-pinned judge JavaScript.
 - [x] Byte-identical 10k/50k non-sensitive vector benchmark report proves the
       complete `1/32/128/512` beam trade-off, natural vector-search plan, no
       full scan, and zero foreign rows; at 50k/beam 512 Recall@10 was 0.96875

@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import json
 import subprocess
 import unittest
@@ -11,21 +13,29 @@ class OfflineJudgePageTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         root = Path(__file__).parents[1]
         cls.html = (root / "public-demo/verify.html").read_text(encoding="utf-8")
-        cls.javascript = (root / "public-demo/offline-judge.js").read_text(
-            encoding="utf-8"
-        )
-        cls.javascript_path = root / "public-demo/offline-judge.js"
-        cls.provider_story_path = (
-            root / "public-demo/evidence/provider-origin-story-v1.json"
-        )
         cls.judge = json.loads(
             (root / "public-demo/evidence/judge-verification.json").read_text(
                 encoding="utf-8"
             )
         )
+        cls.browser_reference = cls.judge["browser_verification"]
+        cls.javascript_path = root / "public-demo" / cls.browser_reference[
+            "script_asset_name"
+        ]
+        cls.javascript_bytes = cls.javascript_path.read_bytes()
+        cls.javascript = cls.javascript_bytes.decode("utf-8")
+        cls.provider_story_path = (
+            root / "public-demo/evidence/provider-origin-story-v1.json"
+        )
 
     def test_primary_button_uses_only_offline_listener(self) -> None:
-        self.assertIn('<script src="./offline-judge.js"></script>', self.html)
+        expected = (
+            '<script id="continuum-offline-judge-script" '
+            f'src="./{self.browser_reference["script_asset_name"]}" '
+            f'integrity="{self.browser_reference["script_integrity"]}" '
+            'crossorigin="anonymous"></script>'
+        )
+        self.assertIn(expected, self.html)
         self.assertIn("script-src 'self' 'unsafe-inline'", self.html)
         self.assertNotIn(
             "document.querySelector('#run').addEventListener('click',run);",
@@ -39,8 +49,8 @@ class OfflineJudgePageTests(unittest.TestCase):
         self.assertIn("credentials: 'omit'", self.javascript)
         self.assertIn("github_api_requests: 0", self.javascript)
 
-    def test_schema_seventeen_advertises_release_bound_capsule(self) -> None:
-        self.assertEqual(self.judge["schema_version"], 17)
+    def test_schema_eighteen_advertises_release_bound_browser_gate(self) -> None:
+        self.assertEqual(self.judge["schema_version"], 18)
         reference = self.judge["offline_judge_capsule"]
         self.assertEqual(reference["schema_version"], 1)
         self.assertEqual(reference["github_api_requests_per_judge_click"], 0)
@@ -54,6 +64,21 @@ class OfflineJudgePageTests(unittest.TestCase):
         self.assertIn("providerStoryReceiptHash(providerStory)", self.javascript)
         self.assertIn("effective_check_count", self.javascript)
         self.assertIn("same_origin_static_gets: 7", self.javascript)
+        digest = hashlib.sha256(self.javascript_bytes).hexdigest()
+        integrity = "sha256-" + base64.b64encode(
+            hashlib.sha256(self.javascript_bytes).digest()
+        ).decode("ascii")
+        self.assertEqual(self.browser_reference["script_sha256"], digest)
+        self.assertEqual(
+            self.browser_reference["script_asset_name"],
+            f"assets/offline-judge.{digest}.js",
+        )
+        self.assertEqual(self.browser_reference["script_integrity"], integrity)
+        self.assertEqual(
+            self.browser_reference["required_terminal_state"],
+            "BROWSER_VERIFIED",
+        )
+        self.assertIn("CANDIDATE_PASS", self.javascript)
 
     def test_production_browser_hash_matches_provider_story_receipt(self) -> None:
         story = json.loads(self.provider_story_path.read_text(encoding="utf-8"))

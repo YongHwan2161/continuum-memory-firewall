@@ -1,0 +1,9 @@
+{
+  "name": "continuum-release-browser-gate",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Pinned Chromium runtime for the release browser-verification gate.",
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

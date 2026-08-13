@@ -228,12 +228,13 @@ jobs:
           fi
           test -s build-pages/evidence/release-transaction-receipt.json
 
-      - name: Upload public proof console
+      - name: Upload candidate public proof console
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0; embeds upload-artifact v7, Node 24
         with:
+          name: github-pages-candidate
           path: build-pages
 
-      - name: Wait for Pages artifact availability
+      - name: Wait for candidate Pages artifact availability
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -242,7 +243,7 @@ jobs:
           for attempt in $(seq 1 15); do
             count="$(gh api \
               "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" \
-              --jq '[.artifacts[] | select(.name == "github-pages" and .expired == false)] | length')"
+              --jq '[.artifacts[] | select(.name == "github-pages-candidate" and .expired == false)] | length')"
             if [ "$count" = 1 ]; then
               exit 0
             fi
@@ -251,11 +252,13 @@ jobs:
           echo "::error::github-pages artifact did not become API-visible"
           exit 1
 
-      - name: Deploy
-        id: deployment
+      - name: Deploy browser-verification candidate
+        id: candidate_deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0, Node 24
+        with:
+          artifact_name: github-pages-candidate
 
-      - name: Verify the materialized transaction receipt
+      - name: Verify the materialized candidate receipt
         shell: bash
         run: |
           set -euo pipefail
@@ -273,3 +276,185 @@ jobs:
           python scripts/release_transaction_coordinator.py verify \
             --input "$RUNNER_TEMP/public-release-transaction-receipt.json" \
             --expected-state PAGES_MATERIALIZED
+
+      - name: Set up Node for the isolated Chromium gate
+        uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0, Node 24
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install the pinned browser runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+
+      - name: Run the fresh-context candidate browser gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build/browser-candidate
+          node scripts/browser_release_verify.mjs \
+            --phase candidate \
+            --url https://yonghwan2161.github.io/continuum-memory-firewall \
+            --output-dir build/browser-candidate \
+            >"$RUNNER_TEMP/browser-candidate.json"
+          jq -e '
+            .status == "CANDIDATE_PASS" and
+            .browser.context_fresh == true and
+            .verification.ui_check_count == 38 and
+            .verification.ui_pass_count == 38 and
+            .verification.github_api_requests == 0 and
+            .verification.console_error_count == 0
+          ' "$RUNNER_TEMP/browser-candidate.json"
+
+      - name: Upload the candidate browser receipt
+        id: browser_candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        with:
+          name: browser-verification-candidate-${{ github.run_id }}
+          path: build/browser-candidate
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Advance the release transaction to browser verified
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact_name="browser-verification-candidate-$GITHUB_RUN_ID"
+          artifact=""
+          for attempt in $(seq 1 20); do
+            artifacts="$(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts")"
+            artifact="$(jq -c --arg name "$artifact_name" \
+              '.artifacts | map(select(.name == $name and .expired == false)) | if length == 1 then .[0] else empty end' \
+              <<<"$artifacts")"
+            if [ -n "$artifact" ]; then
+              break
+            fi
+            sleep 2
+          done
+          test -n "$artifact"
+          browser_artifact_id="$(jq -r '.id' <<<"$artifact")"
+          browser_artifact_digest="$(jq -r '.digest' <<<"$artifact")"
+          test "$browser_artifact_id" = "${{ steps.browser_candidate.outputs.artifact-id }}"
+          [[ "$browser_artifact_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          report="$RUNNER_TEMP/browser-candidate.json"
+          pages_receipt="build-pages/evidence/release-transaction-receipt.json"
+          jq -n \
+            --arg status success \
+            --argjson browser_workflow_run_id "$GITHUB_RUN_ID" \
+            --arg browser_workflow_url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --arg browser_source_digest "$GITHUB_SHA" \
+            --argjson browser_artifact_id "$browser_artifact_id" \
+            --arg browser_artifact_name "$artifact_name" \
+            --arg browser_artifact_digest "$browser_artifact_digest" \
+            --arg browser_receipt_sha256 "$(jq -r '.receipt_sha256' "$report")" \
+            --arg screenshot_sha256 "$(jq -r '.artifacts.screenshot_sha256' "$report")" \
+            --arg network_receipt_sha256 "$(jq -r '.artifacts.network_receipt_sha256' "$report")" \
+            --arg console_receipt_sha256 "$(jq -r '.artifacts.console_receipt_sha256' "$report")" \
+            --arg script_asset_name "$(jq -r '.delivery.script_asset_name' "$report")" \
+            --arg script_sha256 "$(jq -r '.delivery.script_sha256' "$report")" \
+            --arg script_integrity "$(jq -r '.delivery.script_integrity' "$report")" \
+            --arg browser_version "$(jq -r '.browser.version' "$report")" \
+            --arg candidate_status "$(jq -r '.status' "$report")" \
+            --arg candidate_transaction_state "$(jq -r '.release.transaction_state' "$report")" \
+            --argjson ui_check_count "$(jq -r '.verification.ui_check_count' "$report")" \
+            --argjson github_api_requests "$(jq -r '.verification.github_api_requests' "$report")" \
+            --argjson console_error_count "$(jq -r '.verification.console_error_count' "$report")" \
+            --arg pages_receipt_sha256 "$(jq -r '.receipt_sha256' "$pages_receipt")" \
+            --arg release_tag "$(jq -r '.release_tag' "$pages_receipt")" \
+            --arg release_target "$(jq -r '.source_digest' "$pages_receipt")" \
+            --arg public_verifier_url "https://yonghwan2161.github.io/continuum-memory-firewall/verify.html" \
+            '{status:$status,browser_workflow_run_id:$browser_workflow_run_id,browser_workflow_url:$browser_workflow_url,browser_source_digest:$browser_source_digest,browser_artifact_id:$browser_artifact_id,browser_artifact_name:$browser_artifact_name,browser_artifact_digest:$browser_artifact_digest,browser_receipt_sha256:$browser_receipt_sha256,screenshot_sha256:$screenshot_sha256,network_receipt_sha256:$network_receipt_sha256,console_receipt_sha256:$console_receipt_sha256,script_asset_name:$script_asset_name,script_sha256:$script_sha256,script_integrity:$script_integrity,browser_context_fresh:true,browser_engine:"chromium",browser_version:$browser_version,headless:true,candidate_status:$candidate_status,candidate_transaction_state:$candidate_transaction_state,ui_check_count:$ui_check_count,github_api_requests:$github_api_requests,console_error_count:$console_error_count,pages_receipt_sha256:$pages_receipt_sha256,release_tag:$release_tag,release_target:$release_target,public_verifier_url:$public_verifier_url}' \
+            >"$RUNNER_TEMP/browser-verified.json"
+          python scripts/release_transaction_coordinator.py advance \
+            --input "$pages_receipt" \
+            --to-state BROWSER_VERIFIED \
+            --evidence "$RUNNER_TEMP/browser-verified.json" \
+            --observed-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --output "$RUNNER_TEMP/browser-verified-receipt.json"
+          mv "$RUNNER_TEMP/browser-verified-receipt.json" "$pages_receipt"
+          python scripts/release_transaction_coordinator.py verify \
+            --input "$pages_receipt" \
+            --expected-state BROWSER_VERIFIED
+
+      - name: Upload browser-verified public proof console
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0; embeds upload-artifact v7, Node 24
+        with:
+          name: github-pages-browser-verified
+          path: build-pages
+
+      - name: Wait for final Pages artifact availability
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 15); do
+            count="$(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" \
+              --jq '[.artifacts[] | select(.name == "github-pages-browser-verified" and .expired == false)] | length')"
+            if [ "$count" = 1 ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::browser-verified Pages artifact did not become API-visible"
+          exit 1
+
+      - name: Deploy browser-verified proof
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0, Node 24
+        with:
+          artifact_name: github-pages-browser-verified
+
+      - name: Verify the public browser terminal receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(sha256sum build-pages/evidence/release-transaction-receipt.json | cut -d' ' -f1)"
+          url="https://yonghwan2161.github.io/continuum-memory-firewall/evidence/release-transaction-receipt.json?browser_run=$GITHUB_RUN_ID"
+          for attempt in $(seq 1 36); do
+            if curl --fail --silent --show-error "$url" \
+                --output "$RUNNER_TEMP/public-browser-transaction-receipt.json" && \
+               [ "$(sha256sum "$RUNNER_TEMP/public-browser-transaction-receipt.json" | cut -d' ' -f1)" = "$expected" ]; then
+              break
+            fi
+            sleep 5
+          done
+          test "$(sha256sum "$RUNNER_TEMP/public-browser-transaction-receipt.json" | cut -d' ' -f1)" = "$expected"
+          python scripts/release_transaction_coordinator.py verify \
+            --input "$RUNNER_TEMP/public-browser-transaction-receipt.json" \
+            --expected-state BROWSER_VERIFIED
+
+      - name: Re-run the one-click judge against the final deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build/browser-final
+          node scripts/browser_release_verify.mjs \
+            --phase final \
+            --url https://yonghwan2161.github.io/continuum-memory-firewall \
+            --output-dir build/browser-final \
+            >"$RUNNER_TEMP/browser-final.json"
+          jq -e '
+            .status == "PASS" and
+            .release.transaction_state == "BROWSER_VERIFIED" and
+            .verification.final_ok == true and
+            .verification.ui_check_count == 38 and
+            .verification.ui_pass_count == 38 and
+            .verification.github_api_requests == 0 and
+            .verification.console_error_count == 0
+          ' "$RUNNER_TEMP/browser-final.json"
+
+      - name: Preserve the final browser receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        with:
+          name: browser-verification-final-${{ github.run_id }}
+          path: build/browser-final
+          if-no-files-found: error
+          retention-days: 30

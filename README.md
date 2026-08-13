@@ -228,11 +228,11 @@ and the source English SRT SHA-256 is
 and the self-addressed story receipt is
 `f3cafd7db4ba6c4657f2751c022ab609612e84776fc39d3c656e17f6c57676e8`.
 The [focused public proof](https://yonghwan2161.github.io/continuum-memory-firewall/outcome-replay-cas.html)
-and [v29 delivery contract](docs/evidence/2026-08-13-offline-receipt-v29.md)
-preserve the one-proposal claim boundary. Devpost version 25 retains the
+and [v30 browser-verified contract](docs/evidence/2026-08-13-browser-verified-release-v30.md)
+preserve the one-proposal claim boundary. Devpost version 26 retains the
 original Submitted timestamp while pointing to these exact public video bytes.
-The v28 judge-closure contract makes both delivery receipts first-class release
-inputs instead of retroactively changing v27.
+The current contract makes the delivery and fresh-browser receipts first-class
+release inputs instead of retroactively changing v27.
 
 The policy-replay interactions are simulations, while the live metric cards and
 read-only verifier load exact public receipts for the participant deployment,
@@ -243,7 +243,7 @@ the integration suite and linked exact-head workflows in
 
 The v29 judge-closure successor preserves immutable v28, corrects the browser's
 canonical provider-story self-receipt calculation, binds the burned-in video
-and Devpost version 25 to the provider-origin story, and exposes four
+and its then-current Devpost receipt to the provider-origin story, and exposes four
 receipt-derived first-screen facts: 48 versus 0 false promotions, 114/144 versus
 102/144 future successes, and 6/6 blocked authority attacks. The v29 zero-API
 path freezes all 45 v28 online checks in its predecessor capsule and revalidates
@@ -251,6 +251,15 @@ the current delivery tuple against the signed v29 envelope, producing 38 judge
 rows. The exact production JavaScript receipt function is now executed against
 the retained story in CI. See the
 [v29 browser-closure contract](docs/evidence/2026-08-13-offline-receipt-v29.md).
+
+The v30 successor closes the last delivery/proof ordering gap. The judge
+JavaScript filename is its SHA-256 and the page pins the same bytes with SRI.
+Pages first publishes an explicitly non-terminal candidate; a fresh isolated
+Chromium context must then render all 38 rows, make zero GitHub API requests,
+and emit zero console or page errors. Only after the coordinator binds that
+workflow/artifact identity and digest does it append `BROWSER_VERIFIED`, publish
+the final Pages artifact, and repeat the live browser gate. See the
+[v30 browser-verified release contract](docs/evidence/2026-08-13-browser-verified-release-v30.md).
 
 The v27 predecessor release envelope receives exactly one author-controlled signature in
 the same main-only workflow that publishes it. Its Fulcio/Rekor Sigstore bundle
@@ -380,7 +389,7 @@ GitHub and S3 providers, and scored by a separate evaluator. Its public result
 shows 0 Continuum false canonical promotions versus 16 for raw-RAG, with 0
 cross-scope leaks, duplicate effects, or cleanup residuals. The durable draft advances a
 hash-chained release receipt through `PREPARED`, `AUTHOR_ATTESTED`,
-`ASSETS_UPLOADED`, `IMMUTABLE`, and `PAGES_MATERIALIZED`. A retry adopts the
+`ASSETS_UPLOADED`, `IMMUTABLE`, `PAGES_MATERIALIZED`, and `BROWSER_VERIFIED`. A retry adopts the
 exact draft bytes and any existing author attestation instead of rebuilding or
 signing a second envelope. Contradictory provider state is reported as
 `AMBIGUOUS` and publication stops.

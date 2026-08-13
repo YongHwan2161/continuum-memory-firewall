@@ -349,17 +349,19 @@ class NetworkSignOnceTests(unittest.TestCase):
             pages_workflow,
         )
         self.assertIn("for attempt in $(seq 1 36)", pages_workflow)
-        self.assertIn("Wait for Pages artifact availability", pages_workflow)
+        self.assertIn("Wait for candidate Pages artifact availability", pages_workflow)
         self.assertIn(
             "actions/runs/$GITHUB_RUN_ID/artifacts",
             pages_workflow,
         )
         self.assertIn(
-            "github-pages artifact did not become API-visible",
+            "browser-verified Pages artifact did not become API-visible",
             pages_workflow,
         )
         self.assertIn("steps.transaction-artifact.outputs.artifact-digest", release_workflow)
-        self.assertIn("Verify the materialized transaction receipt", pages_workflow)
+        self.assertIn("Verify the materialized candidate receipt", pages_workflow)
+        self.assertIn("--to-state BROWSER_VERIFIED", pages_workflow)
+        self.assertIn("Re-run the one-click judge against the final deployment", pages_workflow)
 
 
 if __name__ == "__main__":

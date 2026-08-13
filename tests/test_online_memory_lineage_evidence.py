@@ -78,7 +78,7 @@ class OnlineMemoryLineageEvidenceTests(unittest.TestCase):
         public_bytes = (
             ROOT / "public-demo/evidence/online-memory-lineage-v1.json"
         ).read_bytes().replace(b"\r\n", b"\n")
-        self.assertEqual(self.judge["schema_version"], 17)
+        self.assertEqual(self.judge["schema_version"], 18)
         self.assertEqual(hashlib.sha256(public_bytes).hexdigest(), reference["public_sha256"])
         self.assertEqual(reference["workflow_run_id"], 31506117708)
         self.assertEqual(reference["predecessor_workflow_run_id"], 31503686643)

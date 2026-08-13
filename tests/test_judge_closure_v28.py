@@ -15,7 +15,7 @@ JUDGE_PATH = ROOT / "public-demo" / "evidence" / "judge-verification.json"
 STORY_PATH = ROOT / "public-demo" / "evidence" / "provider-origin-story-v1.json"
 
 
-class JudgeClosureV29Tests(unittest.TestCase):
+class JudgeClosureV30Tests(unittest.TestCase):
     def setUp(self) -> None:
         self.judge = json.loads(JUDGE_PATH.read_text(encoding="utf-8"))
         self.story_bytes = STORY_PATH.read_bytes()
@@ -29,14 +29,14 @@ class JudgeClosureV29Tests(unittest.TestCase):
             self.story_bytes.replace(b"\r\n", b"\n")
         ).hexdigest()
 
-        self.assertEqual(self.judge["schema_version"], 17)
+        self.assertEqual(self.judge["schema_version"], 18)
         self.assertEqual(normalized_sha, reference["public_sha256"])
         self.assertEqual(
             self.story["receipt_sha256"], reference["story_receipt_sha256"]
         )
         self.assertEqual(reference["video_url"], submission["video_url"])
         self.assertEqual(reference["video_sha256"], submission["video_sha256"])
-        self.assertEqual(reference["devpost"]["project_version"], 25)
+        self.assertEqual(reference["devpost"]["project_version"], 26)
         self.assertEqual(reference["devpost"]["submission_id"], submission["id"])
         self.assertEqual(reference["caption_delivery"]["mode"], "burned-in")
         self.assertTrue(reference["caption_delivery"]["publicly_verifiable"])
@@ -70,10 +70,17 @@ class JudgeClosureV29Tests(unittest.TestCase):
         self.assertIn("raw.false_canonical_promotions", script)
         self.assertIn("continuum.target_provider_successes", script)
         self.assertIn("outcomeReplayCas.attestation.negative_codes", script)
-        self.assertEqual(release["tag"], "hackathon-v29")
+        self.assertEqual(release["tag"], "hackathon-v30")
         self.assertEqual(
             release["provider_origin_story_asset_name"],
             "provider-origin-story-v1.json",
+        )
+        self.assertEqual(
+            self.judge["release_transaction"]["required_terminal_state"],
+            "BROWSER_VERIFIED",
+        )
+        self.assertEqual(
+            self.judge["browser_verification"]["required_ui_check_count"], 38
         )
 
 

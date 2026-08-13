@@ -1,3 +1,4 @@
+import base64
 import copy
 import unittest
 
@@ -79,25 +80,9 @@ class ReleaseTransactionCoordinatorTests(unittest.TestCase):
             observed_at="2026-08-08T00:03:00Z",
         )
 
-    def _snapshot(self, **updates):
-        snapshot = {
-            "release_exists": True,
-            "release_target": self.source,
-            "envelope_sha256": self.envelope,
-            "author_attestation_count": 0,
-            "platform_attestation_count": 0,
-            "immutable": False,
-            "expected_asset_digests": self.assets,
-            "observed_asset_digests": {},
-            "pages": {},
-        }
-        snapshot.update(updates)
-        return snapshot
-
-    def test_happy_path_is_hash_chained_and_complete(self) -> None:
-        immutable = self._immutable()
-        complete = advance_receipt(
-            immutable,
+    def _pages(self, receipt=None):
+        return advance_receipt(
+            receipt or self._immutable(),
             to_state="PAGES_MATERIALIZED",
             evidence={
                 "status": "success",
@@ -120,10 +105,67 @@ class ReleaseTransactionCoordinatorTests(unittest.TestCase):
             },
             observed_at="2026-08-08T00:04:00Z",
         )
+
+    def _browser(self, receipt=None):
+        pages = receipt or self._pages()
+        script_sha = "7" * 64
+        return advance_receipt(
+            pages,
+            to_state="BROWSER_VERIFIED",
+            evidence={
+                "status": "success",
+                "browser_workflow_run_id": 99,
+                "browser_workflow_url": "https://github.com/owner/repository/actions/runs/99",
+                "browser_source_digest": self.source,
+                "browser_artifact_id": 96,
+                "browser_artifact_name": "browser-verification-candidate-99",
+                "browser_artifact_digest": "sha256:" + "6" * 64,
+                "browser_receipt_sha256": "5" * 64,
+                "screenshot_sha256": "4" * 64,
+                "network_receipt_sha256": "3" * 64,
+                "console_receipt_sha256": "2" * 64,
+                "script_asset_name": f"assets/offline-judge.{script_sha}.js",
+                "script_sha256": script_sha,
+                "script_integrity": "sha256-"
+                + base64.b64encode(bytes.fromhex(script_sha)).decode("ascii"),
+                "browser_context_fresh": True,
+                "browser_engine": "chromium",
+                "browser_version": "140.0.0",
+                "headless": True,
+                "candidate_status": "CANDIDATE_PASS",
+                "candidate_transaction_state": "PAGES_MATERIALIZED",
+                "ui_check_count": 38,
+                "github_api_requests": 0,
+                "console_error_count": 0,
+                "pages_receipt_sha256": pages["receipt_sha256"],
+                "release_tag": self.tag,
+                "release_target": self.source,
+                "public_verifier_url": "https://example.test/verify.html",
+            },
+            observed_at="2026-08-08T00:05:00Z",
+        )
+
+    def _snapshot(self, **updates):
+        snapshot = {
+            "release_exists": True,
+            "release_target": self.source,
+            "envelope_sha256": self.envelope,
+            "author_attestation_count": 0,
+            "platform_attestation_count": 0,
+            "immutable": False,
+            "expected_asset_digests": self.assets,
+            "observed_asset_digests": {},
+            "pages": {},
+        }
+        snapshot.update(updates)
+        return snapshot
+
+    def test_happy_path_is_hash_chained_and_complete(self) -> None:
+        complete = self._browser()
         verify_receipt(complete)
-        self.assertEqual(complete["state"], "PAGES_MATERIALIZED")
-        self.assertEqual(complete["revision"], 4)
-        self.assertEqual(len(complete["events"]), 5)
+        self.assertEqual(complete["state"], "BROWSER_VERIFIED")
+        self.assertEqual(complete["revision"], 5)
+        self.assertEqual(len(complete["events"]), 6)
         self.assertEqual(
             reconcile_receipt(complete, self._snapshot())["next_action"],
             "COMPLETE",

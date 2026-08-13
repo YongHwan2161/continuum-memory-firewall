@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 from copy import deepcopy
 from datetime import datetime, timezone
 import hashlib
@@ -192,8 +193,8 @@ def build_envelope(
     release_tag: str,
     generated_at: str | None = None,
 ) -> dict[str, Any]:
-    if judge.get("schema_version") not in {8, 9, 10, 11, 12, 13, 14, 15, 16, 17}:
-        raise RuntimeError("judge evidence schema 8 through 17 is required")
+    if judge.get("schema_version") not in {8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18}:
+        raise RuntimeError("judge evidence schema 8 through 18 is required")
     if not SHA_PATTERN.fullmatch(commit_sha):
         raise RuntimeError("release commit must be a full lowercase SHA")
     if workflow_run_id < 1 or not workflow_url.startswith("https://github.com/"):
@@ -227,6 +228,7 @@ def build_envelope(
     release_reference = judge["release_envelope"]
     network_sign_once = judge["network_sign_once"]
     release_transaction = judge["release_transaction"]
+    browser_verification = judge.get("browser_verification")
     scales = scale.get("scales", [])
     beams = [beam for item in scales for beam in item.get("beams", [])]
     beam_grid = [
@@ -317,6 +319,21 @@ def build_envelope(
         if offline_judge_capsule is not None
         else None
     )
+    browser_script_sha = ""
+    browser_script_integrity = ""
+    browser_script_reference_valid = False
+    if browser_verification is not None:
+        script_name = str(browser_verification.get("script_asset_name", ""))
+        script_path = (repo_root / "public-demo" / script_name).resolve()
+        public_root = (repo_root / "public-demo").resolve()
+        if script_path.parent == public_root or public_root in script_path.parents:
+            if script_path.is_file():
+                script_bytes = script_path.read_bytes()
+                browser_script_sha = sha256_bytes(script_bytes)
+                browser_script_integrity = "sha256-" + base64.b64encode(
+                    hashlib.sha256(script_bytes).digest()
+                ).decode("ascii")
+                browser_script_reference_valid = True
     public_ablation = build_public_ablation_aggregate(ablation)
     public_drilldown = build_public_episode_drilldown(ablation)
     public_guardian = build_public_release_guardian(release_guardian)
@@ -1877,16 +1894,51 @@ def build_envelope(
                 + "/evidence/release-transaction-receipt.json"
             )
             and release_transaction.get("states")
-            == [
-                "PREPARED",
-                "AUTHOR_ATTESTED",
-                "ASSETS_UPLOADED",
-                "IMMUTABLE",
-                "PAGES_MATERIALIZED",
-            ]
+            == (
+                [
+                    "PREPARED",
+                    "AUTHOR_ATTESTED",
+                    "ASSETS_UPLOADED",
+                    "IMMUTABLE",
+                    "PAGES_MATERIALIZED",
+                    "BROWSER_VERIFIED",
+                ]
+                if judge.get("schema_version", 0) >= 18
+                else [
+                    "PREPARED",
+                    "AUTHOR_ATTESTED",
+                    "ASSETS_UPLOADED",
+                    "IMMUTABLE",
+                    "PAGES_MATERIALIZED",
+                ]
+            )
             and release_transaction.get("required_terminal_state")
-            == "PAGES_MATERIALIZED"
+            == (
+                "BROWSER_VERIFIED"
+                if judge.get("schema_version", 0) >= 18
+                else "PAGES_MATERIALIZED"
+            )
             and release_transaction.get("ambiguous_state_fails_closed") is True
+        ),
+        "browser_verification_contract_bound": (
+            judge.get("schema_version", 0) < 18
+            or (
+                browser_verification is not None
+                and browser_verification.get("schema_version") == 1
+                and browser_script_reference_valid
+                and browser_verification.get("script_asset_name")
+                == f"assets/offline-judge.{browser_script_sha}.js"
+                and browser_verification.get("script_sha256")
+                == browser_script_sha
+                and browser_verification.get("script_integrity")
+                == browser_script_integrity
+                and browser_verification.get("required_terminal_state")
+                == "BROWSER_VERIFIED"
+                and browser_verification.get("required_ui_check_count") == 38
+                and browser_verification.get("required_github_api_requests") == 0
+                and browser_verification.get("required_console_errors") == 0
+                and browser_verification.get("fresh_context_required") is True
+            )
         ),
         "key_rotation_retired_old_material": (
             int(managed.get("rotation_workflow_run_id", 0)) > 0
@@ -2675,6 +2727,11 @@ def build_envelope(
             else {}
         ),
         "release_transaction": release_transaction,
+        **(
+            {"browser_verification": browser_verification}
+            if browser_verification is not None
+            else {}
+        ),
         "database_policy": {
             "rls": rls_receipt,
             "tenant_control_plane": control_plane_receipt,

@@ -1036,6 +1036,37 @@ def verify_provider_origin_story_delivery(
     )
 
 
+def verify_browser_runtime_delivery(
+    evidence: dict[str, Any], *, fetch_bytes: Callable[[str], bytes]
+) -> bool:
+    """Verify that the judge loads the exact content-addressed Chromium-gated JS."""
+
+    reference = evidence.get("browser_verification")
+    if reference is None:
+        return evidence.get("schema_version", 0) < 18
+    try:
+        asset_name = str(reference["script_asset_name"])
+        asset_url = evidence["public_demo"]["url"].rstrip("/") + "/" + asset_name
+        asset_bytes = fetch_bytes(asset_url)
+        asset_sha = hashlib.sha256(asset_bytes).hexdigest()
+        integrity = "sha256-" + base64.b64encode(
+            hashlib.sha256(asset_bytes).digest()
+        ).decode("ascii")
+    except (KeyError, RuntimeError, TypeError, ValueError):
+        return False
+    return (
+        reference.get("schema_version") == 1
+        and asset_name == f"assets/offline-judge.{asset_sha}.js"
+        and reference.get("script_sha256") == asset_sha
+        and reference.get("script_integrity") == integrity
+        and reference.get("required_terminal_state") == "BROWSER_VERIFIED"
+        and reference.get("required_ui_check_count") == 38
+        and reference.get("required_github_api_requests") == 0
+        and reference.get("required_console_errors") == 0
+        and reference.get("fresh_context_required") is True
+    )
+
+
 def verify_time_distributed_replication(
     evidence: dict[str, Any],
     *,
@@ -1145,6 +1176,9 @@ def verify_evidence(
     pressure_report = fetch_json(agent_pressure["url"])
     live_story = fetch_json(runtime["demo_url"])
     demo_html = fetch_text(public_demo["url"])
+    verifier_html = (
+        fetch_text(public_demo["verifier_url"]) if schema_version >= 18 else ""
+    )
 
     scales = scale_report.get("scales", [])
     beams = [beam for scale in scales for beam in scale.get("beams", [])]
@@ -1197,7 +1231,7 @@ def verify_evidence(
         ),
         "representative_scale_gate": (
             schema_version
-            in {4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17}
+            in {4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18}
             and scale_report.get("gate", {}).get("status") == "PASS"
             and [scale.get("row_count") for scale in scales] == [10_000, 50_000]
         ),
@@ -1306,6 +1340,18 @@ def verify_evidence(
                 evidence,
                 fetch_bytes=fetch_bytes,
             )
+        )
+    if schema_version >= 18:
+        browser_reference = evidence["browser_verification"]
+        expected_script_tag = (
+            '<script id="continuum-offline-judge-script" '
+            f'src="./{browser_reference["script_asset_name"]}" '
+            f'integrity="{browser_reference["script_integrity"]}" '
+            'crossorigin="anonymous"></script>'
+        )
+        checks["content_addressed_browser_runtime"] = (
+            verify_browser_runtime_delivery(evidence, fetch_bytes=fetch_bytes)
+            and expected_script_tag in verifier_html
         )
     if schema_version >= 5:
         lineage = evidence["lineage"]
@@ -1472,7 +1518,10 @@ def verify_evidence(
         transaction_receipt: dict[str, Any] = {}
         transaction_receipt_asset: dict[str, Any] = {}
         transaction_pages_evidence: dict[str, Any] = {}
+        transaction_browser_evidence: dict[str, Any] = {}
         transaction_pages_workflow: dict[str, Any] = {}
+        transaction_browser_workflow: dict[str, Any] = {}
+        transaction_browser_artifact: dict[str, Any] = {}
         transaction_coordinator_workflow: dict[str, Any] = {}
         transaction_coordinator_artifact: dict[str, Any] = {}
         transaction_receipt_valid = False
@@ -1550,8 +1599,13 @@ def verify_evidence(
                         transaction_reference["public_receipt_url"]
                     )
                     verify_receipt(transaction_receipt)
-                    last_event = transaction_receipt["events"][-1]
-                    transaction_pages_evidence = last_event["evidence"]
+                    transaction_events = transaction_receipt["events"]
+                    pages_event = next(
+                        event
+                        for event in transaction_events
+                        if event.get("state") == "PAGES_MATERIALIZED"
+                    )
+                    transaction_pages_evidence = pages_event["evidence"]
                     pages_run_id = int(
                         transaction_pages_evidence["pages_workflow_run_id"]
                     )
@@ -1574,6 +1628,27 @@ def verify_evidence(
                         f"https://api.github.com/repos/{source['repository']}"
                         f"/actions/artifacts/{coordinator_artifact_id}"
                     )
+                    if schema_version >= 18:
+                        browser_event = next(
+                            event
+                            for event in transaction_events
+                            if event.get("state") == "BROWSER_VERIFIED"
+                        )
+                        transaction_browser_evidence = browser_event["evidence"]
+                        browser_run_id = int(
+                            transaction_browser_evidence["browser_workflow_run_id"]
+                        )
+                        browser_artifact_id = int(
+                            transaction_browser_evidence["browser_artifact_id"]
+                        )
+                        transaction_browser_workflow = fetch_json(
+                            f"https://api.github.com/repos/{source['repository']}"
+                            f"/actions/runs/{browser_run_id}"
+                        )
+                        transaction_browser_artifact = fetch_json(
+                            f"https://api.github.com/repos/{source['repository']}"
+                            f"/actions/artifacts/{browser_artifact_id}"
+                        )
                     transaction_receipt_asset = release_assets.get(
                         transaction_reference["receipt_asset_name"], {}
                     )
@@ -2293,22 +2368,41 @@ def verify_evidence(
                     or (
                         transaction_reference.get("schema_version") == 1
                         and transaction_reference.get("states")
-                        == [
-                            "PREPARED",
-                            "AUTHOR_ATTESTED",
-                            "ASSETS_UPLOADED",
-                            "IMMUTABLE",
-                            "PAGES_MATERIALIZED",
-                        ]
+                        == (
+                            [
+                                "PREPARED",
+                                "AUTHOR_ATTESTED",
+                                "ASSETS_UPLOADED",
+                                "IMMUTABLE",
+                                "PAGES_MATERIALIZED",
+                                "BROWSER_VERIFIED",
+                            ]
+                            if schema_version >= 18
+                            else [
+                                "PREPARED",
+                                "AUTHOR_ATTESTED",
+                                "ASSETS_UPLOADED",
+                                "IMMUTABLE",
+                                "PAGES_MATERIALIZED",
+                            ]
+                        )
                         and transaction_reference.get("required_terminal_state")
-                        == "PAGES_MATERIALIZED"
+                        == (
+                            "BROWSER_VERIFIED"
+                            if schema_version >= 18
+                            else "PAGES_MATERIALIZED"
+                        )
                         and transaction_reference.get(
                             "ambiguous_state_fails_closed"
                         )
                         is True
                         and transaction_receipt_valid
                         and transaction_receipt.get("state")
-                        == "PAGES_MATERIALIZED"
+                        == (
+                            "BROWSER_VERIFIED"
+                            if schema_version >= 18
+                            else "PAGES_MATERIALIZED"
+                        )
                         and transaction_receipt.get("repository")
                         == source["repository"]
                         and transaction_receipt.get("release_tag")
@@ -2383,6 +2477,116 @@ def verify_evidence(
                         )
                         and envelope.get("release_transaction")
                         == transaction_reference
+                        and (
+                            schema_version < 18
+                            or (
+                                envelope.get("browser_verification")
+                                == evidence.get("browser_verification")
+                                and transaction_browser_evidence.get("status")
+                                == "success"
+                                and transaction_browser_evidence.get(
+                                    "browser_workflow_run_id"
+                                )
+                                == transaction_pages_evidence.get(
+                                    "pages_workflow_run_id"
+                                )
+                                and transaction_browser_evidence.get(
+                                    "browser_workflow_url"
+                                )
+                                == transaction_pages_evidence.get(
+                                    "pages_workflow_url"
+                                )
+                                and transaction_browser_evidence.get(
+                                    "browser_source_digest"
+                                )
+                                == release.get("target_commitish")
+                                and transaction_browser_evidence.get(
+                                    "browser_artifact_name"
+                                )
+                                == (
+                                    "browser-verification-candidate-"
+                                    + str(
+                                        transaction_browser_evidence.get(
+                                            "browser_workflow_run_id"
+                                        )
+                                    )
+                                )
+                                and transaction_browser_evidence.get(
+                                    "pages_receipt_sha256"
+                                )
+                                == transaction_receipt.get(
+                                    "previous_receipt_sha256"
+                                )
+                                and transaction_browser_evidence.get(
+                                    "script_asset_name"
+                                )
+                                == evidence["browser_verification"].get(
+                                    "script_asset_name"
+                                )
+                                and transaction_browser_evidence.get(
+                                    "script_sha256"
+                                )
+                                == evidence["browser_verification"].get(
+                                    "script_sha256"
+                                )
+                                and transaction_browser_evidence.get(
+                                    "script_integrity"
+                                )
+                                == evidence["browser_verification"].get(
+                                    "script_integrity"
+                                )
+                                and transaction_browser_evidence.get(
+                                    "browser_context_fresh"
+                                )
+                                is True
+                                and transaction_browser_evidence.get(
+                                    "candidate_status"
+                                )
+                                == "CANDIDATE_PASS"
+                                and transaction_browser_evidence.get(
+                                    "ui_check_count"
+                                )
+                                == 38
+                                and transaction_browser_evidence.get(
+                                    "github_api_requests"
+                                )
+                                == 0
+                                and transaction_browser_evidence.get(
+                                    "console_error_count"
+                                )
+                                == 0
+                                and transaction_browser_workflow.get("id")
+                                == transaction_browser_evidence.get(
+                                    "browser_workflow_run_id"
+                                )
+                                and transaction_browser_workflow.get("conclusion")
+                                == "success"
+                                and transaction_browser_workflow.get("head_sha")
+                                == transaction_browser_evidence.get(
+                                    "browser_source_digest"
+                                )
+                                and transaction_browser_artifact.get("id")
+                                == transaction_browser_evidence.get(
+                                    "browser_artifact_id"
+                                )
+                                and transaction_browser_artifact.get("name")
+                                == transaction_browser_evidence.get(
+                                    "browser_artifact_name"
+                                )
+                                and transaction_browser_artifact.get("digest")
+                                == transaction_browser_evidence.get(
+                                    "browser_artifact_digest"
+                                )
+                                and transaction_browser_artifact.get("expired")
+                                is False
+                                and transaction_browser_artifact.get(
+                                    "workflow_run", {}
+                                ).get("id")
+                                == transaction_browser_evidence.get(
+                                    "browser_workflow_run_id"
+                                )
+                            )
+                        )
                     )
                 ),
             }
