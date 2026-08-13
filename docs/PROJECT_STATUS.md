@@ -103,6 +103,21 @@ digest `sha256:682b46d1…e0bf9`; the public projection is
 `sha256:47934505…8673b`. See
 [2026-08-13-provider-outcome-attestation-live.md](evidence/2026-08-13-provider-outcome-attestation-live.md).
 
+Its immutable, quota-independent publication is now live-complete. PR `#149`
+bound the fresh public proof and made Pages coordinator-owned; PR `#150`
+advanced the predecessor capsule; PR `#151` removed all GitHub API requests
+from the dedicated outcome page. Immutable release `hackathon-v27` targets
+`dbb4942afd45f5bc06cbc08441d43ce155c75f05`. Coordinator run `31653469203`
+and Pages run `31653536847` reached `PAGES_MATERIALIZED`; monitor run
+`31653861653` passed all 44 online checks. The envelope is
+`sha256:b61aac89…a9acd`, capsule `sha256:881b12e8…fc983`, canonical terminal
+receipt `1b313677…a714`, and two-attestation network bundle
+`sha256:0cbb15af…4037`. Under an exhausted anonymous GitHub API quota, a fresh
+headed browser passed the main judge page with six static GETs and the outcome
+page with five static GETs, both with zero GitHub API requests and no console
+errors. See
+[the exact v27 evidence](evidence/2026-08-13-provider-outcome-attestation-v27.md).
+
 Outcome-CAS publication is complete. PR `#143` merged as exact release target
 `8481ac3804bf38b69e87086a9257a895d8f3b124`; coordinator run `31548463634`
 published immutable `hackathon-v22`, and Pages run `31548509773` materialized
@@ -128,6 +143,9 @@ is `e9ee7ed1…9bdae6`. Authenticated freshness monitor run `31611785532` passed
 all 44 online checks and retained artifact `9147494855`
 (`sha256:9c693617…00c0e`). See
 [the exact v24 evidence](evidence/2026-08-13-zero-api-judge-v24.md).
+
+That v24 epoch remains immutable history; the current successor is v27 as
+described above. No v24-v26 asset or receipt was mutated or backfilled.
 
 The prior online-lineage publication is also complete. PR `#139` merged as `0ac85de1`; release
 coordinator run `31510629746` published immutable `hackathon-v21` at exact
@@ -166,7 +184,7 @@ evidence, and explicit non-claims.
 | Per-episode paired drill-down | Implemented, live-generated, and checksum-bound | The exact-head `2ef2247` rerun projects 540 observations into 180 three-arm incidents. Each arm exposes scoped search results, SHA-256 citation-handle fingerprints, typed proposal, provider outcome evidence, and promotion decision. Projection gates: exact pairing PASS, issued handles only PASS, Continuum unsafe proposals 0, cross-scope rows 0, private identifier keys 0 |
 | Network-visible sign-once | Implemented and publicly verifiable | `hackathon-v10` is durable-draft-first, author-signed, and published in one main-only workflow. It emits exactly one Fulcio/Rekor author bundle, verifies exact workflow/ref/source/runner policy, includes the bundle before immutability, and serves the two-authority network bundle through Pages. The gate separately requires GitHub's one immutable-release countersignature, so platform signing is not misreported as an author replay. |
 | Release transaction coordinator | Implemented, fault-injection tested, and publicly gated | A hash-chained receipt advances through `PREPARED`, `AUTHOR_ATTESTED`, `ASSETS_UPLOADED`, `IMMUTABLE`, and `PAGES_MATERIALIZED`. Reruns adopt the exact draft and existing author attestation; changed target/digest or duplicate signatures become fail-closed `AMBIGUOUS`. The judge path binds the terminal receipt, Pages run, release target, and public attestation-bundle digest. |
-| Provider-origin promotion admission | Implemented, integration-tested, and participant-cluster live-proven | A verifier performs a fresh provider lookup before issuing a five-minute signed handle. CockroachDB atomically consumes its digest and nonce with the outcome and promotion. Six negative classes produced typed rejection and zero outcome rows; the runtime scope role cannot mint database attestation rows. Live run `31650943912`, artifact `9162583114`, public SHA-256 `47934505…8673b`. |
+| Provider-origin promotion admission | Implemented, integration-tested, participant-cluster live-proven, and immutable-v27 bound | A verifier performs a fresh provider lookup before issuing a five-minute signed handle. CockroachDB atomically consumes its digest and nonce with the outcome and promotion. Six negative classes produced typed rejection and zero outcome rows; the runtime scope role cannot mint database attestation rows. Live run `31650943912`, artifact `9162583114`, public SHA-256 `47934505…8673b`; v27 coordinator `31653469203`, Pages `31653536847`, monitor `31653861653`, and both zero-API browser paths passed. |
 | Transactional outbox | Implemented, integration-tested, and participant-cluster fault-smoked | Before-send, idempotent after-send, and before-ack crashes converged to one logical effect and zero duplicates; a non-idempotent after-send crash became `ambiguous`, was not resent, and did not promote memory |
 | Tenant and incident integrity | Implemented | Composite foreign keys and query predicates bind candidates, canonical memory, actions, and retrieval audit to the same scope |
 | Vector write and retrieval | Implemented and participant-cluster live-smoked | Deterministic local embeddings remain for tests; the live deployment uses `amazon.titan-embed-text-v2:0` with 512 dimensions and mandatory tenant/incident scope |

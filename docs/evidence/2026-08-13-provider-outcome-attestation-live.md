@@ -89,8 +89,13 @@ authority; durable asymmetric KMS custody is the next authority-lifecycle P0.
 
 ## Immutable publication gate
 
-The public projection and updated RLS checksum are staged for the next fresh
-immutable successor. `hackathon-v24` remains the current public proof until a
-new coordinator run reaches `PAGES_MATERIALIZED`, strict network verification,
-headed-browser PASS, and authenticated freshness monitoring. A consumed or
-failed release epoch will not be edited or backfilled.
+The gate is complete. PRs `#149`, `#150`, and `#151` advanced the proof through
+fresh immutable successors without editing a consumed epoch. `hackathon-v27`
+targets `dbb4942afd45f5bc06cbc08441d43ce155c75f05`; coordinator run
+`31653469203`, Pages run `31653536847`, and monitor run `31653861653` passed.
+Strict network verification found one author attestation plus one GitHub
+immutable-release countersignature. A fresh headed browser passed the main and
+outcome pages with respectively six and five same-origin GETs, zero GitHub API
+requests, and no console errors while the anonymous API quota was exhausted.
+See
+[the immutable v27 receipt](2026-08-13-provider-outcome-attestation-v27.md).
