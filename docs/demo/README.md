@@ -47,6 +47,16 @@ identifier, or private participant information.
 - `build/demo-v7/continuum-memory-firewall-demo-v7.srt` — receipt-compiled
   English (US) captions published with the 97.02-second judge video at
   <https://youtu.be/QQxfQaDVz9c>.
+- `build/demo-v8/continuum-memory-firewall-demo-v8.en.srt` — receipt-compiled
+  English captions published with the 99.93-second provider-origin judge video
+  at <https://youtu.be/cENOZu3prgs>. The MP4 SHA-256 is
+  `af5a689017cc2c39deae2a6368ff0616d580dfabf909bf2918fafa7223cdace7`,
+  the SRT SHA-256 is
+  `4611757b3f074b4c6014f9c9085444c444ebbd6ea2c298a38ba0ac938f9262c7`,
+  and the story receipt is
+  `f3cafd7db4ba6c4657f2751c022ab609612e84776fc39d3c656e17f6c57676e8`.
+  The public-delivery boundary and Devpost receipt are recorded in
+  [`2026-08-13-provider-origin-video-devpost-v8.md`](../evidence/2026-08-13-provider-origin-video-devpost-v8.md).
 
 The browser console is an executable simulation of the policy and concurrency
 contract. The OIDC, RLS, Titan, Recall@3, and leakage statements shown in its
