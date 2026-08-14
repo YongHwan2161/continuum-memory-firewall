@@ -1,0 +1,105 @@
+{
+  "attestation": {
+    "canonical_promotions": 3,
+    "consumed_rows": 3,
+    "distinct_public_keys": 2,
+    "exact_replay_rows": 1,
+    "issuer": "s3-provider-origin-verifier-kms-v2",
+    "persisted_algorithm": "ECDSA_SHA_256",
+    "persisted_authority_epochs": [
+      1,
+      2,
+      3
+    ],
+    "persisted_key_arn_digests": 3,
+    "policy_version": "s3-receipt-lookup-kms-v2",
+    "raw_handle_persisted": false,
+    "ttl_seconds": 300
+  },
+  "aws": {
+    "action_worker_arn_sha256": "1c9cc35f830bacf3d324c82f086d69ba7161fc669105f7c7bf739d2dea495347",
+    "action_worker_kms_error_code": "AccessDenied",
+    "action_worker_kms_sign_denied": true,
+    "key_spec": "ECC_NIST_P256",
+    "kms_get_public_key_calls": 2,
+    "kms_sign_calls": 4,
+    "region": "ap-southeast-1",
+    "s3_head_get_lookups": 4,
+    "signing_algorithm": "ECDSA_SHA_256",
+    "verifier_key_count": 2,
+    "verifier_role_arn_sha256": "e89734ccad6ae802d9f5e663768819a1954e0ca75f924f095dca857781a2a6c1"
+  },
+  "cockroachdb": {
+    "attestation_rows": 3,
+    "canonical_memory_rows": 3,
+    "migration_version": 38,
+    "outcome_rows": 3,
+    "rls_scope_visible_rows": 3,
+    "runtime_attestation_insert_sqlstate": "42501"
+  },
+  "gate": {
+    "checks": {
+      "action_worker_cannot_sign": true,
+      "atomic_promotions": true,
+      "dual_key_overlap": true,
+      "expired_handle_rejected": true,
+      "forged_handle_rejected": true,
+      "handoff_deleted": true,
+      "key_arn_bound_by_digest": true,
+      "keyring_hash_chain": true,
+      "kms_call_budget": true,
+      "offline_restart_verify": true,
+      "provider_lookup_before_sign": true,
+      "raw_handle_absent": true,
+      "rollback_epoch_committed": true,
+      "rotation_epoch_committed": true,
+      "scope_rls": true,
+      "source_bound": true,
+      "two_pinned_public_keys": true,
+      "unknown_key_epoch_rejected": true
+    },
+    "status": "PASS"
+  },
+  "kind": "continuum.kms-outcome-authority-lifecycle",
+  "lifecycle": {
+    "authority_epochs": [
+      1,
+      2,
+      3
+    ],
+    "dual_key_overlap_verified": true,
+    "keyring_versions": [
+      1,
+      2,
+      3
+    ],
+    "manifest_sha256": [
+      "4076d0a7a1ad1835419a04274d1e32951525dbd322e24de85b3d2df7d0fa2233",
+      "8960a31b4567f990f7446fd3a9a2d1bd068121e585789e877398d33f9d3f582f",
+      "46ee09dcf735c62430056144325a9e003c3d7601f3c1c980a231de717d5aba4b"
+    ],
+    "old_handle_replayed_without_resigning": true,
+    "private_handoff_objects_remaining": 0,
+    "restart_verified_offline": true,
+    "rollback_verified": true,
+    "transitions": [
+      "ACTIVATE_KEY_A",
+      "ROTATE_TO_KEY_B",
+      "ROLLBACK_TO_KEY_A"
+    ]
+  },
+  "negative_paths": {
+    "expired": "OUTCOME_ATTESTATION_EXPIRED",
+    "forged": "OUTCOME_ATTESTATION_INVALID",
+    "unknown_key_epoch": "OUTCOME_ATTESTATION_INVALID",
+    "worker_kms_sign": "AccessDenied"
+  },
+  "receipt_sha256": "a48e601612ba59edfd4f97b45b76e8873629a53e8f88fa1791ac2fe5dabfa38c",
+  "schema_version": 1,
+  "source": {
+    "deployment_artifact_sha256": "3ece49e3652a48e902577106e58acacea9cfcedccc32f1d4282c31603648ace8",
+    "head": "b02ca33e0c0b0a8d02629f0a4280d1613ad47806",
+    "workflow_run_attempt": 1,
+    "workflow_run_id": 31813682371
+  }
+}

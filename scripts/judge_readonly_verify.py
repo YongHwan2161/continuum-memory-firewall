@@ -18,6 +18,7 @@ from continuum.adaptive_diagnosis import build_public_adaptive_diagnosis
 from continuum.blind_holdout import build_public_blind_holdout
 from continuum.ci_recovery import build_public_ci_recovery
 from continuum.evidence_story import verify_evidence_story_receipt
+from continuum.kms_authority_proof import validate_kms_authority_proof
 from continuum.release_guardian import build_public_release_guardian
 from continuum.release_guardian_replication import (
     EXPECTED_REPLICATION_IDS,
@@ -698,6 +699,91 @@ def verify_outcome_replay_cas(
     )
 
 
+def verify_kms_outcome_authority(
+    evidence: dict[str, Any],
+    *,
+    fetch_json: Callable[[str], dict[str, Any]],
+    fetch_bytes: Callable[[str], bytes],
+) -> bool:
+    """Verify separated KMS outcome authority using public GETs only."""
+
+    reference = evidence.get("kms_outcome_authority")
+    if reference is None:
+        return True
+    try:
+        workflow = fetch_json(reference["workflow_api_url"])
+        artifact = fetch_json(reference["artifact_api_url"])
+        public_bytes = fetch_bytes(reference["public_url"])
+        public_sha = hashlib.sha256(
+            public_bytes.replace(b"\r\n", b"\n")
+        ).hexdigest()
+        report = json.loads(public_bytes.decode("utf-8"))
+        validate_kms_authority_proof(report)
+    except (
+        KeyError,
+        RuntimeError,
+        TypeError,
+        ValueError,
+        json.JSONDecodeError,
+    ):
+        return False
+    source = report["source"]
+    aws = report["aws"]
+    lifecycle = report["lifecycle"]
+    attestation = report["attestation"]
+    database = report["cockroachdb"]
+    return (
+        reference.get("schema_version") == report.get("schema_version")
+        and public_sha == reference.get("public_sha256")
+        and report.get("receipt_sha256") == reference.get("receipt_sha256")
+        and source.get("head") == reference.get("head_sha")
+        and source.get("workflow_run_id")
+        == reference.get("workflow_run_id")
+        and source.get("workflow_run_attempt")
+        == reference.get("workflow_attempt")
+        and source.get("deployment_artifact_sha256")
+        == reference.get("deployment_artifact_sha256")
+        and database.get("migration_version")
+        == reference.get("migration_version")
+        and aws.get("region") == reference.get("region")
+        and aws.get("verifier_key_count")
+        == reference.get("verifier_key_count")
+        == 2
+        and aws.get("kms_sign_calls") == reference.get("kms_sign_calls") == 4
+        and aws.get("kms_get_public_key_calls")
+        == reference.get("kms_get_public_key_calls")
+        == 2
+        and aws.get("s3_head_get_lookups")
+        == reference.get("s3_head_get_lookups")
+        == 4
+        and aws.get("action_worker_kms_sign_denied") is True
+        and reference.get("action_worker_kms_sign_denied") is True
+        and lifecycle.get("authority_epochs")
+        == reference.get("authority_epochs")
+        == [1, 2, 3]
+        and attestation.get("canonical_promotions")
+        == reference.get("canonical_promotions")
+        == 3
+        and lifecycle.get("private_handoff_objects_remaining")
+        == reference.get("private_handoff_objects_remaining")
+        == 0
+        and len(report.get("gate", {}).get("checks", {}))
+        == reference.get("gate_check_count")
+        == 18
+        and workflow.get("id") == reference.get("workflow_run_id")
+        and workflow.get("run_attempt") == reference.get("workflow_attempt")
+        and workflow.get("head_sha") == reference.get("head_sha")
+        and workflow.get("conclusion") == "success"
+        and artifact.get("id") == reference.get("artifact_id")
+        and artifact.get("name") == reference.get("artifact_name")
+        and artifact.get("digest")
+        == "sha256:" + str(reference.get("artifact_archive_sha256", ""))
+        and artifact.get("expired") is False
+        and artifact.get("workflow_run", {}).get("id")
+        == reference.get("workflow_run_id")
+    )
+
+
 def verify_blind_holdout(
     evidence: dict[str, Any],
     *,
@@ -1329,6 +1415,14 @@ def verify_evidence(
             fetch_json=fetch_json,
             fetch_bytes=fetch_bytes,
         )
+    if "kms_outcome_authority" in evidence:
+        checks["kms_outcome_authority_closure"] = (
+            verify_kms_outcome_authority(
+                evidence,
+                fetch_json=fetch_json,
+                fetch_bytes=fetch_bytes,
+            )
+        )
     if "evidence_story" in evidence:
         checks["receipt_compiled_evidence_story"] = verify_evidence_story(
             evidence,
@@ -1417,6 +1511,7 @@ def verify_evidence(
         transfer_firewall_asset: dict[str, Any] = {}
         online_memory_lineage_asset: dict[str, Any] = {}
         outcome_replay_cas_asset: dict[str, Any] = {}
+        kms_outcome_authority_asset: dict[str, Any] = {}
         offline_judge_capsule_asset: dict[str, Any] = {}
         if schema_version >= 8:
             guardian_reference = evidence["release_guardian"]
@@ -1498,6 +1593,13 @@ def verify_evidence(
             if "outcome_replay_cas" in evidence:
                 outcome_replay_cas_asset = release_assets.get(
                     release_reference["outcome_replay_cas_asset_name"],
+                    {},
+                )
+            if "kms_outcome_authority" in evidence:
+                kms_outcome_authority_asset = release_assets.get(
+                    release_reference[
+                        "kms_outcome_authority_asset_name"
+                    ],
                     {},
                 )
             if "offline_judge_capsule" in evidence:
@@ -1920,6 +2022,12 @@ def verify_evidence(
                         + evidence["outcome_replay_cas"]["public_sha256"]
                     )
                     and (
+                        "kms_outcome_authority" not in evidence
+                        or kms_outcome_authority_asset.get("digest")
+                        == "sha256:"
+                        + evidence["kms_outcome_authority"]["public_sha256"]
+                    )
+                    and (
                         schema_version < 16
                         or offline_judge_capsule_asset.get("digest")
                         == "sha256:" + offline_judge_capsule_sha
@@ -2200,6 +2308,41 @@ def verify_evidence(
                             == evidence["outcome_replay_cas"].get(
                                 "conflict_error_code"
                             )
+                        )
+                    )
+                    and (
+                        "kms_outcome_authority" not in evidence
+                        or (
+                            envelope.get("kms_outcome_authority", {}).get(
+                                "public_sha256"
+                            )
+                            == evidence["kms_outcome_authority"].get(
+                                "public_sha256"
+                            )
+                            and envelope.get(
+                                "kms_outcome_authority", {}
+                            ).get("receipt_sha256")
+                            == evidence["kms_outcome_authority"].get(
+                                "receipt_sha256"
+                            )
+                            and envelope.get(
+                                "kms_outcome_authority", {}
+                            ).get("workflow_run_id")
+                            == evidence["kms_outcome_authority"].get(
+                                "workflow_run_id"
+                            )
+                            and envelope.get(
+                                "kms_outcome_authority", {}
+                            ).get("artifact_archive_sha256")
+                            == evidence["kms_outcome_authority"].get(
+                                "artifact_archive_sha256"
+                            )
+                            and envelope.get(
+                                "kms_outcome_authority", {}
+                            ).get("lifecycle", {}).get(
+                                "private_handoff_objects_remaining"
+                            )
+                            == 0
                         )
                     )
                 ),

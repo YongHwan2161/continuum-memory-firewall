@@ -303,8 +303,8 @@ jobs:
           jq -e '
             .status == "CANDIDATE_PASS" and
             .browser.context_fresh == true and
-            .verification.ui_check_count == 38 and
-            .verification.ui_pass_count == 38 and
+            .verification.ui_check_count == 39 and
+            .verification.ui_pass_count == 39 and
             .verification.github_api_requests == 0 and
             .verification.console_error_count == 0
           ' "$RUNNER_TEMP/browser-candidate.json"
@@ -445,8 +445,8 @@ jobs:
             .status == "PASS" and
             .release.transaction_state == "BROWSER_VERIFIED" and
             .verification.final_ok == true and
-            .verification.ui_check_count == 38 and
-            .verification.ui_pass_count == 38 and
+            .verification.ui_check_count == 39 and
+            .verification.ui_pass_count == 39 and
             .verification.github_api_requests == 0 and
             .verification.console_error_count == 0
           ' "$RUNNER_TEMP/browser-final.json"

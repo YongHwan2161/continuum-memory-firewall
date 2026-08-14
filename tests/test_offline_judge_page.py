@@ -49,8 +49,8 @@ class OfflineJudgePageTests(unittest.TestCase):
         self.assertIn("credentials: 'omit'", self.javascript)
         self.assertIn("github_api_requests: 0", self.javascript)
 
-    def test_schema_eighteen_advertises_release_bound_browser_gate(self) -> None:
-        self.assertEqual(self.judge["schema_version"], 18)
+    def test_schema_nineteen_advertises_release_bound_browser_gate(self) -> None:
+        self.assertEqual(self.judge["schema_version"], 19)
         reference = self.judge["offline_judge_capsule"]
         self.assertEqual(reference["schema_version"], 1)
         self.assertEqual(reference["github_api_requests_per_judge_click"], 0)
