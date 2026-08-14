@@ -41,6 +41,12 @@ MAX_RESPONSE_BYTES = 5_000_000
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
+def supports_representative_scale_gate(schema_version: int) -> bool:
+    """Return whether the schema carries the unchanged 10k/50k ANN contract."""
+
+    return 4 <= schema_version <= 19
+
+
 def _require_https(url: str) -> None:
     parts = urlsplit(url)
     if parts.scheme != "https" or not parts.netloc or parts.username:
@@ -1317,8 +1323,7 @@ def verify_evidence(
             and runtime["control_plane_and_migrator_role_options_empty"] is True
         ),
         "representative_scale_gate": (
-            schema_version
-            in {4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18}
+            supports_representative_scale_gate(schema_version)
             and scale_report.get("gate", {}).get("status") == "PASS"
             and [scale.get("row_count") for scale in scales] == [10_000, 50_000]
         ),

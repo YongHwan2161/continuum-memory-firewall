@@ -4,7 +4,10 @@ import hashlib
 import json
 from pathlib import Path
 
-from scripts.judge_readonly_verify import verify_evidence
+from scripts.judge_readonly_verify import (
+    supports_representative_scale_gate,
+    verify_evidence,
+)
 from scripts.release_transaction_coordinator import (
     advance_receipt,
     initialize_receipt,
@@ -130,6 +133,12 @@ class JudgeVerificationTests(unittest.TestCase):
         )
         self.assertTrue(report["ok"])
         self.assertEqual(report["mode"], "read-only-http-get")
+
+    def test_schema_nineteen_keeps_the_unchanged_scale_contract(self):
+        self.assertFalse(supports_representative_scale_gate(3))
+        self.assertTrue(supports_representative_scale_gate(4))
+        self.assertTrue(supports_representative_scale_gate(19))
+        self.assertFalse(supports_representative_scale_gate(20))
 
     def test_head_mismatch_fails_closed(self):
         report = verify_evidence(
