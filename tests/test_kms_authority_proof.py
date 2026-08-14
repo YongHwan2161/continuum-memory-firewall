@@ -127,6 +127,12 @@ class KmsAuthorityProofTests(unittest.TestCase):
         self.assertNotIn("AWS_ACCESS_KEY_ID", text)
         self.assertNotIn("AWS_SECRET_ACCESS_KEY", text)
 
+    def test_participant_host_package_contains_the_lifecycle_runner(self):
+        package_builder = (
+            ROOT / "scripts" / "build_mcp_host_package.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn("run_kms_authority_lifecycle_proof.py", package_builder)
+
 
 if __name__ == "__main__":
     unittest.main()
