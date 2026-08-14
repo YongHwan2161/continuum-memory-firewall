@@ -6,7 +6,7 @@ on:
       release_tag:
         description: New or resumable immutable GitHub Release tag
         required: true
-        default: hackathon-v31
+        default: hackathon-v32
       release_target:
         description: Exact existing release target to reconcile; blank uses the workflow SHA
         required: false
@@ -333,15 +333,59 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m scripts.offline_judge_capsule build \
-            --evidence-url https://yonghwan2161.github.io/continuum-memory-firewall/evidence/judge-verification.json \
-            --repository "$GITHUB_REPOSITORY" \
-            --source-head "$RELEASE_TARGET" \
-            --workflow-run-id "$GITHUB_RUN_ID" \
-            --workflow-attempt "$GITHUB_RUN_ATTEMPT" \
-            --release-tag "$RELEASE_TAG" \
-            --observed-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --output build/release/judge-offline-capsule-v1.json
+          relay_enabled="$(jq -r '.offline_judge_capsule.relay.enabled // false' public-demo/evidence/judge-verification.json)"
+          if [[ "$relay_enabled" == "true" ]]; then
+            source_tag="$(jq -r '.offline_judge_capsule.relay.source_release_tag' public-demo/evidence/judge-verification.json)"
+            source_target="$(jq -r '.offline_judge_capsule.relay.source_release_target' public-demo/evidence/judge-verification.json)"
+            source_asset_sha="$(jq -r '.offline_judge_capsule.relay.source_asset_sha256' public-demo/evidence/judge-verification.json)"
+            source_receipt_sha="$(jq -r '.offline_judge_capsule.relay.source_receipt_sha256' public-demo/evidence/judge-verification.json)"
+            source_compiler_run="$(jq -r '.offline_judge_capsule.relay.source_compiler_workflow_run_id' public-demo/evidence/judge-verification.json)"
+            failed_pages_run="$(jq -r '.offline_judge_capsule.relay.failed_pages_workflow_run_id' public-demo/evidence/judge-verification.json)"
+            source_release="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$source_tag")"
+            [[ "$(jq -r '.immutable' <<<"$source_release")" == "true" ]]
+            [[ "$(jq -r '.draft' <<<"$source_release")" == "false" ]]
+            [[ "$(jq -r '.target_commitish' <<<"$source_release")" == "$source_target" ]]
+            mapfile -t source_assets < <(jq -r --arg name "judge-offline-capsule-v1.json" '.assets[] | select(.name == $name) | [.id, .digest] | @tsv' <<<"$source_release")
+            [[ "${#source_assets[@]}" -eq 1 ]]
+            IFS=$'\t' read -r source_asset_id source_asset_digest <<<"${source_assets[0]}"
+            [[ "$source_asset_digest" == "sha256:$source_asset_sha" ]]
+            source_capsule="$RUNNER_TEMP/judge-offline-capsule-$source_tag.json"
+            gh api -H "Accept: application/octet-stream" \
+              "repos/$GITHUB_REPOSITORY/releases/assets/$source_asset_id" \
+              > "$source_capsule"
+            [[ "$(sha256sum "$source_capsule" | cut -d' ' -f1)" == "$source_asset_sha" ]]
+            [[ "$(jq -r '.receipt_sha256' "$source_capsule")" == "$source_receipt_sha" ]]
+            [[ "$(jq -r '.compiler.workflow_run_id' "$source_capsule")" == "$source_compiler_run" ]]
+            failed_pages="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$failed_pages_run")"
+            [[ "$(jq -r '.conclusion' <<<"$failed_pages")" == "failure" ]]
+            [[ "$(jq -r '.head_sha' <<<"$failed_pages")" == "$source_target" ]]
+            [[ "$(jq -r '.offline_judge_capsule.relay.source_release_immutable' public-demo/evidence/judge-verification.json)" == "true" ]]
+            [[ "$source_compiler_run" =~ ^[1-9][0-9]*$ ]]
+            python -m scripts.offline_judge_capsule relay \
+              --input "$source_capsule" \
+              --expected-asset-sha256 "$source_asset_sha" \
+              --expected-receipt-sha256 "$source_receipt_sha" \
+              --source-release-tag "$source_tag" \
+              --source-release-target "$source_target" \
+              --repository "$GITHUB_REPOSITORY" \
+              --source-head "$RELEASE_TARGET" \
+              --workflow-run-id "$GITHUB_RUN_ID" \
+              --workflow-attempt "$GITHUB_RUN_ATTEMPT" \
+              --release-tag "$RELEASE_TAG" \
+              --failed-pages-workflow-run-id "$failed_pages_run" \
+              --observed-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              --output build/release/judge-offline-capsule-v1.json
+          else
+            python -m scripts.offline_judge_capsule build \
+              --evidence-url https://yonghwan2161.github.io/continuum-memory-firewall/evidence/judge-verification.json \
+              --repository "$GITHUB_REPOSITORY" \
+              --source-head "$RELEASE_TARGET" \
+              --workflow-run-id "$GITHUB_RUN_ID" \
+              --workflow-attempt "$GITHUB_RUN_ATTEMPT" \
+              --release-tag "$RELEASE_TAG" \
+              --observed-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              --output build/release/judge-offline-capsule-v1.json
+          fi
 
       - name: Build the exact release payload once
         if: steps.transaction.outputs.mode == 'new'

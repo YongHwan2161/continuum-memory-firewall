@@ -231,6 +231,11 @@ def build_envelope(
     outcome_replay_cas_reference = judge.get("outcome_replay_cas")
     kms_outcome_authority_reference = judge.get("kms_outcome_authority")
     offline_judge_reference = judge.get("offline_judge_capsule")
+    offline_relay_reference = (
+        offline_judge_reference.get("relay")
+        if isinstance(offline_judge_reference, Mapping)
+        else None
+    )
     database_policy_reference = judge["database_policy"]
     release_reference = judge["release_envelope"]
     network_sign_once = judge["network_sign_once"]
@@ -1986,6 +1991,73 @@ def build_envelope(
                 != release_tag
                 and SHA256_PATTERN.fullmatch(offline_judge_capsule_sha)
                 is not None
+                and (
+                    offline_relay_reference is None
+                    or (
+                        offline_relay_reference.get("enabled") is True
+                        and offline_relay_reference.get("schema_version") == 1
+                        and offline_relay_reference.get("reason")
+                        == "preserved_candidate_browser_failure"
+                        and offline_relay_reference.get(
+                            "source_release_immutable"
+                        )
+                        is True
+                        and offline_relay_reference.get(
+                            "failed_pages_conclusion"
+                        )
+                        == "failure"
+                        and offline_judge_capsule.get("relay", {}).get(
+                            "schema_version"
+                        )
+                        == 1
+                        and offline_judge_capsule.get("relay", {}).get(
+                            "reason"
+                        )
+                        == offline_relay_reference.get("reason")
+                        and offline_judge_capsule.get("relay", {}).get(
+                            "source_release_tag"
+                        )
+                        == offline_relay_reference.get("source_release_tag")
+                        and offline_judge_capsule.get("relay", {}).get(
+                            "source_release_target"
+                        )
+                        == offline_relay_reference.get(
+                            "source_release_target"
+                        )
+                        and offline_judge_capsule.get("relay", {}).get(
+                            "source_asset_sha256"
+                        )
+                        == offline_relay_reference.get("source_asset_sha256")
+                        and offline_judge_capsule.get("relay", {}).get(
+                            "source_receipt_sha256"
+                        )
+                        == offline_relay_reference.get(
+                            "source_receipt_sha256"
+                        )
+                        and offline_judge_capsule.get("relay", {}).get(
+                            "source_compiler_workflow_run_id"
+                        )
+                        == offline_relay_reference.get(
+                            "source_compiler_workflow_run_id"
+                        )
+                        and offline_judge_capsule.get("relay", {}).get(
+                            "failed_pages_workflow_run_id"
+                        )
+                        == offline_relay_reference.get(
+                            "failed_pages_workflow_run_id"
+                        )
+                        and offline_judge_capsule.get("relay", {}).get(
+                            "failed_epoch_promoted_to_pass"
+                        )
+                        is False
+                        and offline_judge_capsule.get("predecessor", {}).get(
+                            "release_tag"
+                        )
+                        == offline_relay_reference.get(
+                            "source_predecessor_release_tag"
+                        )
+                    )
+                )
             )
         ),
         "network_sign_once_contract_bound": (
@@ -2939,6 +3011,11 @@ def build_envelope(
                     ]["check_count"],
                     "ui_check_count": len(offline_judge_capsule["ui_checks"]),
                     "github_api_requests_per_judge_click": 0,
+                    **(
+                        {"relay": offline_judge_capsule["relay"]}
+                        if offline_relay_reference is not None
+                        else {}
+                    ),
                 }
             }
             if offline_judge_capsule is not None

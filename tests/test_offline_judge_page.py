@@ -60,10 +60,14 @@ class OfflineJudgePageTests(unittest.TestCase):
         )
         self.assertEqual(len(UI_CHECK_SOURCES), 37)
         self.assertIn("values.providerOriginStory = providerStoryBound", self.javascript)
+        self.assertIn("values.kmsAuthority = kmsAuthorityBound", self.javascript)
+        self.assertIn("failed_epoch_promoted_to_pass === false", self.javascript)
+        self.assertIn("same(capsuleReference.relay, relayEvidence)", self.javascript)
+        self.assertIn("kms-authority-lifecycle-v1.json", self.javascript)
         self.assertIn("JSON.stringify(canonical(body)) + '\\n'", self.javascript)
         self.assertIn("providerStoryReceiptHash(providerStory)", self.javascript)
         self.assertIn("effective_check_count", self.javascript)
-        self.assertIn("same_origin_static_gets: 7", self.javascript)
+        self.assertIn("same_origin_static_gets: 8", self.javascript)
         digest = hashlib.sha256(self.javascript_bytes).hexdigest()
         integrity = "sha256-" + base64.b64encode(
             hashlib.sha256(self.javascript_bytes).digest()
@@ -79,6 +83,14 @@ class OfflineJudgePageTests(unittest.TestCase):
             "BROWSER_VERIFIED",
         )
         self.assertIn("CANDIDATE_PASS", self.javascript)
+        relay = reference["relay"]
+        self.assertTrue(relay["enabled"])
+        self.assertTrue(relay["source_release_immutable"])
+        self.assertEqual(relay["failed_pages_conclusion"], "failure")
+        self.assertEqual(relay["source_release_tag"], "hackathon-v31")
+        self.assertEqual(
+            relay["source_predecessor_release_tag"], "hackathon-v30"
+        )
 
     def test_production_browser_hash_matches_provider_story_receipt(self) -> None:
         story = json.loads(self.provider_story_path.read_text(encoding="utf-8"))

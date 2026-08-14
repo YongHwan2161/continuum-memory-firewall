@@ -52,10 +52,11 @@ residue, and forged/expired/unknown-epoch rejection.
 ## Public judge contract
 
 Schema 19 binds the public receipt to the exact workflow and artifact APIs,
-archive digest, immutable `hackathon-v31` release asset, signed release
+archive digest, immutable `hackathon-v32` release asset, signed release
 envelope, and terminal browser receipt. The dedicated
 `kms-authority.html` page uses four same-origin static GETs and no credentials;
-the full verifier adds one explicit KMS authority row for 39 total checks.
+the full verifier adds one explicit KMS authority row for 39 total checks and
+uses eight same-origin GETs in its browser-gated offline path.
 
 No key ARN, raw handle, credential, bucket name, object key, database URL, or
 database row is included in the public receipt.

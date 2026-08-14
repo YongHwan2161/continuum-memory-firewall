@@ -67,6 +67,7 @@ class BrowserReleaseGateTests(unittest.TestCase):
             ROOT / "scripts/browser_release_verify.mjs"
         ).read_text(encoding="utf-8")
         self.assertIn("pageResult.rows.total !== 39", browser_script)
+        self.assertIn("state.same_origin_static_gets !== 8", browser_script)
 
     def test_browser_runtime_dependency_is_exact_and_audit_fixed(self) -> None:
         package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
