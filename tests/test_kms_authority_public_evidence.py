@@ -44,7 +44,7 @@ class KmsAuthorityPublicEvidenceTests(unittest.TestCase):
         self.assertTrue(self.reference["action_worker_kms_sign_denied"])
         self.assertEqual(self.reference["private_handoff_objects_remaining"], 0)
         release = self.judge["release_envelope"]
-        self.assertEqual(release["tag"], "hackathon-v31")
+        self.assertEqual(release["tag"], "hackathon-v32")
         self.assertEqual(
             release["kms_outcome_authority_asset_name"],
             "kms-authority-lifecycle-v1.json",

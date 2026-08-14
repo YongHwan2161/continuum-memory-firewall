@@ -1146,7 +1146,8 @@ def verify_browser_runtime_delivery(
         and reference.get("script_sha256") == asset_sha
         and reference.get("script_integrity") == integrity
         and reference.get("required_terminal_state") == "BROWSER_VERIFIED"
-        and reference.get("required_ui_check_count") == 38
+        and reference.get("required_ui_check_count")
+        == (39 if evidence.get("schema_version", 0) >= 19 else 38)
         and reference.get("required_github_api_requests") == 0
         and reference.get("required_console_errors") == 0
         and reference.get("fresh_context_required") is True
@@ -1755,7 +1756,13 @@ def verify_evidence(
                         transaction_reference["receipt_asset_name"], {}
                     )
                     transaction_receipt_valid = True
-                except (KeyError, RuntimeError, TypeError, ValueError):
+                except (
+                    KeyError,
+                    RuntimeError,
+                    StopIteration,
+                    TypeError,
+                    ValueError,
+                ):
                     transaction_receipt_valid = False
             if schema_version >= 16:
                 try:
@@ -2689,7 +2696,7 @@ def verify_evidence(
                                 and transaction_browser_evidence.get(
                                     "ui_check_count"
                                 )
-                                == 38
+                                == (39 if schema_version >= 19 else 38)
                                 and transaction_browser_evidence.get(
                                     "github_api_requests"
                                 )

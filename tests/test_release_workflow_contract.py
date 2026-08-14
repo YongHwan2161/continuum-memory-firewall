@@ -19,7 +19,7 @@ def test_upload_artifact_digest_is_normalized_before_pages_dispatch() -> None:
 def test_v27_downloads_and_reprojects_exact_transfer_and_offline_capsule() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
 
-    assert "default: hackathon-v31" in workflow
+    assert "default: hackathon-v32" in workflow
     assert "provider-origin-story-v1.json" in workflow
     assert "for plane in source vector_scale" in workflow
     assert (
@@ -48,6 +48,12 @@ def test_v27_downloads_and_reprojects_exact_transfer_and_offline_capsule() -> No
     assert workflow.count('"transfer-firewall-v1.json",') == 2
     assert workflow.count('"transfer-firewall-v1.json.sha256",') == 2
     assert "python -m scripts.offline_judge_capsule build" in workflow
+    assert "python -m scripts.offline_judge_capsule relay" in workflow
+    assert "source_release_immutable" in workflow
+    assert "source_asset_digest" in workflow
+    assert '[[ "$source_asset_digest" == "sha256:$source_asset_sha" ]]' in workflow
+    assert '== "failure" ]]' in workflow
+    assert "failed_pages_workflow_run_id" in workflow
     assert "--offline-judge-capsule build/release/judge-offline-capsule-v1.json" in workflow
     assert workflow.count("PYTHONPATH: src:.") >= 2
     assert workflow.count('"judge-offline-capsule-v1.json",') == 2

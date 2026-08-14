@@ -395,6 +395,13 @@ def verify_envelope_binding(
         "successor_release_tag"
     ):
         raise RuntimeError("release envelope capsule successor tag mismatch")
+    relay_reference = reference.get("relay")
+    if relay_reference is not None:
+        relay = capsule.get("relay")
+        if not isinstance(relay, dict) or relay_reference != relay:
+            raise RuntimeError("release envelope capsule relay mismatch")
+        if relay.get("failed_epoch_promoted_to_pass") is not False:
+            raise RuntimeError("release envelope promoted a failed relay epoch")
     return {**result, "asset_sha256": reference["asset_sha256"]}
 
 
@@ -451,6 +458,122 @@ def _build_from_network(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def relay_capsule(
+    capsule: dict[str, Any],
+    *,
+    capsule_bytes: bytes,
+    expected_asset_sha256: str,
+    expected_receipt_sha256: str,
+    source_release_tag: str,
+    source_release_target: str,
+    compiler_repository: str,
+    compiler_source_head: str,
+    compiler_workflow_run_id: int,
+    compiler_workflow_attempt: int,
+    compiler_release_tag: str,
+    failed_pages_workflow_run_id: int,
+    observed_at: str | None = None,
+) -> dict[str, Any]:
+    """Relay the last successful capsule through one preserved failed epoch."""
+
+    verify_capsule(capsule)
+    asset_sha = sha256_bytes(capsule_bytes)
+    if (
+        not SHA256_PATTERN.fullmatch(expected_asset_sha256)
+        or asset_sha != expected_asset_sha256
+        or capsule.get("receipt_sha256") != expected_receipt_sha256
+    ):
+        raise RuntimeError("relay source capsule identity mismatch")
+    source_compiler = capsule.get("compiler", {})
+    if (
+        source_compiler.get("repository") != compiler_repository
+        or source_compiler.get("successor_release_tag") != source_release_tag
+        or source_compiler.get("source_head") != source_release_target
+        or not SHA_PATTERN.fullmatch(source_release_target)
+        or not SHA_PATTERN.fullmatch(compiler_source_head)
+        or compiler_workflow_run_id < 1
+        or compiler_workflow_attempt < 1
+        or failed_pages_workflow_run_id < 1
+        or compiler_release_tag == source_release_tag
+    ):
+        raise RuntimeError("relay source release identity mismatch")
+    relayed = deepcopy(capsule)
+    relayed["observed_at"] = observed_at or datetime.now(timezone.utc).replace(
+        microsecond=0
+    ).isoformat()
+    relayed["claim_boundary"] = (
+        "This capsule relays the last successful online proof through one "
+        "preserved immutable candidate-browser failure. It does not convert "
+        "that failed epoch into a PASS; the successor independently validates "
+        "its current delivery and added evidence."
+    )
+    relayed["relay"] = {
+        "schema_version": 1,
+        "reason": "preserved_candidate_browser_failure",
+        "source_release_tag": source_release_tag,
+        "source_release_target": source_release_target,
+        "source_asset_sha256": asset_sha,
+        "source_receipt_sha256": expected_receipt_sha256,
+        "source_compiler_workflow_run_id": source_compiler[
+            "workflow_run_id"
+        ],
+        "failed_pages_workflow_run_id": failed_pages_workflow_run_id,
+        "failed_epoch_promoted_to_pass": False,
+    }
+    relayed["compiler"] = {
+        "repository": compiler_repository,
+        "source_head": compiler_source_head,
+        "workflow_run_id": compiler_workflow_run_id,
+        "workflow_attempt": compiler_workflow_attempt,
+        "workflow": (
+            f"{compiler_repository}/.github/workflows/release-envelope.yml"
+        ),
+        "successor_release_tag": compiler_release_tag,
+    }
+    relayed["receipt_sha256"] = capsule_receipt_sha256(relayed)
+    verify_capsule(relayed)
+    return relayed
+
+
+def _relay_from_immutable_failure(args: argparse.Namespace) -> dict[str, Any]:
+    capsule_bytes = args.input.read_bytes()
+    capsule = json.loads(capsule_bytes.decode("utf-8"))
+    relayed = relay_capsule(
+        capsule,
+        capsule_bytes=capsule_bytes,
+        expected_asset_sha256=args.expected_asset_sha256,
+        expected_receipt_sha256=args.expected_receipt_sha256,
+        source_release_tag=args.source_release_tag,
+        source_release_target=args.source_release_target,
+        compiler_repository=args.repository,
+        compiler_source_head=args.source_head,
+        compiler_workflow_run_id=args.workflow_run_id,
+        compiler_workflow_attempt=args.workflow_attempt,
+        compiler_release_tag=args.release_tag,
+        failed_pages_workflow_run_id=args.failed_pages_workflow_run_id,
+        observed_at=args.observed_at,
+    )
+    encoded = (json.dumps(relayed, indent=2, sort_keys=True) + "\n").encode(
+        "utf-8"
+    )
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_bytes(encoded)
+    args.output.with_suffix(args.output.suffix + ".sha256").write_text(
+        f"{sha256_bytes(encoded)}  {args.output.name}\n",
+        encoding="utf-8",
+    )
+    return {
+        "ok": True,
+        "mode": "immutable-failure-relay",
+        "asset_sha256": sha256_bytes(encoded),
+        "receipt_sha256": relayed["receipt_sha256"],
+        "source_release_tag": args.source_release_tag,
+        "predecessor_release_tag": relayed["predecessor"]["release_tag"],
+        "successor_release_tag": args.release_tag,
+        "online_check_count": relayed["online_verification"]["check_count"],
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -465,6 +588,21 @@ def main() -> None:
     build.add_argument("--observed-at")
     build.add_argument("--output", type=Path, required=True)
 
+    relay = subparsers.add_parser("relay")
+    relay.add_argument("--input", type=Path, required=True)
+    relay.add_argument("--expected-asset-sha256", required=True)
+    relay.add_argument("--expected-receipt-sha256", required=True)
+    relay.add_argument("--source-release-tag", required=True)
+    relay.add_argument("--source-release-target", required=True)
+    relay.add_argument("--repository", required=True)
+    relay.add_argument("--source-head", required=True)
+    relay.add_argument("--workflow-run-id", type=int, required=True)
+    relay.add_argument("--workflow-attempt", type=int, required=True)
+    relay.add_argument("--release-tag", required=True)
+    relay.add_argument("--failed-pages-workflow-run-id", type=int, required=True)
+    relay.add_argument("--observed-at")
+    relay.add_argument("--output", type=Path, required=True)
+
     verify = subparsers.add_parser("verify")
     verify.add_argument("--capsule", type=Path, required=True)
     verify.add_argument("--envelope", type=Path)
@@ -472,6 +610,8 @@ def main() -> None:
     args = parser.parse_args()
     if args.command == "build":
         result = _build_from_network(args)
+    elif args.command == "relay":
+        result = _relay_from_immutable_failure(args)
     else:
         capsule_bytes = args.capsule.read_bytes()
         capsule = json.loads(capsule_bytes.decode("utf-8"))

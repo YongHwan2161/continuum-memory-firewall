@@ -8,6 +8,7 @@ from scripts.offline_judge_capsule import (
     UI_CHECK_SOURCES,
     build_capsule,
     capsule_receipt_sha256,
+    relay_capsule,
     verify_capsule,
     verify_envelope_binding,
 )
@@ -232,6 +233,104 @@ class OfflineJudgeCapsuleTests(unittest.TestCase):
         capsule["receipt_sha256"] = capsule_receipt_sha256(capsule)
         with self.assertRaisesRegex(RuntimeError, "source mapping"):
             verify_capsule(capsule)
+
+    def test_relays_last_successful_capsule_without_promoting_failed_epoch(
+        self,
+    ) -> None:
+        capsule = self.build()
+        capsule_bytes = (
+            json.dumps(capsule, indent=2, sort_keys=True) + "\n"
+        ).encode()
+        asset_sha = hashlib.sha256(capsule_bytes).hexdigest()
+
+        relayed = relay_capsule(
+            capsule,
+            capsule_bytes=capsule_bytes,
+            expected_asset_sha256=asset_sha,
+            expected_receipt_sha256=capsule["receipt_sha256"],
+            source_release_tag="hackathon-v23",
+            source_release_target=self.successor_target,
+            compiler_repository="o/r",
+            compiler_source_head="f" * 40,
+            compiler_workflow_run_id=99,
+            compiler_workflow_attempt=1,
+            compiler_release_tag="hackathon-v24",
+            failed_pages_workflow_run_id=101,
+            observed_at="2026-08-12T02:00:00Z",
+        )
+
+        self.assertTrue(verify_capsule(relayed)["ok"])
+        self.assertEqual(relayed["predecessor"], capsule["predecessor"])
+        self.assertEqual(relayed["relay"]["source_asset_sha256"], asset_sha)
+        self.assertEqual(
+            relayed["relay"]["source_receipt_sha256"],
+            capsule["receipt_sha256"],
+        )
+        self.assertEqual(
+            relayed["relay"]["source_compiler_workflow_run_id"], 20
+        )
+        self.assertEqual(
+            relayed["relay"]["failed_pages_workflow_run_id"], 101
+        )
+        self.assertIs(
+            relayed["relay"]["failed_epoch_promoted_to_pass"], False
+        )
+        self.assertEqual(
+            relayed["compiler"]["successor_release_tag"], "hackathon-v24"
+        )
+        self.assertNotEqual(
+            relayed["receipt_sha256"], capsule["receipt_sha256"]
+        )
+        relayed_bytes = (
+            json.dumps(relayed, indent=2, sort_keys=True) + "\n"
+        ).encode()
+        envelope = {
+            "release": {
+                "commit_sha": "f" * 40,
+                "tag": "hackathon-v24",
+            },
+            "offline_judge_capsule": {
+                "schema_version": 1,
+                "asset_name": CAPSULE_ASSET_NAME,
+                "asset_sha256": hashlib.sha256(relayed_bytes).hexdigest(),
+                "receipt_sha256": relayed["receipt_sha256"],
+                "relay": deepcopy(relayed["relay"]),
+            },
+        }
+        self.assertTrue(
+            verify_envelope_binding(
+                capsule=relayed,
+                capsule_bytes=relayed_bytes,
+                envelope=envelope,
+            )["ok"]
+        )
+        envelope["offline_judge_capsule"]["relay"][
+            "failed_epoch_promoted_to_pass"
+        ] = True
+        with self.assertRaisesRegex(RuntimeError, "relay mismatch"):
+            verify_envelope_binding(
+                capsule=relayed,
+                capsule_bytes=relayed_bytes,
+                envelope=envelope,
+            )
+
+        with self.assertRaisesRegex(
+            RuntimeError, "relay source capsule identity mismatch"
+        ):
+            relay_capsule(
+                capsule,
+                capsule_bytes=capsule_bytes,
+                expected_asset_sha256="0" * 64,
+                expected_receipt_sha256=capsule["receipt_sha256"],
+                source_release_tag="hackathon-v23",
+                source_release_target=self.successor_target,
+                compiler_repository="o/r",
+                compiler_source_head="f" * 40,
+                compiler_workflow_run_id=99,
+                compiler_workflow_attempt=1,
+                compiler_release_tag="hackathon-v24",
+                failed_pages_workflow_run_id=101,
+            )
 
     def test_terminal_network_mismatch_blocks_compilation(self) -> None:
         bad_receipt = advance_receipt(

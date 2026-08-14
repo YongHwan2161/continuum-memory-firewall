@@ -1,6 +1,6 @@
 # Immutable competition release envelope
 
-`hackathon-v31` is the current successor proof unit for the receipt-compiled competition story,
+`hackathon-v32` is the current successor proof unit for the receipt-compiled competition story,
 closed-loop CI recovery, preregistered ambiguity-first diagnosis, and
 counterfactual cross-environment transfer plus online CockroachDB memory-lineage
 and provider-origin, proposal-scoped outcome replay CAS evidence. Schema 19 also
@@ -12,11 +12,11 @@ binds the current burned-in-caption video and Devpost delivery receipt to the
 provider-origin story as an immutable release asset. It carries quota-independent
 main and outcome judge paths. It is published only by
 `.github/workflows/release-envelope.yml` after every fail-closed gate passes.
-The main zero-API path uses seven same-origin GETs. Its predecessor capsule
-freezes all 45 predecessor online checks, while the signed v31 envelope and exact
-provider-story bytes independently revalidate the current delivery row. The
-browser renders 39 rows; the ordinary online verifier additionally validates
-the exact KMS workflow, artifact, archive digest, and public receipt.
+The main zero-API path uses eight same-origin GETs. Its predecessor capsule
+freezes all predecessor online checks, while the signed v32 envelope and exact
+provider-story and KMS bytes independently revalidate the current delivery
+rows. The browser renders 39 rows; the ordinary online verifier additionally
+validates the exact KMS workflow, artifact, archive digest, and public receipt.
 checks directly. The content-addressed judge script is SRI-pinned. A fresh
 isolated Chromium run first verifies a non-terminal candidate publication; its
 workflow/artifact ID and digest are then appended to the release receipt as
@@ -30,8 +30,17 @@ Pages run `31707063340` materialized capsule
 `c387b086a81fee4629e2adcb562aaac0026c0eae3d7be2844d02701e863cfae7`.
 The online verifier passed all 45 checks, but the headed browser rendered 37/38
 because its provider-story self-hash omitted the canonical trailing LF. v28 was
-not retried, backfilled, or mutated; v29 is its preserved correction, v30 is
-the preserved fresh-browser epoch, and v31 is its KMS-authority successor.
+not retried, backfilled, or mutated; v29 is its preserved correction and v30 is
+the preserved fresh-browser epoch. Immutable v31 correctly failed its candidate
+browser audit because its v30 content-addressed program still expected 38 rows;
+v32 is the fresh 39-row, eight-static-GET KMS-authority successor. Its capsule
+contains an explicit relay receipt for v31 asset SHA-256
+`9b6352ecaad6f56f2dae746586c44aa33144a7c246a4f265c4cc35c8c581e712`,
+receipt SHA-256
+`4021f07027371f77ae864ad8bb872a9bfdedec060f9ab0aab55ebf9960832ee0`,
+and failed Pages run `31816052617`. The relay preserves v30's last successful
+semantic snapshot and declares `failed_epoch_promoted_to_pass=false`; v32 must
+still pass its own fresh browser transaction.
 
 The published v27 predecessor receipt remains exact and terminal: coordinator run `31653469203`
 targeted `dbb4942afd45f5bc06cbc08441d43ce155c75f05`; immutable envelope SHA-256

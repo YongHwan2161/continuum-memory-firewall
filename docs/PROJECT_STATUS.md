@@ -1,7 +1,7 @@
 # Project status
 
 **Status date:** 2026-08-15
-**Current milestone:** P2D — separated KMS outcome authority publicly release-bound
+**Current milestone:** P2D — separated KMS outcome authority browser-reconciled
 **Overall state:** the local promotion-to-retrieval vertical slice and repository
 MCP contract are implemented and tested. A private, cost-bounded AWS Lambda
 worker is deployed and has completed two live read-only CockroachDB Cloud
@@ -32,7 +32,7 @@ The Devpost entry is submitted to the CockroachDB x AWS hackathon as submission
 `1121568`. The submission remains editable while submissions are open; the
 current deadline is 2026-08-19 06:00 KST.
 
-The current judge-closure P0 uses schema 19 and successor `hackathon-v31`. It preserves the sequential v14
+The current judge-closure P0 uses schema 19 and successor `hackathon-v32`. It preserves the sequential v14
 story as historical evidence and separately binds the current provider-origin
 story to a 99.93-second public video with deterministic burned-in English
 captions, Devpost project version 26, and the retained submission receipt. The
@@ -48,10 +48,13 @@ envelope before rendering 38 PASS rows. v30 additionally makes that browser
 result a release state: content-addressed/SRI script bytes, fresh isolated
 Chromium, 38/38 rows, zero GitHub API requests, and zero console/page errors are
 bound into the hash-chained `BROWSER_VERIFIED` receipt before final Pages
-publication. v31 adds a 39th public row that binds the live dual-key KMS
-authority lifecycle without changing the v30 bytes. See
-[the v30 browser-verified contract](evidence/2026-08-13-browser-verified-release-v30.md)
-and [the KMS authority proof](evidence/2026-08-15-kms-outcome-authority-live.md).
+publication. Immutable v31 added the 39th KMS row but its headed candidate audit
+correctly failed because the content-addressed v30 judge program still expected
+38 rows. Those bytes remain unchanged. v32 adds the KMS receipt as an eighth
+same-origin GET and binds all 39 rows without changing v30 or v31. See
+[the v30 browser-verified contract](evidence/2026-08-13-browser-verified-release-v30.md),
+[the preserved v31 audit](evidence/2026-08-15-kms-browser-v31-failed.md), and
+[the KMS authority proof](evidence/2026-08-15-kms-outcome-authority-live.md).
 
 The real GitHub Actions closed-loop recovery run is also complete. Across six
 fault families, 18 calibration and 36 paired evaluation children produced 54

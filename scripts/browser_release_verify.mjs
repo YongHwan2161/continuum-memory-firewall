@@ -132,7 +132,7 @@ try {
   ) {
     throw new Error(`browser UI gate mismatch: ${JSON.stringify(pageResult.rows)}`);
   }
-  if (state.github_api_requests !== 0 || state.same_origin_static_gets !== 7) {
+  if (state.github_api_requests !== 0 || state.same_origin_static_gets !== 8) {
     throw new Error('judge click violated its zero-API request contract');
   }
 
