@@ -56,9 +56,13 @@ class OutcomeAttestationClaims:
     nonce: str
     issued_at: datetime
     expires_at: datetime
+    algorithm: str | None = None
+    authority_epoch: int | None = None
+    key_arn_digest: str | None = None
+    schema_version: int = 1
 
     def as_payload(self) -> dict[str, Any]:
-        return {
+        payload = {
             "expires_at": self.expires_at.isoformat(),
             "idempotency_key": self.idempotency_key,
             "issued_at": self.issued_at.isoformat(),
@@ -70,9 +74,16 @@ class OutcomeAttestationClaims:
             "provider": self.provider,
             "provider_receipt_id": self.provider_receipt_id,
             "receipt_digest": self.receipt_digest,
-            "schema_version": 1,
+            "schema_version": self.schema_version,
             "status": self.status,
         }
+        if self.algorithm is not None:
+            payload["algorithm"] = self.algorithm
+        if self.authority_epoch is not None:
+            payload["authority_epoch"] = self.authority_epoch
+        if self.key_arn_digest is not None:
+            payload["key_arn_digest"] = self.key_arn_digest
+        return payload
 
 
 class OutcomeAttestationVerifier(Protocol):
