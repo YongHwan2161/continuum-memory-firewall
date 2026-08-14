@@ -1221,13 +1221,16 @@ class CockroachEpisodeStore:
                             policy_version,
                             issuer,
                             key_id,
+                            algorithm,
+                            authority_epoch,
+                            key_arn_digest,
                             issued_at,
                             expires_at,
                             consumed_at,
                             consumed_outcome_id
                         ) VALUES (
                             %s, %s, %s, %s, %s, %s, %s, %s, 'succeeded',
-                            %s, %s, %s, %s, %s, %s, %s, %s, %s
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                         )
                         """,
                         (
@@ -1244,6 +1247,9 @@ class CockroachEpisodeStore:
                             attestation_claims.policy_version,
                             attestation_claims.issuer,
                             attestation_claims.key_id,
+                            attestation_claims.algorithm,
+                            attestation_claims.authority_epoch,
+                            attestation_claims.key_arn_digest,
                             attestation_claims.issued_at,
                             attestation_claims.expires_at,
                             reconciliation_time,
