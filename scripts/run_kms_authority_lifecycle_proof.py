@@ -614,13 +614,12 @@ def _delete_and_confirm_absent(client: Any, *, bucket: str, keys: list[str]) -> 
         client.delete_object(Bucket=bucket, Key=key)
     remaining = 0
     for key in keys:
-        try:
-            client.head_object(Bucket=bucket, Key=key)
-        except ClientError as error:
-            code = str(error.response.get("Error", {}).get("Code", ""))
-            if code not in {"404", "NoSuchKey", "NotFound"}:
-                raise
-        else:
+        response = client.list_objects_v2(
+            Bucket=bucket,
+            Prefix=key,
+            MaxKeys=1,
+        )
+        if any(item.get("Key") == key for item in response.get("Contents", [])):
             remaining += 1
     return remaining
 

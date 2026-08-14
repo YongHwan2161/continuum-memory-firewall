@@ -133,6 +133,17 @@ class KmsAuthorityProofTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("run_kms_authority_lifecycle_proof.py", package_builder)
 
+    def test_private_handoff_absence_is_explicitly_listed_at_exact_keys(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        runner = (
+            ROOT / "scripts" / "run_kms_authority_lifecycle_proof.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('Action:"s3:ListBucket"', workflow)
+        self.assertIn('"s3:prefix":[$request_key,$issuance_key]', workflow)
+        self.assertIn("list_objects_v2(", runner)
+        self.assertIn('item.get("Key") == key', runner)
+        self.assertNotIn("client.head_object(Bucket=bucket, Key=key)", runner)
+
 
 if __name__ == "__main__":
     unittest.main()
