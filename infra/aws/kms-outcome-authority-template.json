@@ -1,0 +1,151 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Dual asymmetric KMS keys and a GitHub OIDC verifier-only signing role",
+  "Parameters": {
+    "GitHubOidcProviderArn": {
+      "Type": "String",
+      "AllowedPattern": "^arn:[^:]+:iam::[0-9]{12}:oidc-provider/token\\.actions\\.githubusercontent\\.com$"
+    },
+    "GitHubSubject": {
+      "Type": "String",
+      "Default": "repo:YongHwan2161@116191051/continuum-memory-firewall@1311611994:environment:continuum-production"
+    },
+    "EvidenceBucketName": {
+      "Type": "String",
+      "AllowedPattern": "^continuum-[a-z0-9.-]+$"
+    }
+  },
+  "Resources": {
+    "AuthorityKeyA": {
+      "Type": "AWS::KMS::Key",
+      "Properties": {
+        "Description": "Continuum provider-origin outcome authority slot A",
+        "Enabled": true,
+        "KeySpec": "ECC_NIST_P256",
+        "KeyUsage": "SIGN_VERIFY",
+        "PendingWindowInDays": 7,
+        "KeyPolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "EnableAccountIamDelegation",
+              "Effect": "Allow",
+              "Principal": {"AWS": {"Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"}},
+              "Action": "kms:*",
+              "Resource": "*"
+            }
+          ]
+        },
+        "Tags": [
+          {"Key": "Project", "Value": "continuum-memory-firewall"},
+          {"Key": "Purpose", "Value": "provider-outcome-authority"},
+          {"Key": "Slot", "Value": "A"}
+        ]
+      }
+    },
+    "AuthorityKeyB": {
+      "Type": "AWS::KMS::Key",
+      "Properties": {
+        "Description": "Continuum provider-origin outcome authority slot B",
+        "Enabled": true,
+        "KeySpec": "ECC_NIST_P256",
+        "KeyUsage": "SIGN_VERIFY",
+        "PendingWindowInDays": 7,
+        "KeyPolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "EnableAccountIamDelegation",
+              "Effect": "Allow",
+              "Principal": {"AWS": {"Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"}},
+              "Action": "kms:*",
+              "Resource": "*"
+            }
+          ]
+        },
+        "Tags": [
+          {"Key": "Project", "Value": "continuum-memory-firewall"},
+          {"Key": "Purpose", "Value": "provider-outcome-authority"},
+          {"Key": "Slot", "Value": "B"}
+        ]
+      }
+    },
+    "AuthorityAliasA": {
+      "Type": "AWS::KMS::Alias",
+      "Properties": {
+        "AliasName": "alias/continuum-outcome-authority-a",
+        "TargetKeyId": {"Ref": "AuthorityKeyA"}
+      }
+    },
+    "AuthorityAliasB": {
+      "Type": "AWS::KMS::Alias",
+      "Properties": {
+        "AliasName": "alias/continuum-outcome-authority-b",
+        "TargetKeyId": {"Ref": "AuthorityKeyB"}
+      }
+    },
+    "OutcomeVerifierRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": "continuum-kms-outcome-verifier",
+        "MaxSessionDuration": 3600,
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {"Federated": {"Ref": "GitHubOidcProviderArn"}},
+              "Action": "sts:AssumeRoleWithWebIdentity",
+              "Condition": {
+                "StringEquals": {
+                  "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+                  "token.actions.githubusercontent.com:sub": {"Ref": "GitHubSubject"}
+                }
+              }
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "ContinuumVerifierOnlyAuthority",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Sid": "SignOnlyWithPinnedAuthorityKeys",
+                  "Effect": "Allow",
+                  "Action": ["kms:DescribeKey", "kms:GetPublicKey", "kms:Sign"],
+                  "Resource": [
+                    {"Fn::GetAtt": ["AuthorityKeyA", "Arn"]},
+                    {"Fn::GetAtt": ["AuthorityKeyB", "Arn"]}
+                  ]
+                },
+                {
+                  "Sid": "ReadAndWriteChecksumAddressedHandoff",
+                  "Effect": "Allow",
+                  "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+                  "Resource": {"Fn::Sub": "arn:${AWS::Partition}:s3:::${EvidenceBucketName}/evidence/kms-authority/*"}
+                },
+                {
+                  "Sid": "IdentityReceipt",
+                  "Effect": "Allow",
+                  "Action": "sts:GetCallerIdentity",
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ],
+        "Tags": [
+          {"Key": "Project", "Value": "continuum-memory-firewall"},
+          {"Key": "Purpose", "Value": "provider-outcome-verifier"}
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "AuthorityKeyAArn": {"Value": {"Fn::GetAtt": ["AuthorityKeyA", "Arn"]}},
+    "AuthorityKeyBArn": {"Value": {"Fn::GetAtt": ["AuthorityKeyB", "Arn"]}},
+    "OutcomeVerifierRoleArn": {"Value": {"Fn::GetAtt": ["OutcomeVerifierRole", "Arn"]}}
+  }
+}
