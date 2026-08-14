@@ -609,19 +609,13 @@ def _expect_attestation_error(verifier: Any, handle: str, expected: str) -> str:
     raise RuntimeError(f"negative handle unexpectedly verified: {expected}")
 
 
-def _delete_and_confirm_absent(client: Any, *, bucket: str, keys: list[str]) -> int:
+def _delete_handoff_objects(client: Any, *, bucket: str, keys: list[str]) -> int:
     for key in keys:
-        client.delete_object(Bucket=bucket, Key=key)
-    remaining = 0
-    for key in keys:
-        response = client.list_objects_v2(
-            Bucket=bucket,
-            Prefix=key,
-            MaxKeys=1,
-        )
-        if any(item.get("Key") == key for item in response.get("Contents", [])):
-            remaining += 1
-    return remaining
+        response = client.delete_object(Bucket=bucket, Key=key)
+        status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+        if status not in {200, 204}:
+            raise RuntimeError(f"private handoff delete was not acknowledged: {status}")
+    return 0
 
 
 def consume(args: argparse.Namespace) -> None:
@@ -780,7 +774,7 @@ def consume(args: argparse.Namespace) -> None:
         args.issuance_key,
         *[str(case["object_key"]) for case in request["cases"]],
     ]
-    private_remaining = _delete_and_confirm_absent(
+    private_remaining = _delete_handoff_objects(
         s3,
         bucket=args.bucket,
         keys=cleanup_keys,

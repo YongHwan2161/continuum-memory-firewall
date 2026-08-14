@@ -133,16 +133,22 @@ class KmsAuthorityProofTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("run_kms_authority_lifecycle_proof.py", package_builder)
 
-    def test_private_handoff_absence_is_explicitly_listed_at_exact_keys(self):
+    def test_private_handoff_absence_is_verified_by_independent_identity(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         runner = (
             ROOT / "scripts" / "run_kms_authority_lifecycle_proof.py"
         ).read_text(encoding="utf-8")
-        self.assertIn('Action:"s3:ListBucket"', workflow)
-        self.assertIn('"s3:prefix":[$request_key,$issuance_key]', workflow)
-        self.assertIn("list_objects_v2(", runner)
-        self.assertIn('item.get("Key") == key', runner)
-        self.assertNotIn("client.head_object(Bucket=bucket, Key=key)", runner)
+        self.assertNotIn('Action:"s3:ListBucket"', workflow)
+        self.assertIn("Independently confirm private handoff absence", workflow)
+        self.assertIn("aws s3api list-objects-v2", workflow)
+        self.assertIn('select(.Key == $key)', workflow)
+        self.assertLess(
+            workflow.index("Independently confirm private handoff absence"),
+            workflow.index("Download and validate public-safe proof"),
+        )
+        self.assertIn("client.delete_object(Bucket=bucket, Key=key)", runner)
+        self.assertIn('status not in {200, 204}', runner)
+        self.assertNotIn("client.list_objects_v2(", runner)
 
 
 if __name__ == "__main__":
