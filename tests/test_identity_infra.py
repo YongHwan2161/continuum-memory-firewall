@@ -142,6 +142,10 @@ class IdentityInfrastructureTests(unittest.TestCase):
             ],
             "continuum-memory-firewall",
         )
+        self.assertEqual(
+            deployer_by_sid["ProjectKmsKeyCreate"]["Action"],
+            ["kms:CreateKey", "kms:TagResource"],
+        )
         self.assertNotIn(
             "kms:Sign",
             deployer_by_sid["ProjectKmsKeyLifecycle"]["Action"],

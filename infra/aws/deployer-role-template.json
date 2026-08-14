@@ -100,7 +100,7 @@
                 {
                   "Sid": "ProjectKmsKeyCreate",
                   "Effect": "Allow",
-                  "Action": "kms:CreateKey",
+                  "Action": ["kms:CreateKey", "kms:TagResource"],
                   "Resource": "*",
                   "Condition": {
                     "StringEquals": {"aws:RequestTag/Project": "continuum-memory-firewall"}
