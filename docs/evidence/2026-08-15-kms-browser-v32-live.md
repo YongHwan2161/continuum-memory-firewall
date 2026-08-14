@@ -62,4 +62,3 @@ Devpost project version 28 was saved after v32 publication with the KMS,
 published and retains its original `submitted_at` value. That editable prose
 postdates the immutable v32 Devpost snapshot and is deliberately reported as a
 separate live readback, not retroactively inserted into v32.
-
