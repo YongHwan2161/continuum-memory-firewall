@@ -163,14 +163,20 @@ jobs:
             --region "$AWS_REGION" \
             --secret-id continuum/cockroach/sql-migrator \
             --query ARN --output text)"
+          bucket_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET"
           prefix_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_KMS_PREFIX/*"
           policy="$(jq -cn \
             --arg migrator "$migrator_arn" \
             --arg runtime "$CONTINUUM_RUNTIME_SECRET_ARN" \
+            --arg bucket "$bucket_arn" \
             --arg prefix "$prefix_arn" \
+            --arg request_key "$CONTINUUM_KMS_REQUEST_KEY" \
+            --arg issuance_key "$CONTINUUM_KMS_ISSUANCE_KEY" \
             '{Version:"2012-10-17",Statement:[
               {Effect:"Allow",Action:"secretsmanager:GetSecretValue",Resource:[$migrator,$runtime]},
-              {Effect:"Allow",Action:["s3:GetObject","s3:PutObject","s3:DeleteObject"],Resource:$prefix}
+              {Effect:"Allow",Action:["s3:GetObject","s3:PutObject","s3:DeleteObject"],Resource:$prefix},
+              {Effect:"Allow",Action:"s3:ListBucket",Resource:$bucket,
+               Condition:{StringEquals:{"s3:prefix":[$request_key,$issuance_key]}}}
             ]}')"
           test "$(jq '[.Statement[].Action] | tostring | contains("kms:Sign")' <<<"$policy")" = false
           aws iam put-role-policy \
