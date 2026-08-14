@@ -98,6 +98,33 @@
                   ]
                 },
                 {
+                  "Sid": "ProjectKmsKeyCreate",
+                  "Effect": "Allow",
+                  "Action": "kms:CreateKey",
+                  "Resource": "*",
+                  "Condition": {
+                    "StringEquals": {"aws:RequestTag/Project": "continuum-memory-firewall"}
+                  }
+                },
+                {
+                  "Sid": "ProjectKmsKeyLifecycle",
+                  "Effect": "Allow",
+                  "Action": ["kms:DescribeKey", "kms:GetKeyPolicy", "kms:PutKeyPolicy", "kms:GetPublicKey", "kms:TagResource", "kms:UntagResource", "kms:ScheduleKeyDeletion", "kms:CancelKeyDeletion"],
+                  "Resource": {"Fn::Sub": "arn:${AWS::Partition}:kms:*:${AWS::AccountId}:key/*"},
+                  "Condition": {
+                    "StringEquals": {"aws:ResourceTag/Project": "continuum-memory-firewall"}
+                  }
+                },
+                {
+                  "Sid": "ProjectKmsAliases",
+                  "Effect": "Allow",
+                  "Action": ["kms:CreateAlias", "kms:UpdateAlias", "kms:DeleteAlias"],
+                  "Resource": [
+                    {"Fn::Sub": "arn:${AWS::Partition}:kms:*:${AWS::AccountId}:alias/continuum-*"},
+                    {"Fn::Sub": "arn:${AWS::Partition}:kms:*:${AWS::AccountId}:key/*"}
+                  ]
+                },
+                {
                   "Sid": "DenyDeployerSelfModification",
                   "Effect": "Deny",
                   "Action": "iam:*",

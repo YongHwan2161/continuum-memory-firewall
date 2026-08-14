@@ -1,0 +1,331 @@
+name: aws-kms-outcome-authority-proof
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: continuum-kms-outcome-authority-proof
+  cancel-in-progress: false
+
+jobs:
+  s3-kms-cockroach-lifecycle:
+    runs-on: ubuntu-latest
+    environment: continuum-production
+    timeout-minutes: 55
+    env:
+      AWS_REGION: ap-southeast-1
+      CONTINUUM_MCP_STACK_NAME: continuum-authenticated-mcp
+      CONTINUUM_KMS_STACK_NAME: continuum-kms-outcome-authority
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0, Node 24
+        with:
+          python-version: "3.12"
+      - name: Install verifier and Cockroach dependencies
+        shell: bash
+        run: python -m pip install --disable-pip-version-check -e '.[mcp,cockroach]'
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3, Node 24
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          role-session-name: continuum-kms-authority-deploy
+      - name: Prove reviewed main-only deployment identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          ./scripts/assert_deployer_identity.sh
+      - name: Resolve fixed-egress runtime and checksum-addressed prefix
+        shell: bash
+        run: |
+          set -euo pipefail
+          parameter() {
+            aws cloudformation describe-stacks --region "$AWS_REGION" \
+              --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+              --query "Stacks[0].Parameters[?ParameterKey=='$1'].ParameterValue | [0]" \
+              --output text
+          }
+          output() {
+            aws cloudformation describe-stacks --region "$AWS_REGION" \
+              --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue | [0]" \
+              --output text
+          }
+          account_id="$(aws sts get-caller-identity --query Account --output text)"
+          runtime_secret_arn="$(parameter RuntimeSecretArn)"
+          deploy_bucket="$(parameter PackageBucket)"
+          deploy_key="$(parameter PackageKey)"
+          instance_role_arn="$(output RuntimeRoleArn)"
+          instance_id="$(output InstanceId)"
+          prefix="evidence/kms-authority/$GITHUB_SHA/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          test "${#account_id}" = 12
+          test -n "$runtime_secret_arn" && test "$runtime_secret_arn" != None
+          test -n "$deploy_bucket" && test "$deploy_bucket" != None
+          test -n "$instance_id" && test "$instance_id" != None
+          aws s3 cp "s3://$deploy_bucket/$deploy_key" /tmp/continuum-current.zip \
+            --region "$AWS_REGION" --only-show-errors
+          unzip -p /tmp/continuum-current.zip cockroach-ca.crt >/tmp/cockroach-ca.crt
+          chmod 0600 /tmp/cockroach-ca.crt
+          test -s /tmp/cockroach-ca.crt
+          echo "CONTINUUM_ACCOUNT_ID=$account_id" >>"$GITHUB_ENV"
+          echo "CONTINUUM_RUNTIME_SECRET_ARN=$runtime_secret_arn" >>"$GITHUB_ENV"
+          echo "CONTINUUM_DEPLOY_BUCKET=$deploy_bucket" >>"$GITHUB_ENV"
+          echo "CONTINUUM_INSTANCE_ROLE_NAME=${instance_role_arn##*/}" >>"$GITHUB_ENV"
+          echo "CONTINUUM_INSTANCE_ID=$instance_id" >>"$GITHUB_ENV"
+          echo "CONTINUUM_KMS_PREFIX=$prefix" >>"$GITHUB_ENV"
+          echo "CONTINUUM_KMS_REQUEST_KEY=$prefix/private-request-v1.json" >>"$GITHUB_ENV"
+          echo "CONTINUUM_KMS_ISSUANCE_KEY=$prefix/private-issuance-v1.json" >>"$GITHUB_ENV"
+          echo "CONTINUUM_CA_CERT_PATH=/tmp/cockroach-ca.crt" >>"$GITHUB_ENV"
+      - name: Deploy dual-key verifier-only KMS authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws cloudformation deploy \
+            --region "$AWS_REGION" \
+            --stack-name "$CONTINUUM_KMS_STACK_NAME" \
+            --template-file infra/aws/kms-outcome-authority-template.json \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides \
+              GitHubOidcProviderArn="arn:aws:iam::$CONTINUUM_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com" \
+              EvidenceBucketName="$CONTINUUM_DEPLOY_BUCKET" \
+            --tags Project=continuum-memory-firewall Purpose=provider-outcome-authority
+          stack_output() {
+            aws cloudformation describe-stacks --region "$AWS_REGION" \
+              --stack-name "$CONTINUUM_KMS_STACK_NAME" \
+              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue | [0]" \
+              --output text
+          }
+          key_a="$(stack_output AuthorityKeyAArn)"
+          key_b="$(stack_output AuthorityKeyBArn)"
+          verifier_role="$(stack_output OutcomeVerifierRoleArn)"
+          test "$key_a" != None && test "$key_b" != None && test "$verifier_role" != None
+          echo "CONTINUUM_KMS_KEY_A_ARN=$key_a" >>"$GITHUB_ENV"
+          echo "CONTINUUM_KMS_KEY_B_ARN=$key_b" >>"$GITHUB_ENV"
+          echo "CONTINUUM_KMS_VERIFIER_ROLE_ARN=$verifier_role" >>"$GITHUB_ENV"
+      - name: Deploy exact-head database runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          stack_status="$(aws cloudformation describe-stacks \
+            --region "$AWS_REGION" \
+            --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+            --query 'Stacks[0].StackStatus' --output text)"
+          if [[ "$stack_status" == "UPDATE_ROLLBACK_FAILED" || \
+                "$stack_status" == "UPDATE_ROLLBACK_COMPLETE" ]]; then
+            ./scripts/deploy_mcp_host_direct_recovery.sh
+          else
+            ./scripts/deploy_mcp_host.sh
+          fi
+          artifact_sha="$(aws cloudformation describe-stacks \
+            --region "$AWS_REGION" \
+            --stack-name "$CONTINUUM_MCP_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='ArtifactSha256'].OutputValue | [0]" \
+            --output text)"
+          test "${#artifact_sha}" = 64
+          echo "CONTINUUM_KMS_DEPLOYMENT_ARTIFACT_SHA256=$artifact_sha" >>"$GITHUB_ENV"
+      - name: Grant one-command database and exact-prefix handoff access
+        shell: bash
+        run: |
+          set -euo pipefail
+          migrator_arn="$(aws secretsmanager describe-secret \
+            --region "$AWS_REGION" \
+            --secret-id continuum/cockroach/sql-migrator \
+            --query ARN --output text)"
+          prefix_arn="arn:aws:s3:::$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_KMS_PREFIX/*"
+          policy="$(jq -cn \
+            --arg migrator "$migrator_arn" \
+            --arg runtime "$CONTINUUM_RUNTIME_SECRET_ARN" \
+            --arg prefix "$prefix_arn" \
+            '{Version:"2012-10-17",Statement:[
+              {Effect:"Allow",Action:"secretsmanager:GetSecretValue",Resource:[$migrator,$runtime]},
+              {Effect:"Allow",Action:["s3:GetObject","s3:PutObject","s3:DeleteObject"],Resource:$prefix}
+            ]}')"
+          test "$(jq '[.Statement[].Action] | tostring | contains("kms:Sign")' <<<"$policy")" = false
+          aws iam put-role-policy \
+            --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+            --policy-name ContinuumKmsAuthorityOneCommand \
+            --policy-document "$policy"
+          sleep 10
+      - name: Prepare participant-cluster proposals and negative IAM receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          command_text="set -eu
+          work=\$(mktemp -d /run/continuum-kms-prepare.XXXXXX)
+          trap 'rm -rf -- \"\$work\"' EXIT
+          cd /opt/continuum
+          /opt/continuum/.venv/bin/python scripts/run_kms_authority_lifecycle_proof.py prepare \\
+            --region '$AWS_REGION' \\
+            --migrator-secret-id continuum/cockroach/sql-migrator \\
+            --runtime-secret-id '$CONTINUUM_RUNTIME_SECRET_ARN' \\
+            --ca-cert /opt/continuum/cockroach-ca.crt \\
+            --source-head '$GITHUB_SHA' \\
+            --deployment-artifact-sha256 '$CONTINUUM_KMS_DEPLOYMENT_ARTIFACT_SHA256' \\
+            --workflow-run-id '$GITHUB_RUN_ID' \\
+            --workflow-run-attempt '$GITHUB_RUN_ATTEMPT' \\
+            --bucket '$CONTINUUM_DEPLOY_BUCKET' \\
+            --prefix '$CONTINUUM_KMS_PREFIX' \\
+            --key-a-arn '$CONTINUUM_KMS_KEY_A_ARN' \\
+            --key-b-arn '$CONTINUUM_KMS_KEY_B_ARN' \\
+            --output \"\$work/private-request-v1.json\"
+          aws s3 cp \"\$work/private-request-v1.json\" 's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_KMS_REQUEST_KEY' --region '$AWS_REGION' --sse AES256 --only-show-errors"
+          parameters="$(jq -cn --arg command "$command_text" '{commands:[$command]}')"
+          command_id="$(aws ssm send-command \
+            --region "$AWS_REGION" \
+            --instance-ids "$CONTINUUM_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment 'prepare KMS authority lifecycle proof' \
+            --parameters "$parameters" \
+            --query 'Command.CommandId' --output text)"
+          status=Pending
+          for _attempt in $(seq 1 240); do
+            status="$(aws ssm get-command-invocation \
+              --region "$AWS_REGION" --command-id "$command_id" \
+              --instance-id "$CONTINUUM_INSTANCE_ID" --query Status --output text)"
+            case "$status" in Success|Failed|Cancelled|TimedOut) break ;; esac
+            sleep 5
+          done
+          aws ssm get-command-invocation \
+            --region "$AWS_REGION" --command-id "$command_id" \
+            --instance-id "$CONTINUUM_INSTANCE_ID" \
+            --query '{Status:Status,ResponseCode:ResponseCode,Output:StandardOutputContent,Error:StandardErrorContent}' \
+            --output table
+          test "$status" = Success
+      - name: Assume verifier-only signing role
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3, Node 24
+        with:
+          role-to-assume: ${{ env.CONTINUUM_KMS_VERIFIER_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          role-session-name: continuum-provider-verifier
+          unset-current-credentials: true
+      - name: Re-read real S3 receipts and issue four KMS handles
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src python scripts/run_kms_authority_lifecycle_proof.py issue \
+            --region "$AWS_REGION" \
+            --source-head "$GITHUB_SHA" \
+            --deployment-artifact-sha256 "$CONTINUUM_KMS_DEPLOYMENT_ARTIFACT_SHA256" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --bucket "$CONTINUUM_DEPLOY_BUCKET" \
+            --prefix "$CONTINUUM_KMS_PREFIX" \
+            --request-key "$CONTINUUM_KMS_REQUEST_KEY" \
+            --issuance-key "$CONTINUUM_KMS_ISSUANCE_KEY"
+      - name: Restore deployment identity for fixed-egress consumption
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3, Node 24
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          role-session-name: continuum-kms-authority-consume
+          unset-current-credentials: true
+      - name: Consume offline, restart, replay, and delete private handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          command_text="set -eu
+          work=\$(mktemp -d /run/continuum-kms-consume.XXXXXX)
+          trap 'rm -rf -- \"\$work\"' EXIT
+          cd /opt/continuum
+          /opt/continuum/.venv/bin/python scripts/run_kms_authority_lifecycle_proof.py consume \\
+            --region '$AWS_REGION' \\
+            --migrator-secret-id continuum/cockroach/sql-migrator \\
+            --runtime-secret-id '$CONTINUUM_RUNTIME_SECRET_ARN' \\
+            --ca-cert /opt/continuum/cockroach-ca.crt \\
+            --source-head '$GITHUB_SHA' \\
+            --deployment-artifact-sha256 '$CONTINUUM_KMS_DEPLOYMENT_ARTIFACT_SHA256' \\
+            --workflow-run-id '$GITHUB_RUN_ID' \\
+            --workflow-run-attempt '$GITHUB_RUN_ATTEMPT' \\
+            --bucket '$CONTINUUM_DEPLOY_BUCKET' \\
+            --prefix '$CONTINUUM_KMS_PREFIX' \\
+            --request-key '$CONTINUUM_KMS_REQUEST_KEY' \\
+            --issuance-key '$CONTINUUM_KMS_ISSUANCE_KEY' \\
+            --output \"\$work/kms-authority-lifecycle-v1.json\"
+          aws s3 cp \"\$work/kms-authority-lifecycle-v1.json\" 's3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_KMS_PREFIX/kms-authority-lifecycle-v1.json' --region '$AWS_REGION' --sse AES256 --only-show-errors"
+          parameters="$(jq -cn --arg command "$command_text" '{commands:[$command]}')"
+          command_id="$(aws ssm send-command \
+            --region "$AWS_REGION" \
+            --instance-ids "$CONTINUUM_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment 'consume KMS authority lifecycle proof' \
+            --parameters "$parameters" \
+            --query 'Command.CommandId' --output text)"
+          status=Pending
+          for _attempt in $(seq 1 240); do
+            status="$(aws ssm get-command-invocation \
+              --region "$AWS_REGION" --command-id "$command_id" \
+              --instance-id "$CONTINUUM_INSTANCE_ID" --query Status --output text)"
+            case "$status" in Success|Failed|Cancelled|TimedOut) break ;; esac
+            sleep 5
+          done
+          aws ssm get-command-invocation \
+            --region "$AWS_REGION" --command-id "$command_id" \
+            --instance-id "$CONTINUUM_INSTANCE_ID" \
+            --query '{Status:Status,ResponseCode:ResponseCode,Output:StandardOutputContent,Error:StandardErrorContent}' \
+            --output table
+          test "$status" = Success
+      - name: Download and validate public-safe proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          work=build/evidence/kms-authority
+          mkdir -p "$work"
+          aws s3 cp \
+            "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_KMS_PREFIX/kms-authority-lifecycle-v1.json" \
+            "$work/kms-authority-lifecycle-v1.json" \
+            --region "$AWS_REGION" --only-show-errors
+          PYTHONPATH=src python - <<'PY'
+          import json
+          from pathlib import Path
+          from continuum.kms_authority_proof import validate_kms_authority_proof
+          path = Path("build/evidence/kms-authority/kms-authority-lifecycle-v1.json")
+          validate_kms_authority_proof(json.loads(path.read_text()))
+          PY
+          sha256sum "$work/kms-authority-lifecycle-v1.json"
+      - name: Restore deployment identity for cleanup
+        if: always()
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3, Node 24
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          role-session-name: continuum-kms-authority-cleanup
+          unset-current-credentials: true
+      - name: Revoke temporary worker authority and scrub handoff
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${CONTINUUM_INSTANCE_ROLE_NAME:-}" ]]; then
+            aws iam delete-role-policy \
+              --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+              --policy-name ContinuumKmsAuthorityOneCommand || true
+            if aws iam get-role-policy \
+              --role-name "$CONTINUUM_INSTANCE_ROLE_NAME" \
+              --policy-name ContinuumKmsAuthorityOneCommand >/dev/null 2>&1; then
+              echo "temporary KMS proof worker policy remains attached" >&2
+              exit 1
+            fi
+          fi
+          if [[ -n "${CONTINUUM_DEPLOY_BUCKET:-}" && -n "${CONTINUUM_KMS_PREFIX:-}" ]]; then
+            case "$CONTINUUM_KMS_PREFIX" in
+              evidence/kms-authority/$GITHUB_SHA/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT) ;;
+              *) echo "refusing cleanup outside exact KMS proof prefix" >&2; exit 1 ;;
+            esac
+            aws s3 rm "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_KMS_REQUEST_KEY" --region "$AWS_REGION" --only-show-errors || true
+            aws s3 rm "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_KMS_ISSUANCE_KEY" --region "$AWS_REGION" --only-show-errors || true
+            aws s3 rm "s3://$CONTINUUM_DEPLOY_BUCKET/$CONTINUUM_KMS_PREFIX/provider/" --recursive --region "$AWS_REGION" --only-show-errors || true
+          fi
+          rm -f -- /tmp/continuum-current.zip /tmp/cockroach-ca.crt
+      - name: Upload public proof receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        with:
+          name: continuum-kms-authority-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/evidence/kms-authority
+          if-no-files-found: error
+          retention-days: 90

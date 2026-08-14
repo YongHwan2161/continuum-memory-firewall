@@ -97,6 +97,56 @@ class IdentityInfrastructureTests(unittest.TestCase):
         table_lifecycle = by_sid["ProjectSandboxTableLifecycle"]
         self.assertIn("table/continuum-*", table_lifecycle["Resource"]["Fn::Sub"])
 
+    def test_kms_authority_is_dual_key_and_verifier_only(self):
+        authority = json.loads(
+            (ROOT / "infra" / "aws" / "kms-outcome-authority-template.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        resources = authority["Resources"]
+        for name in ("AuthorityKeyA", "AuthorityKeyB"):
+            properties = resources[name]["Properties"]
+            self.assertEqual(properties["KeySpec"], "ECC_NIST_P256")
+            self.assertEqual(properties["KeyUsage"], "SIGN_VERIFY")
+        role = resources["OutcomeVerifierRole"]["Properties"]
+        self.assertEqual(role["MaxSessionDuration"], 3600)
+        trust = role["AssumeRolePolicyDocument"]["Statement"][0]
+        conditions = trust["Condition"]["StringEquals"]
+        self.assertEqual(
+            conditions["token.actions.githubusercontent.com:aud"],
+            "sts.amazonaws.com",
+        )
+        self.assertTrue(
+            authority["Parameters"]["GitHubSubject"]["Default"].endswith(
+                ":environment:continuum-production"
+            )
+        )
+        statements = role["Policies"][0]["PolicyDocument"]["Statement"]
+        by_sid = {statement["Sid"]: statement for statement in statements}
+        signer = by_sid["SignOnlyWithPinnedAuthorityKeys"]
+        self.assertEqual(
+            signer["Action"],
+            ["kms:DescribeKey", "kms:GetPublicKey", "kms:Sign"],
+        )
+        self.assertNotIn("kms:PutKeyPolicy", json.dumps(role))
+
+        deployer_statements = self.deployer["Resources"]["ContinuumDeployer"][
+            "Properties"
+        ]["Policies"][0]["PolicyDocument"]["Statement"]
+        deployer_by_sid = {
+            statement["Sid"]: statement for statement in deployer_statements
+        }
+        self.assertEqual(
+            deployer_by_sid["ProjectKmsKeyCreate"]["Condition"]["StringEquals"][
+                "aws:RequestTag/Project"
+            ],
+            "continuum-memory-firewall",
+        )
+        self.assertNotIn(
+            "kms:Sign",
+            deployer_by_sid["ProjectKmsKeyLifecycle"]["Action"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
