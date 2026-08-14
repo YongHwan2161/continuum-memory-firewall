@@ -275,6 +275,8 @@ bind the 18/18 lifecycle receipt into the 39-row schema-19 judge path and
 immutable `hackathon-v32` envelope. Immutable v31 remains the preserved failed
 browser epoch: its new row was valid, but its still-v30 content-addressed judge
 program expected 38 rows and failed closed before publication completed.
+The [v32 live receipt](docs/evidence/2026-08-15-kms-browser-v32-live.md) records
+the successful 39/39 browser transaction and the subsequent 47/47 live monitor.
 
 The v27 predecessor release envelope receives exactly one author-controlled signature in
 the same main-only workflow that publishes it. Its Fulcio/Rekor Sigstore bundle

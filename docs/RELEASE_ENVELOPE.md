@@ -40,7 +40,9 @@ receipt SHA-256
 `4021f07027371f77ae864ad8bb872a9bfdedec060f9ab0aab55ebf9960832ee0`,
 and failed Pages run `31816052617`. The relay preserves v30's last successful
 semantic snapshot and declares `failed_epoch_promoted_to_pass=false`; v32 must
-still pass its own fresh browser transaction.
+still pass its own fresh browser transaction. That transaction completed in
+Pages run `31817947957`; the exact terminal hashes are recorded in the
+[v32 live receipt](evidence/2026-08-15-kms-browser-v32-live.md).
 
 The published v27 predecessor receipt remains exact and terminal: coordinator run `31653469203`
 targeted `dbb4942afd45f5bc06cbc08441d43ce155c75f05`; immutable envelope SHA-256

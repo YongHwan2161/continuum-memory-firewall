@@ -55,6 +55,9 @@ same-origin GET and binds all 39 rows without changing v30 or v31. See
 [the v30 browser-verified contract](evidence/2026-08-13-browser-verified-release-v30.md),
 [the preserved v31 audit](evidence/2026-08-15-kms-browser-v31-failed.md), and
 [the KMS authority proof](evidence/2026-08-15-kms-outcome-authority-live.md).
+The resulting release and both candidate/final fresh-browser gates succeeded;
+[the v32 live receipt](evidence/2026-08-15-kms-browser-v32-live.md) records the
+exact release, capsule, coordinator, browser, monitor, and Devpost boundaries.
 
 The real GitHub Actions closed-loop recovery run is also complete. Across six
 fault families, 18 calibration and 36 paired evaluation children produced 54
