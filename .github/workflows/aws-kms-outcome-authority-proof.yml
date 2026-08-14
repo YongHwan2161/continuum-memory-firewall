@@ -66,6 +66,11 @@ jobs:
           test -n "$runtime_secret_arn" && test "$runtime_secret_arn" != None
           test -n "$deploy_bucket" && test "$deploy_bucket" != None
           test -n "$instance_id" && test "$instance_id" != None
+          echo "::add-mask::$account_id"
+          echo "::add-mask::$runtime_secret_arn"
+          echo "::add-mask::$deploy_bucket"
+          echo "::add-mask::$instance_role_arn"
+          echo "::add-mask::$instance_id"
           aws s3 cp "s3://$deploy_bucket/$deploy_key" /tmp/continuum-current.zip \
             --region "$AWS_REGION" --only-show-errors
           unzip -p /tmp/continuum-current.zip cockroach-ca.crt >/tmp/cockroach-ca.crt
@@ -84,6 +89,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          stack_status="$(aws cloudformation describe-stacks \
+            --region "$AWS_REGION" --stack-name "$CONTINUUM_KMS_STACK_NAME" \
+            --query 'Stacks[0].StackStatus' --output text 2>/dev/null || true)"
+          if [[ "$stack_status" == "ROLLBACK_COMPLETE" ]]; then
+            aws cloudformation delete-stack \
+              --region "$AWS_REGION" --stack-name "$CONTINUUM_KMS_STACK_NAME"
+            aws cloudformation wait stack-delete-complete \
+              --region "$AWS_REGION" --stack-name "$CONTINUUM_KMS_STACK_NAME"
+          fi
+          set +e
           aws cloudformation deploy \
             --region "$AWS_REGION" \
             --stack-name "$CONTINUUM_KMS_STACK_NAME" \
@@ -94,6 +109,15 @@ jobs:
               GitHubOidcProviderArn="arn:aws:iam::$CONTINUUM_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com" \
               EvidenceBucketName="$CONTINUUM_DEPLOY_BUCKET" \
             --tags Project=continuum-memory-firewall Purpose=provider-outcome-authority
+          deploy_status=$?
+          set -e
+          if [[ "$deploy_status" -ne 0 ]]; then
+            aws cloudformation describe-stack-events \
+              --region "$AWS_REGION" --stack-name "$CONTINUUM_KMS_STACK_NAME" \
+              --query 'StackEvents[?contains(ResourceStatus, `FAILED`)].[LogicalResourceId,ResourceType,ResourceStatus,ResourceStatusReason]' \
+              --output table || true
+            exit "$deploy_status"
+          fi
           stack_output() {
             aws cloudformation describe-stacks --region "$AWS_REGION" \
               --stack-name "$CONTINUUM_KMS_STACK_NAME" \
@@ -104,6 +128,9 @@ jobs:
           key_b="$(stack_output AuthorityKeyBArn)"
           verifier_role="$(stack_output OutcomeVerifierRoleArn)"
           test "$key_a" != None && test "$key_b" != None && test "$verifier_role" != None
+          echo "::add-mask::$key_a"
+          echo "::add-mask::$key_b"
+          echo "::add-mask::$verifier_role"
           echo "CONTINUUM_KMS_KEY_A_ARN=$key_a" >>"$GITHUB_ENV"
           echo "CONTINUUM_KMS_KEY_B_ARN=$key_b" >>"$GITHUB_ENV"
           echo "CONTINUUM_KMS_VERIFIER_ROLE_ARN=$verifier_role" >>"$GITHUB_ENV"
@@ -327,5 +354,5 @@ jobs:
         with:
           name: continuum-kms-authority-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/evidence/kms-authority
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 90
