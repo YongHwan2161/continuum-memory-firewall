@@ -17,6 +17,7 @@ from continuum.blind_holdout import build_public_blind_holdout
 from continuum.ci_recovery import build_public_ci_recovery
 from continuum.drilldown import build_public_episode_drilldown
 from continuum.evidence_story import verify_evidence_story_receipt
+from continuum.kms_authority_proof import validate_kms_authority_proof
 from continuum.provider_origin_story import verify_provider_origin_story
 from continuum.release_guardian import build_public_release_guardian
 from continuum.release_guardian_replication import (
@@ -65,6 +66,7 @@ ADAPTIVE_DIAGNOSIS_ASSET = "adaptive-diagnosis-v1.json"
 TRANSFER_FIREWALL_ASSET = "transfer-firewall-v1.json"
 ONLINE_MEMORY_LINEAGE_ASSET = "online-memory-lineage-v1.json"
 OUTCOME_REPLAY_CAS_ASSET = "outcome-replay-cas-v1.json"
+KMS_OUTCOME_AUTHORITY_ASSET = "kms-authority-lifecycle-v1.json"
 SIGNATURE_BUNDLE_ASSET = "continuum-release-envelope-v2.sigstore.jsonl"
 
 
@@ -162,6 +164,7 @@ def build_envelope(
     transfer_firewall_public: dict[str, Any] | None = None,
     online_memory_lineage_public: dict[str, Any] | None = None,
     outcome_replay_cas_public: dict[str, Any] | None = None,
+    kms_outcome_authority_public: dict[str, Any] | None = None,
     offline_judge_capsule: dict[str, Any] | None = None,
     provider_origin_story: dict[str, Any] | None = None,
     *,
@@ -183,6 +186,7 @@ def build_envelope(
     transfer_firewall_public_bytes: bytes = b"",
     online_memory_lineage_public_bytes: bytes = b"",
     outcome_replay_cas_public_bytes: bytes = b"",
+    kms_outcome_authority_public_bytes: bytes = b"",
     offline_judge_capsule_bytes: bytes = b"",
     provider_origin_story_bytes: bytes = b"",
     repo_root: Path,
@@ -193,8 +197,10 @@ def build_envelope(
     release_tag: str,
     generated_at: str | None = None,
 ) -> dict[str, Any]:
-    if judge.get("schema_version") not in {8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18}:
-        raise RuntimeError("judge evidence schema 8 through 18 is required")
+    if judge.get("schema_version") not in {
+        8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
+    }:
+        raise RuntimeError("judge evidence schema 8 through 19 is required")
     if not SHA_PATTERN.fullmatch(commit_sha):
         raise RuntimeError("release commit must be a full lowercase SHA")
     if workflow_run_id < 1 or not workflow_url.startswith("https://github.com/"):
@@ -223,6 +229,7 @@ def build_envelope(
     transfer_firewall_reference = judge.get("transfer_firewall")
     online_memory_lineage_reference = judge.get("online_memory_lineage")
     outcome_replay_cas_reference = judge.get("outcome_replay_cas")
+    kms_outcome_authority_reference = judge.get("kms_outcome_authority")
     offline_judge_reference = judge.get("offline_judge_capsule")
     database_policy_reference = judge["database_policy"]
     release_reference = judge["release_envelope"]
@@ -309,6 +316,13 @@ def build_envelope(
         if outcome_replay_cas_public is not None
         else ""
     )
+    kms_outcome_authority_public_sha = (
+        sha256_bytes(
+            repository_text_bytes(kms_outcome_authority_public_bytes)
+        )
+        if kms_outcome_authority_public is not None
+        else ""
+    )
     offline_judge_capsule_sha = (
         sha256_bytes(offline_judge_capsule_bytes)
         if offline_judge_capsule is not None
@@ -371,6 +385,8 @@ def build_envelope(
         validate_public_online_memory_lineage(online_memory_lineage_public)
     if outcome_replay_cas_public is not None:
         validate_outcome_replay_proof(outcome_replay_cas_public)
+    if kms_outcome_authority_public is not None:
+        validate_kms_authority_proof(kms_outcome_authority_public)
     adaptive_receipts = (
         [
             item["provider_receipt"]
@@ -1556,6 +1572,127 @@ def build_envelope(
                 )
             )
         ),
+        "kms_outcome_authority_artifact_bound": (
+            kms_outcome_authority_reference is None
+            or (
+                kms_outcome_authority_public is not None
+                and kms_outcome_authority_public_sha
+                == kms_outcome_authority_reference.get("public_sha256")
+                and kms_outcome_authority_public.get("receipt_sha256")
+                == kms_outcome_authority_reference.get("receipt_sha256")
+                and kms_outcome_authority_public.get("source", {}).get("head")
+                == kms_outcome_authority_reference.get("head_sha")
+                and kms_outcome_authority_public.get("source", {}).get(
+                    "workflow_run_id"
+                )
+                == kms_outcome_authority_reference.get("workflow_run_id")
+                and kms_outcome_authority_public.get("source", {}).get(
+                    "workflow_run_attempt"
+                )
+                == kms_outcome_authority_reference.get("workflow_attempt")
+                and kms_outcome_authority_public.get("source", {}).get(
+                    "deployment_artifact_sha256"
+                )
+                == kms_outcome_authority_reference.get(
+                    "deployment_artifact_sha256"
+                )
+                and kms_outcome_authority_public.get("cockroachdb", {}).get(
+                    "migration_version"
+                )
+                == kms_outcome_authority_reference.get("migration_version")
+                and kms_outcome_authority_public.get("aws", {}).get(
+                    "verifier_key_count"
+                )
+                == kms_outcome_authority_reference.get("verifier_key_count")
+                == 2
+                and kms_outcome_authority_public.get("aws", {}).get(
+                    "kms_sign_calls"
+                )
+                == kms_outcome_authority_reference.get("kms_sign_calls")
+                == 4
+                and kms_outcome_authority_public.get("aws", {}).get(
+                    "kms_get_public_key_calls"
+                )
+                == kms_outcome_authority_reference.get(
+                    "kms_get_public_key_calls"
+                )
+                == 2
+                and kms_outcome_authority_public.get("aws", {}).get(
+                    "s3_head_get_lookups"
+                )
+                == kms_outcome_authority_reference.get("s3_head_get_lookups")
+                == 4
+                and kms_outcome_authority_public.get("aws", {}).get(
+                    "action_worker_kms_sign_denied"
+                )
+                is True
+                and kms_outcome_authority_reference.get(
+                    "action_worker_kms_sign_denied"
+                )
+                is True
+                and kms_outcome_authority_public.get("lifecycle", {}).get(
+                    "authority_epochs"
+                )
+                == kms_outcome_authority_reference.get("authority_epochs")
+                == [1, 2, 3]
+                and kms_outcome_authority_public.get("attestation", {}).get(
+                    "canonical_promotions"
+                )
+                == kms_outcome_authority_reference.get("canonical_promotions")
+                == 3
+                and kms_outcome_authority_public.get("lifecycle", {}).get(
+                    "private_handoff_objects_remaining"
+                )
+                == kms_outcome_authority_reference.get(
+                    "private_handoff_objects_remaining"
+                )
+                == 0
+                and kms_outcome_authority_reference.get("artifact_name")
+                == (
+                    "continuum-kms-authority-"
+                    + str(kms_outcome_authority_reference.get("head_sha", ""))
+                    + "-"
+                    + str(
+                        kms_outcome_authority_reference.get(
+                            "workflow_run_id", ""
+                        )
+                    )
+                    + "-"
+                    + str(
+                        kms_outcome_authority_reference.get(
+                            "workflow_attempt", ""
+                        )
+                    )
+                )
+                and int(
+                    kms_outcome_authority_reference.get("artifact_id", 0)
+                )
+                > 0
+                and SHA256_PATTERN.fullmatch(
+                    str(
+                        kms_outcome_authority_reference.get(
+                            "artifact_archive_sha256", ""
+                        )
+                    )
+                )
+                is not None
+                and kms_outcome_authority_public.get("gate", {}).get("status")
+                == "PASS"
+                and len(
+                    kms_outcome_authority_public.get("gate", {}).get(
+                        "checks", {}
+                    )
+                )
+                == kms_outcome_authority_reference.get("gate_check_count")
+                == 18
+                and all(
+                    value is True
+                    for value in kms_outcome_authority_public.get(
+                        "gate", {}
+                    ).get("checks", {}).values()
+                )
+            )
+        ),
         "citation_grounding_failures_zero": grounding_failures == 0,
         "public_rls_checksum_matches_source": (
             database_policy_reference.get("rls_combined_sha256")
@@ -1792,6 +1929,22 @@ def build_envelope(
                 )
             )
             and (
+                kms_outcome_authority_reference is None
+                or (
+                    release_reference.get(
+                        "kms_outcome_authority_asset_name"
+                    )
+                    == KMS_OUTCOME_AUTHORITY_ASSET
+                    and release_reference.get(
+                        "kms_outcome_authority_asset_url"
+                    )
+                    == (
+                        f"https://github.com/{repository}/releases/download/"
+                        f"{release_tag}/{KMS_OUTCOME_AUTHORITY_ASSET}"
+                    )
+                )
+            )
+            and (
                 offline_judge_reference is None
                 or (
                     release_reference.get("offline_judge_capsule_asset_name")
@@ -1934,7 +2087,8 @@ def build_envelope(
                 == browser_script_integrity
                 and browser_verification.get("required_terminal_state")
                 == "BROWSER_VERIFIED"
-                and browser_verification.get("required_ui_check_count") == 38
+                and browser_verification.get("required_ui_check_count")
+                == (39 if judge.get("schema_version", 0) >= 19 else 38)
                 and browser_verification.get("required_github_api_requests") == 0
                 and browser_verification.get("required_console_errors") == 0
                 and browser_verification.get("fresh_context_required") is True
@@ -2061,6 +2215,15 @@ def build_envelope(
                         ]
                     }
                     if outcome_replay_cas_reference is not None
+                    else {}
+                ),
+                **(
+                    {
+                        "kms_outcome_authority": release_reference[
+                            "kms_outcome_authority_asset_url"
+                        ]
+                    }
+                    if kms_outcome_authority_reference is not None
                     else {}
                 ),
                 **(
@@ -2692,6 +2855,61 @@ def build_envelope(
             and outcome_replay_cas_public is not None
             else {}
         ),
+        **(
+            {
+                "kms_outcome_authority": {
+                    "schema_version": kms_outcome_authority_public[
+                        "schema_version"
+                    ],
+                    "head_sha": kms_outcome_authority_reference["head_sha"],
+                    "workflow_run_id": kms_outcome_authority_reference[
+                        "workflow_run_id"
+                    ],
+                    "workflow_attempt": kms_outcome_authority_reference[
+                        "workflow_attempt"
+                    ],
+                    "workflow_url": kms_outcome_authority_reference[
+                        "workflow_url"
+                    ],
+                    "artifact_id": kms_outcome_authority_reference[
+                        "artifact_id"
+                    ],
+                    "artifact_name": kms_outcome_authority_reference[
+                        "artifact_name"
+                    ],
+                    "artifact_archive_sha256": kms_outcome_authority_reference[
+                        "artifact_archive_sha256"
+                    ],
+                    "public_sha256": kms_outcome_authority_public_sha,
+                    "receipt_sha256": kms_outcome_authority_public[
+                        "receipt_sha256"
+                    ],
+                    "public_url": kms_outcome_authority_reference[
+                        "public_url"
+                    ],
+                    "page_url": kms_outcome_authority_reference["page_url"],
+                    "immutable_release_asset_url": release_reference[
+                        "kms_outcome_authority_asset_url"
+                    ],
+                    "source": kms_outcome_authority_public["source"],
+                    "aws": kms_outcome_authority_public["aws"],
+                    "cockroachdb": kms_outcome_authority_public[
+                        "cockroachdb"
+                    ],
+                    "attestation": kms_outcome_authority_public[
+                        "attestation"
+                    ],
+                    "lifecycle": kms_outcome_authority_public["lifecycle"],
+                    "negative_paths": kms_outcome_authority_public[
+                        "negative_paths"
+                    ],
+                    "gate": kms_outcome_authority_public["gate"],
+                }
+            }
+            if kms_outcome_authority_reference is not None
+            and kms_outcome_authority_public is not None
+            else {}
+        ),
         "public_judge_evidence": {
             "url": judge["public_demo"]["evidence_url"],
             "sha256": judge_sha,
@@ -2770,6 +2988,7 @@ def main() -> None:
     parser.add_argument("--transfer-firewall-public", type=Path)
     parser.add_argument("--online-memory-lineage-public", type=Path)
     parser.add_argument("--outcome-replay-cas-public", type=Path)
+    parser.add_argument("--kms-outcome-authority-public", type=Path)
     parser.add_argument("--offline-judge-capsule", type=Path)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--repository", required=True)
@@ -2838,6 +3057,11 @@ def main() -> None:
         if args.outcome_replay_cas_public is not None
         else b""
     )
+    kms_outcome_authority_public_bytes = (
+        args.kms_outcome_authority_public.read_bytes()
+        if args.kms_outcome_authority_public is not None
+        else b""
+    )
     offline_judge_capsule_bytes = (
         args.offline_judge_capsule.read_bytes()
         if args.offline_judge_capsule is not None
@@ -2899,6 +3123,11 @@ def main() -> None:
             else None
         ),
         (
+            json.loads(kms_outcome_authority_public_bytes)
+            if kms_outcome_authority_public_bytes
+            else None
+        ),
+        (
             json.loads(offline_judge_capsule_bytes)
             if offline_judge_capsule_bytes
             else None
@@ -2926,6 +3155,9 @@ def main() -> None:
         transfer_firewall_public_bytes=transfer_firewall_public_bytes,
         online_memory_lineage_public_bytes=online_memory_lineage_public_bytes,
         outcome_replay_cas_public_bytes=outcome_replay_cas_public_bytes,
+        kms_outcome_authority_public_bytes=(
+            kms_outcome_authority_public_bytes
+        ),
         offline_judge_capsule_bytes=offline_judge_capsule_bytes,
         provider_origin_story_bytes=provider_origin_story_bytes,
         repo_root=args.repo_root.resolve(),

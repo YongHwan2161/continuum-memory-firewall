@@ -15,6 +15,7 @@
     <a class="brand" href="#top"><span class="mark">C</span><span><b>CONTINUUM</b><small>MEMORY FIREWALL</small></span></a>
     <nav>
       <a href="./verify.html">Judge verifier</a>
+      <a href="./kms-authority.html">KMS authority</a>
       <a href="./online-memory-lineage.html">Online lineage</a>
       <a href="./outcome-replay-cas.html">Outcome CAS</a>
       <a href="./transfer-firewall.html">Transfer firewall</a>
@@ -120,6 +121,20 @@
       </div>
       <p class="claim">Bounded claim: one retained participant-cluster promotion and six fail-closed negative controls. This closes the authority gap between “the worker says success” and “the provider proves success”; it is architectural evidence, not a population estimate.</p>
       <div class="actions"><a class="button primary" href="./outcome-replay-cas.html">Recompute the journal chain <span>→</span></a><a class="button quiet" id="cas-workflow" target="_blank" rel="noreferrer">Open exact workflow ↗</a></div>
+    </section>
+
+    <section class="stage guardian" id="kms-outcome-authority">
+      <div class="section-title"><p class="kicker">DUAL AWS KMS KEYS · REAL S3 RE-READ · COCKROACHDB EPOCHS</p><h2>The action worker cannot sign its own success.</h2><p class="copy">A separate verifier re-read four real S3 receipts and alone called KMS. The live lifecycle activated key A, rotated to B, rolled back to A, restarted offline, and replayed an old outcome without re-signing; the worker's direct KMS call was denied.</p></div>
+      <div class="guardian-summary">
+        <article><span>KMS signatures</span><strong id="kms-signatures">—</strong><small>verifier role only</small></article>
+        <article><span>Verifier keys</span><strong id="kms-keys">—</strong><small>P-256</small></article>
+        <article><span>S3 re-reads</span><strong id="kms-lookups">—</strong><small>HEAD + GET</small></article>
+        <article><span>Promotions</span><strong id="kms-promotions">—</strong><small>atomic DB outcomes</small></article>
+        <article><span>Gate checks</span><strong id="kms-checks">—</strong><small>fail closed</small></article>
+        <article><span>Private residue</span><strong id="kms-handoffs">—</strong><small>handoff objects</small></article>
+      </div>
+      <p class="claim">Bounded claim: one retained participant-account authority lifecycle. KMS role separation, key rotation/rollback, CockroachDB RLS, offline restart, exact replay, and independent zero-residue cleanup are hash-bound; no key ARN or raw handle is published.</p>
+      <div class="actions"><a class="button primary" href="./kms-authority.html">Verify the authority lifecycle <span>→</span></a><a class="button quiet" id="kms-workflow" target="_blank" rel="noreferrer">Open exact workflow ↗</a></div>
     </section>
 
     <section class="stage guardian" id="sequential-blind">

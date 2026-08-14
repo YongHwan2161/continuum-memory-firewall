@@ -60,6 +60,13 @@ class BrowserReleaseGateTests(unittest.TestCase):
             self.assertIn(marker, self.workflow)
         self.assertIn("actions/setup-node@2028fbc5", self.workflow)
         self.assertIn("playwright install --with-deps chromium", self.workflow)
+        self.assertEqual(
+            self.workflow.count(".verification.ui_check_count == 39"), 2
+        )
+        browser_script = (
+            ROOT / "scripts/browser_release_verify.mjs"
+        ).read_text(encoding="utf-8")
+        self.assertIn("pageResult.rows.total !== 39", browser_script)
 
     def test_browser_runtime_dependency_is_exact_and_audit_fixed(self) -> None:
         package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))

@@ -9,6 +9,7 @@ const adaptiveDiagnosisUrl = './evidence/adaptive-diagnosis-v1.json';
 const transferFirewallUrl = './evidence/transfer-firewall-v1.json';
 const onlineMemoryLineageUrl = './evidence/online-memory-lineage-v1.json';
 const outcomeReplayCasUrl = './evidence/outcome-replay-cas-v1.json';
+const kmsAuthorityUrl = './evidence/kms-authority-lifecycle-v1.json';
 const byId = id => document.getElementById(id);
 const percent = value => `${(Number(value) * 100).toFixed(1)}%`;
 const latency = value => `${Number(value).toFixed(1)} ms`;
@@ -39,6 +40,7 @@ function renderJudge(evidence) {
   if (evidence.transfer_firewall) byId('transfer-workflow').href = evidence.transfer_firewall.workflow_url;
   if (evidence.online_memory_lineage) byId('online-workflow').href = evidence.online_memory_lineage.workflow_url;
   if (evidence.outcome_replay_cas) byId('cas-workflow').href = evidence.outcome_replay_cas.workflow_url;
+  if (evidence.kms_outcome_authority) byId('kms-workflow').href = evidence.kms_outcome_authority.workflow_url;
   liveStoryUrl = evidence.runtime.demo_url
     || evidence.runtime.health_url.replace(/\/healthz$/, '/demo/run?scenario=checkout-cache-pressure-v1');
   byId('proof-status').textContent = 'EVIDENCE READY';
@@ -108,6 +110,15 @@ function renderOutcomeReplayCas(evidence) {
   byId('cas-journal').textContent = evidence.schema_version >= 2 ? `${Object.keys(evidence.attestation.negative_codes).length}/6 blocked` : evidence.cas.journal.map(item => item.decision).join(' → ');
   byId('cas-rls').textContent = evidence.schema_version >= 2 ? evidence.database.rls.runtime_attestation_insert_sqlstate : String(evidence.database.rls.proposal_visible_rows);
   byId('cas-lookups').textContent = evidence.schema_version >= 2 ? String(evidence.provider.lookup_count) : 'legacy';
+}
+
+function renderKmsAuthority(evidence) {
+  byId('kms-signatures').textContent = String(evidence.aws.kms_sign_calls);
+  byId('kms-keys').textContent = String(evidence.aws.verifier_key_count);
+  byId('kms-lookups').textContent = String(evidence.aws.s3_head_get_lookups);
+  byId('kms-promotions').textContent = String(evidence.attestation.canonical_promotions);
+  byId('kms-checks').textContent = `${Object.keys(evidence.gate.checks).length}/18`;
+  byId('kms-handoffs').textContent = String(evidence.lifecycle.private_handoff_objects_remaining);
 }
 
 function renderJudgeClosure(sequential, outcomeReplayCas) {
@@ -206,8 +217,8 @@ async function quickCheck() {
   button.disabled = true;
   result.textContent = 'Checking immutable evidence, workflow, Pages, and MCP health…';
   try {
-    const [judge, scale, pressure, guardian, blind, sequential, ciRecovery, adaptive, transfer, online, outcomeCas] = await Promise.all([
-      json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl), json(blindUrl), json(sequentialUrl), json(ciRecoveryUrl), json(adaptiveDiagnosisUrl), json(transferFirewallUrl), json(onlineMemoryLineageUrl), json(outcomeReplayCasUrl)
+    const [judge, scale, pressure, guardian, blind, sequential, ciRecovery, adaptive, transfer, online, outcomeCas, kmsAuthority] = await Promise.all([
+      json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl), json(blindUrl), json(sequentialUrl), json(ciRecoveryUrl), json(adaptiveDiagnosisUrl), json(transferFirewallUrl), json(onlineMemoryLineageUrl), json(outcomeReplayCasUrl), json(kmsAuthorityUrl)
     ]);
     const [workflow, health, page, release] = await Promise.all([
       json(judge.source.workflow_api_url),
@@ -219,6 +230,7 @@ async function quickCheck() {
     const releaseAsset = release.assets?.find(asset => asset.name === judge.release_envelope.asset_name);
     const onlineReleaseAsset = release.assets?.find(asset => asset.name === judge.release_envelope.online_memory_lineage_asset_name);
     const outcomeCasReleaseAsset = release.assets?.find(asset => asset.name === judge.release_envelope.outcome_replay_cas_asset_name);
+    const kmsAuthorityReleaseAsset = release.assets?.find(asset => asset.name === judge.release_envelope.kms_outcome_authority_asset_name);
     const providerOriginStoryReleaseAsset = release.assets?.find(asset => asset.name === judge.release_envelope.provider_origin_story_asset_name);
     const passed = judge.submission.status === 'Submitted'
       && judge.evaluation.cross_scope_leaked_documents === 0
@@ -305,6 +317,25 @@ async function quickCheck() {
         && outcomeCas.database.rls.runtime_attestation_insert_sqlstate === '42501'
       ))
       && outcomeCasReleaseAsset?.digest === `sha256:${judge.outcome_replay_cas.public_sha256}`;
+    const kmsAuthorityPassed = kmsAuthority.gate.status === 'PASS'
+      && Object.keys(kmsAuthority.gate.checks).length === 18
+      && Object.values(kmsAuthority.gate.checks).every(value => value === true)
+      && kmsAuthority.source.head === judge.kms_outcome_authority.head_sha
+      && kmsAuthority.source.workflow_run_id === judge.kms_outcome_authority.workflow_run_id
+      && kmsAuthority.source.workflow_run_attempt === judge.kms_outcome_authority.workflow_attempt
+      && kmsAuthority.aws.verifier_key_count === 2
+      && kmsAuthority.aws.kms_sign_calls === 4
+      && kmsAuthority.aws.kms_get_public_key_calls === 2
+      && kmsAuthority.aws.s3_head_get_lookups === 4
+      && kmsAuthority.aws.action_worker_kms_sign_denied === true
+      && kmsAuthority.cockroachdb.migration_version === 38
+      && kmsAuthority.cockroachdb.canonical_memory_rows === 3
+      && kmsAuthority.attestation.raw_handle_persisted === false
+      && kmsAuthority.lifecycle.authority_epochs.join(',') === '1,2,3'
+      && kmsAuthority.lifecycle.restart_verified_offline === true
+      && kmsAuthority.lifecycle.old_handle_replayed_without_resigning === true
+      && kmsAuthority.lifecycle.private_handoff_objects_remaining === 0
+      && kmsAuthorityReleaseAsset?.digest === `sha256:${judge.kms_outcome_authority.public_sha256}`;
     const providerOriginPassed = providerOriginStory.gate.status === 'PASS'
       && providerOriginStory.receipt_sha256 === judge.provider_origin_story.story_receipt_sha256
       && providerOriginStory.source_release.tag === judge.provider_origin_story.source_release_tag
@@ -315,7 +346,7 @@ async function quickCheck() {
       && judge.provider_origin_story.caption_delivery.publicly_verifiable === true
       && judge.provider_origin_story.devpost.project_version === judge.submission.project_version
       && providerOriginStoryReleaseAsset?.digest === `sha256:${judge.provider_origin_story.public_sha256}`;
-    const allPassed = passed && guardianPassed && blindPassed && sequentialPassed && ciRecoveryPassed && adaptivePassed && transferPassed && onlinePassed && outcomeCasPassed && providerOriginPassed;
+    const allPassed = passed && guardianPassed && blindPassed && sequentialPassed && ciRecoveryPassed && adaptivePassed && transferPassed && onlinePassed && outcomeCasPassed && kmsAuthorityPassed && providerOriginPassed;
     result.textContent = allPassed ? 'PASS · public evidence, online CockroachDB lineage, and live health agree.' : 'HOLD · open the full verifier for details.';
     byId('proof-status').textContent = allPassed ? 'ALL PUBLIC GATES PASS' : 'HOLD';
   } catch (error) {
@@ -327,8 +358,8 @@ async function quickCheck() {
   }
 }
 
-Promise.all([json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl), json(blindUrl), json(sequentialUrl), json(ciRecoveryUrl), json(adaptiveDiagnosisUrl), json(transferFirewallUrl), json(onlineMemoryLineageUrl), json(outcomeReplayCasUrl)])
-  .then(([judge, scale, pressure, guardian, blind, sequential, ciRecovery, adaptive, transfer, online, outcomeCas]) => {
+Promise.all([json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl), json(blindUrl), json(sequentialUrl), json(ciRecoveryUrl), json(adaptiveDiagnosisUrl), json(transferFirewallUrl), json(onlineMemoryLineageUrl), json(outcomeReplayCasUrl), json(kmsAuthorityUrl)])
+  .then(([judge, scale, pressure, guardian, blind, sequential, ciRecovery, adaptive, transfer, online, outcomeCas, kmsAuthority]) => {
     renderJudge(judge);
     renderScale(scale);
     renderPressure(pressure);
@@ -340,6 +371,7 @@ Promise.all([json(judgeUrl), json(scaleUrl), json(pressureUrl), json(guardianUrl
     renderTransferFirewall(transfer);
     renderOnlineMemoryLineage(online);
     renderOutcomeReplayCas(outcomeCas);
+    renderKmsAuthority(kmsAuthority);
     renderJudgeClosure(sequential, outcomeCas);
   })
   .catch(error => { byId('proof-status').textContent = 'EVIDENCE HOLD'; console.error(error); });

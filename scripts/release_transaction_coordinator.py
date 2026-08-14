@@ -266,8 +266,11 @@ def _validate_evidence(
             raise RuntimeError("BROWSER_VERIFIED candidate did not pass")
         if evidence.get("candidate_transaction_state") != "PAGES_MATERIALIZED":
             raise RuntimeError("BROWSER_VERIFIED candidate state is invalid")
-        if int(evidence.get("ui_check_count", 0)) != 38:
-            raise RuntimeError("BROWSER_VERIFIED requires exactly 38 UI checks")
+        # v30 froze 38 checks; v31 adds the live KMS authority closure. Keep
+        # predecessor receipts verifiable while Pages and the judge contract
+        # require the exact count for the successor release.
+        if int(evidence.get("ui_check_count", 0)) not in {38, 39}:
+            raise RuntimeError("BROWSER_VERIFIED requires 38 or 39 UI checks")
         if int(evidence.get("github_api_requests", -1)) != 0:
             raise RuntimeError("BROWSER_VERIFIED made a GitHub API request")
         if int(evidence.get("console_error_count", -1)) != 0:

@@ -261,6 +261,19 @@ workflow/artifact identity and digest does it append `BROWSER_VERIFIED`, publish
 the final Pages artifact, and repeat the live browser gate. See the
 [v30 browser-verified release contract](docs/evidence/2026-08-13-browser-verified-release-v30.md).
 
+The v31 successor adds separated cryptographic outcome authority. In exact run
+[`31813682371`](https://github.com/YongHwan2161/continuum-memory-firewall/actions/runs/31813682371),
+the action worker's direct KMS signing call was denied while a verifier-only
+role re-read four real S3 receipts and signed across activate, rotate, and
+rollback epochs with two P-256 keys. CockroachDB migration 38 retained three
+attestations, outcomes, and canonical memories, but no raw handle; an offline
+restart replayed the old outcome without re-signing and independent cleanup
+found zero private handoff objects. The
+[focused KMS authority verifier](https://yonghwan2161.github.io/continuum-memory-firewall/kms-authority.html)
+and [exact evidence contract](docs/evidence/2026-08-15-kms-outcome-authority-live.md)
+bind the 18/18 lifecycle receipt into the 39-row schema-19 judge path and
+immutable `hackathon-v31` envelope.
+
 The v27 predecessor release envelope receives exactly one author-controlled signature in
 the same main-only workflow that publishes it. Its Fulcio/Rekor Sigstore bundle
 is an immutable release asset and a byte-identical Pages resource. GitHub also

@@ -15,7 +15,7 @@ JUDGE_PATH = ROOT / "public-demo" / "evidence" / "judge-verification.json"
 STORY_PATH = ROOT / "public-demo" / "evidence" / "provider-origin-story-v1.json"
 
 
-class JudgeClosureV30Tests(unittest.TestCase):
+class JudgeClosureV31Tests(unittest.TestCase):
     def setUp(self) -> None:
         self.judge = json.loads(JUDGE_PATH.read_text(encoding="utf-8"))
         self.story_bytes = STORY_PATH.read_bytes()
@@ -29,7 +29,7 @@ class JudgeClosureV30Tests(unittest.TestCase):
             self.story_bytes.replace(b"\r\n", b"\n")
         ).hexdigest()
 
-        self.assertEqual(self.judge["schema_version"], 18)
+        self.assertEqual(self.judge["schema_version"], 19)
         self.assertEqual(normalized_sha, reference["public_sha256"])
         self.assertEqual(
             self.story["receipt_sha256"], reference["story_receipt_sha256"]
@@ -70,7 +70,7 @@ class JudgeClosureV30Tests(unittest.TestCase):
         self.assertIn("raw.false_canonical_promotions", script)
         self.assertIn("continuum.target_provider_successes", script)
         self.assertIn("outcomeReplayCas.attestation.negative_codes", script)
-        self.assertEqual(release["tag"], "hackathon-v30")
+        self.assertEqual(release["tag"], "hackathon-v31")
         self.assertEqual(
             release["provider_origin_story_asset_name"],
             "provider-origin-story-v1.json",
@@ -80,7 +80,7 @@ class JudgeClosureV30Tests(unittest.TestCase):
             "BROWSER_VERIFIED",
         )
         self.assertEqual(
-            self.judge["browser_verification"]["required_ui_check_count"], 38
+            self.judge["browser_verification"]["required_ui_check_count"], 39
         )
 
 

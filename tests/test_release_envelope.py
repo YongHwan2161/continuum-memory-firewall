@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -468,6 +469,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         transfer_firewall_public=None,
         online_memory_lineage_public=None,
         outcome_replay_cas_public=None,
+        kms_outcome_authority_public=None,
     ):
         blind_bytes = (
             (json.dumps(blind_holdout_public, sort_keys=True) + "\n").encode()
@@ -509,6 +511,13 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             if outcome_replay_cas_public is not None
             else b""
         )
+        kms_outcome_authority_bytes = (
+            (
+                json.dumps(kms_outcome_authority_public, sort_keys=True) + "\n"
+            ).encode()
+            if kms_outcome_authority_public is not None
+            else b""
+        )
         return build_envelope(
             self.judge,
             self.scale,
@@ -527,6 +536,7 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             transfer_firewall_public=transfer_firewall_public,
             online_memory_lineage_public=online_memory_lineage_public,
             outcome_replay_cas_public=outcome_replay_cas_public,
+            kms_outcome_authority_public=kms_outcome_authority_public,
             judge_bytes=self.judge_bytes,
             scale_bytes=self.scale_bytes,
             pressure_bytes=self.pressure_bytes,
@@ -544,6 +554,9 @@ class ReleaseEnvelopeTests(unittest.TestCase):
             transfer_firewall_public_bytes=transfer_firewall_bytes,
             online_memory_lineage_public_bytes=online_memory_lineage_bytes,
             outcome_replay_cas_public_bytes=outcome_replay_cas_bytes,
+            kms_outcome_authority_public_bytes=(
+                kms_outcome_authority_bytes
+            ),
             repo_root=Path(__file__).parents[1],
             repository="o/r",
             commit_sha="d" * 40,
@@ -814,6 +827,52 @@ class ReleaseEnvelopeTests(unittest.TestCase):
         outcome["cas"]["outcome_rows"] = 2
         with self.assertRaisesRegex(ValueError, "cardinality"):
             self.build(outcome_replay_cas_public=outcome)
+
+    def test_binds_live_kms_outcome_authority_lifecycle(self) -> None:
+        root = Path(__file__).parents[1]
+        receipt = json.loads(
+            (
+                root
+                / "public-demo/evidence/kms-authority-lifecycle-v1.json"
+            ).read_bytes()
+        )
+        live_judge = json.loads(
+            (root / "public-demo/evidence/judge-verification.json").read_bytes()
+        )
+        receipt_bytes = (json.dumps(receipt, sort_keys=True) + "\n").encode()
+        self.judge["kms_outcome_authority"] = deepcopy(
+            live_judge["kms_outcome_authority"]
+        )
+        self.judge["kms_outcome_authority"]["public_sha256"] = sha256_bytes(
+            receipt_bytes
+        )
+        self.judge["release_envelope"].update(
+            {
+                "kms_outcome_authority_asset_name": (
+                    "kms-authority-lifecycle-v1.json"
+                ),
+                "kms_outcome_authority_asset_url": (
+                    "https://github.com/o/r/releases/download/hackathon-v1/"
+                    "kms-authority-lifecycle-v1.json"
+                ),
+            }
+        )
+        self.judge_bytes = (json.dumps(self.judge, sort_keys=True) + "\n").encode()
+
+        envelope = self.build(kms_outcome_authority_public=receipt)
+
+        self.assertEqual(envelope["gates"]["status"], "PASS")
+        authority = envelope["kms_outcome_authority"]
+        self.assertEqual(authority["workflow_run_id"], 31813682371)
+        self.assertEqual(authority["aws"]["kms_sign_calls"], 4)
+        self.assertEqual(authority["lifecycle"]["authority_epochs"], [1, 2, 3])
+        self.assertEqual(
+            authority["lifecycle"]["private_handoff_objects_remaining"], 0
+        )
+
+        receipt["aws"]["action_worker_kms_sign_denied"] = False
+        with self.assertRaisesRegex(ValueError, "AWS boundary"):
+            self.build(kms_outcome_authority_public=receipt)
 
     def test_binds_preregistered_blind_holdout(self) -> None:
         blind = json.loads(

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <title>Continuum KMS Outcome Authority</title>
+    <style>
+      :root{color-scheme:dark;--bg:#07110f;--card:#0e1b18;--line:#21443a;--text:#eefcf7;--muted:#98b8ae;--mint:#64f5bd;--amber:#ffc96b;--red:#ff8793}
+      *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 78% 0,#173f35 0,transparent 36%),var(--bg);color:var(--text);font:16px/1.55 Inter,ui-sans-serif,system-ui,sans-serif}main{width:min(1080px,calc(100% - 32px));margin:auto;padding:42px 0 68px}.brand{color:var(--mint);font-weight:900;letter-spacing:.14em}.hero{padding:58px 0 34px}.eyebrow{color:var(--mint);font-size:12px;font-weight:800;letter-spacing:.17em;text-transform:uppercase}h1{font-size:clamp(38px,7vw,70px);line-height:1.02;letter-spacing:-.045em;margin:10px 0 20px;max-width:980px}h1 em{color:var(--mint);font-style:normal}.lede,.note{color:var(--muted);max-width:900px}.status{display:inline-block;margin-top:18px;padding:9px 14px;border:1px solid var(--line);border-radius:999px;font-weight:900}.pass{color:var(--mint)}.hold{color:var(--amber)}.fail{color:var(--red)}
+      .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:22px 0 36px}.card,.step{background:linear-gradient(145deg,#10211d,#0a1714);border:1px solid var(--line);border-radius:16px;padding:18px}.metric span,.step span,.receipt span{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em}.metric strong{display:block;font-size:28px;margin-top:8px}.flow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0 34px}.step b{display:block;margin:8px 0 5px}.step code,.receipt code{color:var(--mint);font-size:12px;word-break:break-all}.step.rollback{border-color:#6a5530}.step.rollback b{color:var(--amber)}h2{margin:38px 0 14px;font-size:28px}.receipts{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.receipt{margin-bottom:12px}.receipt code{display:block;margin-top:7px}.links{display:flex;flex-wrap:wrap;gap:14px;margin-top:28px}.links a{color:var(--text);text-decoration:none;border-bottom:1px solid var(--mint)}
+      @media(max-width:780px){.metrics{grid-template-columns:repeat(2,1fr)}.flow,.receipts{grid-template-columns:1fr}}@media(max-width:520px){.metrics{grid-template-columns:1fr}}
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="brand">CONTINUUM · SEPARATED OUTCOME AUTHORITY</div>
+      <section class="hero">
+        <div class="eyebrow">AWS KMS · real S3 re-read · participant CockroachDB</div>
+        <h1>The action worker can execute. It <em>cannot sign success.</em></h1>
+        <p class="lede">An independent verifier re-reads the provider receipt and alone can call KMS. CockroachDB stores the algorithm, authority epoch, and a key-ARN digest—not a reusable handle—then verifies old outcomes after restart without another signature.</p>
+        <div id="status" class="status hold">VERIFYING STATIC RECEIPTS</div>
+      </section>
+      <section class="metrics">
+        <div class="card metric"><span>KMS signatures</span><strong id="signatures">—</strong></div>
+        <div class="card metric"><span>Verifier keys</span><strong id="keys">—</strong></div>
+        <div class="card metric"><span>S3 re-reads</span><strong id="lookups">—</strong></div>
+        <div class="card metric"><span>Canonical promotions</span><strong id="promotions">—</strong></div>
+        <div class="card metric"><span>Fail-closed checks</span><strong id="checks">—</strong></div>
+        <div class="card metric"><span>Private handoffs left</span><strong id="handoffs">—</strong></div>
+      </section>
+      <h2>Signed authority lifecycle</h2>
+      <section id="flow" class="flow" aria-live="polite"></section>
+      <section class="receipts">
+        <div class="card receipt"><span>Public receipt SHA-256</span><code id="public-sha">—</code></div>
+        <div class="card receipt"><span>Canonical receipt SHA-256</span><code id="receipt-sha">—</code></div>
+        <div class="card receipt"><span>Deployment artifact SHA-256</span><code id="artifact-sha">—</code></div>
+        <div class="card receipt"><span>Exact workflow run</span><code id="workflow-id">—</code></div>
+        <div class="card receipt"><span>Persisted authority epochs</span><code id="epochs">—</code></div>
+        <div class="card receipt"><span>Worker KMS sign attempt</span><code id="worker-denial">—</code></div>
+      </section>
+      <p class="note">Bounded claim: one retained dual-key lifecycle on the participant AWS account and CockroachDB cluster. It proves role separation, rotation, rollback, offline restart, exact replay, RLS, and independent cleanup; it is not a population-level reliability estimate. Key ARNs, raw handles, credentials, and database rows are absent.</p>
+      <div class="links">
+        <a href="./verify.html">Run the full one-click verifier →</a>
+        <a id="workflow" target="_blank" rel="noreferrer">Open exact workflow ↗</a>
+        <a id="artifact" target="_blank" rel="noreferrer">Inspect exact artifact API ↗</a>
+        <a href="./evidence/kms-authority-lifecycle-v1.json">Download public proof JSON ↗</a>
+        <a href="./index.html">Back to project →</a>
+      </div>
+    </main>
+    <script>
+      const paths={evidence:'./evidence/kms-authority-lifecycle-v1.json',judge:'./evidence/judge-verification.json',envelope:'./evidence/continuum-release-envelope-v2.json',transaction:'./evidence/release-transaction-receipt.json'};
+      const enc=new TextEncoder();
+      const canonical=value=>{if(value===null||typeof value!=='object')return JSON.stringify(value);if(Array.isArray(value))return '['+value.map(canonical).join(',')+']';return '{'+Object.keys(value).sort().map(key=>JSON.stringify(key)+':'+canonical(value[key])).join(',')+'}'};
+      const sha=async value=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',typeof value==='string'?enc.encode(value):value))).map(x=>x.toString(16).padStart(2,'0')).join('');
+      const parse=value=>JSON.parse(new TextDecoder().decode(value));
+      const get=async path=>{const response=await fetch(path,{cache:'no-store',credentials:'omit'});if(!response.ok)throw new Error('static receipt unavailable');return response.arrayBuffer()};
+      const selfHash=async value=>{const body={...value};delete body.receipt_sha256;return sha(canonical(body))};
+      async function run(){
+        const [evidenceBytes,judgeBytes,envelopeBytes,transactionBytes]=await Promise.all(Object.values(paths).map(get));
+        const evidence=parse(evidenceBytes),judge=parse(judgeBytes),envelope=parse(envelopeBytes),transaction=parse(transactionBytes),ref=judge.kms_outcome_authority,frozen=envelope.kms_outcome_authority||{},terminal=transaction.events?.at(-1)?.evidence||{};
+        const evidenceSha=await sha(evidenceBytes),envelopeSha=await sha(envelopeBytes),checks=Object.values(evidence.gate?.checks||{}),receiptSha=await selfHash(evidence);
+        const releaseBound=envelope.gates?.status==='PASS'&&envelope.gates?.checks?.kms_outcome_authority_artifact_bound===true&&envelope.release?.tag===judge.release_envelope?.tag&&frozen.public_sha256===ref.public_sha256&&frozen.receipt_sha256===ref.receipt_sha256&&frozen.workflow_run_id===ref.workflow_run_id&&frozen.workflow_attempt===ref.workflow_attempt&&frozen.head_sha===ref.head_sha&&frozen.artifact_id===ref.artifact_id&&frozen.artifact_name===ref.artifact_name&&frozen.artifact_archive_sha256===ref.artifact_archive_sha256&&frozen.immutable_release_asset_url===envelope.release?.assets?.kms_outcome_authority;
+        const transactionBound=transaction.receipt_sha256===await selfHash(transaction)&&transaction.state==='BROWSER_VERIFIED'&&transaction.state===judge.release_transaction?.required_terminal_state&&transaction.release_tag===envelope.release?.tag&&transaction.source_digest===envelope.release?.commit_sha&&transaction.envelope_sha256===envelopeSha&&terminal.release_tag===envelope.release?.tag&&terminal.release_target===envelope.release?.commit_sha;
+        const ok=evidence.schema_version===1&&evidence.kind==='continuum.kms-outcome-authority-lifecycle'&&evidenceSha===ref.public_sha256&&receiptSha===ref.receipt_sha256&&evidence.receipt_sha256===receiptSha&&evidence.source.head===ref.head_sha&&evidence.source.workflow_run_id===ref.workflow_run_id&&evidence.source.workflow_run_attempt===ref.workflow_attempt&&evidence.source.deployment_artifact_sha256===ref.deployment_artifact_sha256&&evidence.aws.region==='ap-southeast-1'&&evidence.aws.key_spec==='ECC_NIST_P256'&&evidence.aws.signing_algorithm==='ECDSA_SHA_256'&&evidence.aws.verifier_key_count===2&&evidence.aws.kms_sign_calls===4&&evidence.aws.kms_get_public_key_calls===2&&evidence.aws.s3_head_get_lookups===4&&evidence.aws.action_worker_kms_sign_denied===true&&evidence.aws.action_worker_kms_error_code==='AccessDenied'&&evidence.cockroachdb.migration_version===38&&evidence.cockroachdb.attestation_rows===3&&evidence.cockroachdb.outcome_rows===3&&evidence.cockroachdb.canonical_memory_rows===3&&evidence.cockroachdb.runtime_attestation_insert_sqlstate==='42501'&&evidence.attestation.raw_handle_persisted===false&&evidence.attestation.persisted_authority_epochs.join(',')==='1,2,3'&&evidence.lifecycle.authority_epochs.join(',')==='1,2,3'&&evidence.lifecycle.transitions.join('|')==='ACTIVATE_KEY_A|ROTATE_TO_KEY_B|ROLLBACK_TO_KEY_A'&&evidence.lifecycle.restart_verified_offline===true&&evidence.lifecycle.old_handle_replayed_without_resigning===true&&evidence.lifecycle.private_handoff_objects_remaining===0&&evidence.gate.status==='PASS'&&checks.length===18&&checks.every(Boolean)&&releaseBound&&transactionBound;
+        document.getElementById('signatures').textContent=evidence.aws.kms_sign_calls;
+        document.getElementById('keys').textContent=evidence.aws.verifier_key_count;
+        document.getElementById('lookups').textContent=evidence.aws.s3_head_get_lookups;
+        document.getElementById('promotions').textContent=evidence.attestation.canonical_promotions;
+        document.getElementById('checks').textContent=checks.filter(Boolean).length+'/18';
+        document.getElementById('handoffs').textContent=evidence.lifecycle.private_handoff_objects_remaining;
+        document.getElementById('public-sha').textContent=evidenceSha;
+        document.getElementById('receipt-sha').textContent=evidence.receipt_sha256;
+        document.getElementById('artifact-sha').textContent=evidence.source.deployment_artifact_sha256;
+        document.getElementById('workflow-id').textContent=evidence.source.workflow_run_id+' · attempt '+evidence.source.workflow_run_attempt;
+        document.getElementById('epochs').textContent=evidence.attestation.persisted_authority_epochs.join(' → ');
+        document.getElementById('worker-denial').textContent=evidence.aws.action_worker_kms_error_code;
+        document.getElementById('flow').innerHTML=evidence.lifecycle.transitions.map((item,index)=>`<article class="step ${item.includes('ROLLBACK')?'rollback':''}"><span>EPOCH ${evidence.lifecycle.authority_epochs[index]}</span><b>${item.replaceAll('_',' ')}</b><code>${evidence.lifecycle.manifest_sha256[index]}</code></article>`).join('');
+        document.getElementById('workflow').href=ref.workflow_url;document.getElementById('artifact').href=ref.artifact_api_url;
+        const status=document.getElementById('status');status.textContent=ok?'PASS · KMS AUTHORITY + DB LIFECYCLE BOUND':'FAIL CLOSED';status.className='status '+(ok?'pass':'fail');
+        window.__continuumKmsAuthorityVerification={ok,status:ok?'PASS':'FAIL',github_api_requests:0,same_origin_static_gets:4,release_tag:envelope.release?.tag,release_target:envelope.release?.commit_sha,evidence_sha256:evidenceSha,receipt_sha256:receiptSha,envelope_sha256:envelopeSha};
+      }
+      run().catch(error=>{const status=document.getElementById('status');status.textContent='FAIL CLOSED · '+error.message;status.className='status fail';window.__continuumKmsAuthorityVerification={ok:false,status:'HOLD',github_api_requests:0,error:String(error)}});
+    </script>
+  </body>
+</html>

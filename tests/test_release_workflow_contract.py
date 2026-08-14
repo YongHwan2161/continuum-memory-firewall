@@ -19,7 +19,7 @@ def test_upload_artifact_digest_is_normalized_before_pages_dispatch() -> None:
 def test_v27_downloads_and_reprojects_exact_transfer_and_offline_capsule() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
 
-    assert "default: hackathon-v30" in workflow
+    assert "default: hackathon-v31" in workflow
     assert "provider-origin-story-v1.json" in workflow
     assert "for plane in source vector_scale" in workflow
     assert (
@@ -52,3 +52,7 @@ def test_v27_downloads_and_reprojects_exact_transfer_and_offline_capsule() -> No
     assert workflow.count("PYTHONPATH: src:.") >= 2
     assert workflow.count('"judge-offline-capsule-v1.json",') == 2
     assert workflow.count('"judge-offline-capsule-v1.json.sha256",') == 2
+    assert "--kms-outcome-authority-public" in workflow
+    assert "validate_kms_authority_proof(kms_authority)" in workflow
+    assert workflow.count('"kms-authority-lifecycle-v1.json",') == 2
+    assert workflow.count('"kms-authority-lifecycle-v1.json.sha256",') == 2

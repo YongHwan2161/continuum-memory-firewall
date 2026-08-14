@@ -125,8 +125,8 @@ try {
     throw new Error('unexpected release transaction state');
   }
   if (
-    pageResult.rows.total !== 38 ||
-    pageResult.rows.pass !== 38 ||
+    pageResult.rows.total !== 39 ||
+    pageResult.rows.pass !== 39 ||
     pageResult.rows.fail !== 0 ||
     pageResult.rows.waiting !== 0
   ) {

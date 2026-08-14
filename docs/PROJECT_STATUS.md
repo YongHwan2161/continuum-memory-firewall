@@ -1,7 +1,7 @@
 # Project status
 
-**Status date:** 2026-08-13
-**Current milestone:** P2C — authenticated managed-cloud slice submitted; iterative hardening open
+**Status date:** 2026-08-15
+**Current milestone:** P2D — separated KMS outcome authority publicly release-bound
 **Overall state:** the local promotion-to-retrieval vertical slice and repository
 MCP contract are implemented and tested. A private, cost-bounded AWS Lambda
 worker is deployed and has completed two live read-only CockroachDB Cloud
@@ -32,7 +32,7 @@ The Devpost entry is submitted to the CockroachDB x AWS hackathon as submission
 `1121568`. The submission remains editable while submissions are open; the
 current deadline is 2026-08-19 06:00 KST.
 
-The current judge-closure P0 uses schema 18 and successor `hackathon-v30`. It preserves the sequential v14
+The current judge-closure P0 uses schema 19 and successor `hackathon-v31`. It preserves the sequential v14
 story as historical evidence and separately binds the current provider-origin
 story to a 99.93-second public video with deterministic burned-in English
 captions, Devpost project version 26, and the retained submission receipt. The
@@ -48,8 +48,10 @@ envelope before rendering 38 PASS rows. v30 additionally makes that browser
 result a release state: content-addressed/SRI script bytes, fresh isolated
 Chromium, 38/38 rows, zero GitHub API requests, and zero console/page errors are
 bound into the hash-chained `BROWSER_VERIFIED` receipt before final Pages
-publication. See
-[the v30 browser-verified contract](evidence/2026-08-13-browser-verified-release-v30.md).
+publication. v31 adds a 39th public row that binds the live dual-key KMS
+authority lifecycle without changing the v30 bytes. See
+[the v30 browser-verified contract](evidence/2026-08-13-browser-verified-release-v30.md)
+and [the KMS authority proof](evidence/2026-08-15-kms-outcome-authority-live.md).
 
 The real GitHub Actions closed-loop recovery run is also complete. Across six
 fault families, 18 calibration and 36 paired evaluation children produced 54
@@ -121,6 +123,22 @@ could not insert one (`SQLSTATE 42501`). Artifact `9162583114` has archive
 digest `sha256:682b46d1…e0bf9`; the public projection is
 `sha256:47934505…8673b`. See
 [2026-08-13-provider-outcome-attestation-live.md](evidence/2026-08-13-provider-outcome-attestation-live.md).
+
+The stronger KMS-backed outcome-authority lifecycle is live-complete. Exact
+main run `31813682371` at source
+`b02ca33e0c0b0a8d02629f0a4280d1613ad47806` used two P-256 KMS keys and a
+verifier-only signing role. The action worker's direct `kms:Sign` call failed
+with `AccessDenied`; the verifier performed four real S3 `HEAD+GET` re-reads
+and four KMS signatures across `ACTIVATE_KEY_A → ROTATE_TO_KEY_B →
+ROLLBACK_TO_KEY_A`. CockroachDB migration 38 retained three attestations,
+outcomes, and canonical memories, with epochs 1/2/3 and key-ARN digests but no
+raw handle. Restart verification and exact old-handle replay required zero new
+signatures; forged, expired, and unknown-epoch inputs failed closed. An
+independent deployer confirmed zero private handoff objects after cleanup.
+Artifact `9224227375` is bound by archive SHA-256
+`66f3a5e4…72b9d4`; public receipt SHA-256 is `9492eb13…353d2`, and all
+18 lifecycle gates passed. See
+[2026-08-15-kms-outcome-authority-live.md](evidence/2026-08-15-kms-outcome-authority-live.md).
 
 Its immutable, quota-independent publication is now live-complete. PR `#149`
 bound the fresh public proof and made Pages coordinator-owned; PR `#150`

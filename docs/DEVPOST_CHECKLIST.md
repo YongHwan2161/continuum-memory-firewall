@@ -126,9 +126,18 @@ complete attestations and organizer agreements.
       reuses an existing author attestation after a crash, verifies every asset
       digest, fails closed on `AMBIGUOUS`, and publishes a hash-chained terminal
       `BROWSER_VERIFIED` receipt through the one-click judge page. The release
-      state binds a fresh isolated Chromium 38/38 result, zero GitHub API and
+      state binds a fresh isolated Chromium 39/39 result, zero GitHub API and
       console/page errors, the browser artifact digest, and content-addressed,
       SRI-pinned judge JavaScript.
+- [x] Separate KMS outcome authority completed one live activate → rotate →
+      rollback lifecycle with two P-256 keys. The action worker's `kms:Sign`
+      call was denied; the verifier performed four S3 receipt re-reads and four
+      KMS signatures. CockroachDB migration 38 retained three verified outcomes
+      and promotions, restart/exact replay required zero re-signing, and an
+      independent identity confirmed zero private handoff objects. Exact run
+      `31813682371`, artifact `9224227375`, and public SHA-256
+      `9492eb13…353d2` are exposed at
+      <https://yonghwan2161.github.io/continuum-memory-firewall/kms-authority.html>.
 - [x] Byte-identical 10k/50k non-sensitive vector benchmark report proves the
       complete `1/32/128/512` beam trade-off, natural vector-search plan, no
       full scan, and zero foreign rows; at 50k/beam 512 Recall@10 was 0.96875
