@@ -10,9 +10,6 @@ from pathlib import Path
 import subprocess
 import wave
 
-import imageio_ffmpeg
-
-
 def narration_paragraphs(path: Path) -> list[str]:
     body = "\n".join(
         line for line in path.read_text(encoding="utf-8").splitlines()
@@ -101,6 +98,8 @@ def main() -> None:
         end = (marker["start_ms"] + marker["duration_ms"]) / 1000
         srt_lines.extend((str(index), f"{timestamp(start)} --> {timestamp(end)}", paragraph, ""))
     args.subtitles.write_text("\n".join(srt_lines), encoding="utf-8")
+
+    import imageio_ffmpeg
 
     ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
     command = [ffmpeg, "-y", "-i", str(video_input)]
