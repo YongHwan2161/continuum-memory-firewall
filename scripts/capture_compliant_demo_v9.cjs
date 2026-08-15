@@ -156,9 +156,10 @@ async function waitForBudget(startedAt, milliseconds) {
     });
 
     await scene(5, async () => {
-      await page.goto(`${baseUrl}/outcome-replay-cas.html`, { waitUntil: "networkidle" });
-      await page.waitForFunction(() => document.querySelector("#status")?.textContent?.startsWith("PASS"));
-      await scrollTo(page, "#status", 120);
+      await page.goto(`${baseUrl}/`, { waitUntil: "networkidle" });
+      await page.locator("#proof-status").waitFor({ state: "visible" });
+      await page.waitForFunction(() => document.querySelector("#cas-outcomes")?.textContent !== "—");
+      await scrollTo(page, "#outcome-replay-cas", 58);
     });
 
     await scene(6, async () => {
@@ -170,9 +171,23 @@ async function waitForBudget(startedAt, milliseconds) {
     await scene(7, async () => {
       await page.goto(`${baseUrl}/verify.html`, { waitUntil: "networkidle" });
       await page.locator("#run").waitFor({ state: "visible" });
-    }, async () => {
-      await clickVisible(page, "#run");
-      await page.waitForFunction(() => document.querySelector("#run")?.textContent === "All read-only gates passed");
+    }, async (segment) => {
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        await clickVisible(page, "#run");
+        try {
+          await page.waitForFunction(
+            () => document.querySelector("#run")?.textContent?.startsWith("PASS · browser verified"),
+            undefined,
+            { timeout: 20000 },
+          );
+          break;
+        } catch (error) {
+          if (attempt === 2) throw error;
+          await page.reload({ waitUntil: "networkidle" });
+          await page.locator("#run").waitFor({ state: "visible" });
+          await installOverlay(page, segment);
+        }
+      }
       await scrollTo(page, "#run", 110);
     });
 
