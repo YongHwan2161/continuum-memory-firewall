@@ -435,21 +435,29 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf build/browser-final
-          node scripts/browser_release_verify.mjs \
-            --phase final \
-            --url https://yonghwan2161.github.io/continuum-memory-firewall \
-            --output-dir build/browser-final \
-            >"$RUNNER_TEMP/browser-final.json"
-          jq -e '
-            .status == "PASS" and
-            .release.transaction_state == "BROWSER_VERIFIED" and
-            .verification.final_ok == true and
-            .verification.ui_check_count == 39 and
-            .verification.ui_pass_count == 39 and
-            .verification.github_api_requests == 0 and
-            .verification.console_error_count == 0
-          ' "$RUNNER_TEMP/browser-final.json"
+          final_ok=false
+          for attempt in $(seq 1 12); do
+            rm -rf build/browser-final
+            if node scripts/browser_release_verify.mjs \
+              --phase final \
+              --url https://yonghwan2161.github.io/continuum-memory-firewall \
+              --output-dir build/browser-final \
+              >"$RUNNER_TEMP/browser-final.json" && \
+              jq -e '
+                .status == "PASS" and
+                .release.transaction_state == "BROWSER_VERIFIED" and
+                .verification.final_ok == true and
+                .verification.ui_check_count == 39 and
+                .verification.ui_pass_count == 39 and
+                .verification.github_api_requests == 0 and
+                .verification.console_error_count == 0
+              ' "$RUNNER_TEMP/browser-final.json"; then
+              final_ok=true
+              break
+            fi
+            sleep 5
+          done
+          test "$final_ok" = true
 
       - name: Preserve the final browser receipt
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24

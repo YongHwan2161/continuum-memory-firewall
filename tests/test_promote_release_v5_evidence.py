@@ -267,7 +267,7 @@ class ReleaseV5EvidencePromotionTests(unittest.TestCase):
         outcome = json.loads(outcome_bytes)
 
         self.assertEqual(judge["schema_version"], 19)
-        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v34")
+        self.assertEqual(judge["release_envelope"]["tag"], "hackathon-v35")
         self.assertEqual(
             judge["release_envelope"]["ci_recovery_asset_name"],
             "ci-recovery-v1.json",

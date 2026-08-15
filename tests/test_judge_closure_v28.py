@@ -70,7 +70,7 @@ class JudgeClosureV31Tests(unittest.TestCase):
         self.assertIn("raw.false_canonical_promotions", script)
         self.assertIn("continuum.target_provider_successes", script)
         self.assertIn("outcomeReplayCas.attestation.negative_codes", script)
-        self.assertEqual(release["tag"], "hackathon-v34")
+        self.assertEqual(release["tag"], "hackathon-v35")
         self.assertEqual(
             release["provider_origin_story_asset_name"],
             "provider-origin-story-v1.json",

@@ -19,7 +19,7 @@ def test_upload_artifact_digest_is_normalized_before_pages_dispatch() -> None:
 def test_v27_downloads_and_reprojects_exact_transfer_and_offline_capsule() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
 
-    assert "default: hackathon-v34" in workflow
+    assert "default: hackathon-v35" in workflow
     assert "if ! all=\"$(gh api" in workflow
     assert "if ! author=\"$(gh api" in workflow
     assert "if ! platform=\"$(gh api" in workflow
