@@ -19,12 +19,16 @@ class CompliantDemoV9Tests(unittest.TestCase):
 
     def test_capture_uses_real_public_routes_and_live_action(self) -> None:
         source = (ROOT / "scripts" / "capture_compliant_demo_v9.cjs").read_text(encoding="utf-8")
-        for route in ("online-memory-lineage.html", "episodes.html", "outcome-replay-cas.html", "verify.html"):
+        for route in ("online-memory-lineage.html", "episodes.html", "verify.html"):
             self.assertIn(route, source)
+        self.assertIn('scrollTo(page, "#outcome-replay-cas", 58)', source)
+        self.assertNotIn('goto(`${baseUrl}/outcome-replay-cas.html`', source)
         self.assertIn('clickVisible(page, "#run-story")', source)
         self.assertIn("live Titan/CockroachDB", source)
         self.assertIn('clickVisible(page, "#run")', source)
-        self.assertIn("All read-only gates passed", source)
+        self.assertIn("PASS · browser verified", source)
+        self.assertIn("attempt <= 2", source)
+        self.assertIn("{ timeout: 20000 }", source)
 
     def test_caption_overlay_is_burned_into_browser_pixels(self) -> None:
         source = (ROOT / "scripts" / "capture_compliant_demo_v9.cjs").read_text(encoding="utf-8")
