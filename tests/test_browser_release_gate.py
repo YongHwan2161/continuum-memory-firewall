@@ -63,6 +63,8 @@ class BrowserReleaseGateTests(unittest.TestCase):
         self.assertEqual(
             self.workflow.count(".verification.ui_check_count == 39"), 2
         )
+        self.assertIn("for attempt in $(seq 1 12)", self.workflow)
+        self.assertIn('test "$final_ok" = true', self.workflow)
         browser_script = (
             ROOT / "scripts/browser_release_verify.mjs"
         ).read_text(encoding="utf-8")
