@@ -83,7 +83,17 @@ class OfflineJudgePageTests(unittest.TestCase):
             "BROWSER_VERIFIED",
         )
         self.assertIn("CANDIDATE_PASS", self.javascript)
-        self.assertNotIn("relay", reference)
+        relay = reference["relay"]
+        self.assertTrue(relay["enabled"])
+        self.assertTrue(relay["source_release_immutable"])
+        self.assertEqual(relay["failed_pages_conclusion"], "failure")
+        self.assertEqual(relay["failed_pages_workflow_run_id"], 31861327695)
+        self.assertEqual(relay["source_release_tag"], "hackathon-v34")
+        self.assertEqual(relay["source_predecessor_release_tag"], "hackathon-v32")
+        self.assertEqual(
+            relay["source_asset_sha256"],
+            "e29019a862b0957f0e1db3d11c9a411ec0498aea6c1e5501fa628ffde494d47a",
+        )
 
     def test_production_browser_hash_matches_provider_story_receipt(self) -> None:
         story = json.loads(self.provider_story_path.read_text(encoding="utf-8"))
