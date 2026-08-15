@@ -158,7 +158,19 @@ async function runStory() {
     byId('story-citation').textContent = `Open memory citation ${receipt.retrieval.selected.id.slice(0, 8)} ↗`;
     byId('story-action').textContent = `${receipt.action.worker_a} / ${receipt.action.worker_b}`;
     byId('story-action-detail').textContent = `Owner ${receipt.action.owner_worker_id} · ${receipt.action.durable_claim_count} durable claim`;
-    state.textContent = `PASS · live AWS/CockroachDB story · ${receipt.receipt_cache}`;
+    const observedAt = new Date().toISOString();
+    byId('story-receipt-mode').textContent = receipt.receipt_cache.toUpperCase();
+    byId('story-observed-at').textContent = observedAt.replace(/\.\d{3}Z$/, 'Z');
+    byId('story-memory-id').textContent = `${receipt.storage.memory_id.slice(0, 12)}…`;
+    byId('story-sequence').textContent = String(receipt.storage.sequence_no);
+    byId('story-embedding').textContent = receipt.storage.embedding_model;
+    byId('story-audit-id').textContent = `${receipt.retrieval.audit_id.slice(0, 12)}…`;
+    byId('story-rls').textContent = receipt.authority.database_rls_enforced ? 'ENFORCED' : 'HOLD';
+    byId('story-caller').textContent = receipt.authority.caller_fingerprint;
+    byId('story-sql-role').textContent = receipt.authority.sql_role_fingerprint;
+    byId('story-query').textContent = receipt.retrieval.query;
+    byId('story-receipt').open = true;
+    state.textContent = `PASS · live Titan/CockroachDB · ${receipt.receipt_cache} · ${observedAt.replace(/\.\d{3}Z$/, 'Z')}`;
   } catch (error) {
     state.textContent = 'HOLD · live story is temporarily unavailable; the evidence verifier remains read-only.';
     console.error(error);
